@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kickoff Star</string>
+    <string name="title_activity_main">Kickoff Star</string>
+    <string name="package_name">com.vraxis.kickoffstar</string>
+    <string name="custom_url_scheme">com.vraxis.kickoffstar</string>
+</resources>

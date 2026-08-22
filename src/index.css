@@ -1,0 +1,152 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bebas Neue", sans-serif;
+  --color-ks-gold: #d4af37;
+  --color-ks-black: #0a0a0a;
+  --color-ks-ink: #e8e6df;
+  --color-ks-muted: #8a8a86;
+  --color-ks-border: #3a3a36;
+}
+
+body {
+  background: var(--color-ks-black);
+  color: var(--color-ks-ink);
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+/* P66 — a real stadium photo instead of a flat black / CSS-only gradient.
+   Uses a fixed pseudo-element rather than `background-attachment: fixed` on
+   body itself — that property is unreliable/janky inside Android WebViews,
+   which is what this app actually runs inside via Capacitor. The overlay
+   gradient keeps the lower ~3/4 of the screen effectively black (where all
+   the actual UI content sits) while letting the floodlights read at the top. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(to bottom, rgba(10,10,10,0.55) 0%, rgba(10,10,10,0.90) 45%, rgba(10,10,10,0.99) 75%),
+    url('./assets/textures/stadium.jpg');
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
+}
+
+/* P66 — subtle photographic texture behind hero/header cards, replacing the
+   flat CSS-only radial-gradient "glow" those cards used before. Applied via
+   ::before so it always paints behind the card's existing radial-gradient
+   overlay div and real content, with zero markup changes needed elsewhere. */
+.texture-floodlight, .texture-turf {
+  position: relative;
+}
+.texture-floodlight::before, .texture-turf::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+.texture-floodlight::before {
+  background-image: url('./assets/textures/floodlight.jpg');
+  opacity: 0.16;
+  mix-blend-mode: screen;
+}
+.texture-turf::before {
+  background-image: url('./assets/textures/turf.jpg');
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+}
+
+/* P53 — real playtester feedback: tapping a button on iOS Safari triggered
+   the native text-selection callout (Copy | Look Up), an instant reminder
+   the player is on a webpage, not in an app. Disabled globally; inputs opt
+   back in explicitly since typing (player name entry etc) still needs it. */
+* {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* P27 — real-time match micro-animations */
+@keyframes scorepop {
+  0% { transform: scale(1.35); filter: brightness(1.6); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+@keyframes feedin {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+/* P47 — the goal celebration flash frame */
+@keyframes goalflash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+/* P54 — ChatGPT review: "nothing should just appear, stagger everything in
+   by ~100ms." Pure CSS on the container's direct children — no per-card
+   logic needed, works for any screen just by adding the class. */
+.stagger-children > * {
+  opacity: 0;
+  animation: staggerIn 0.4s ease-out forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+.stagger-children > *:nth-child(n+6) { animation-delay: 400ms; }
+@keyframes staggerIn {
+  0% { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* P63 — subtle idle drift for FormationPitch dots, so the pitch reads as
+   alive even during a flat momentum stretch. Uses margin, not transform,
+   since the dots are already centered via a transform translate class. */
+@keyframes pitchDrift {
+  0%, 100% { margin-left: 0px; margin-top: 0px; }
+  25% { margin-left: 3px; margin-top: -2px; }
+  50% { margin-left: -2px; margin-top: 2px; }
+  75% { margin-left: -3px; margin-top: -1px; }
+}
+
+@keyframes floatup {
+  0% { opacity: 0; transform: translateY(4px); }
+  30% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+/* P53 — the target-ring countdown in the Targets mini-game */
+@keyframes ringshrink {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 100.53; }
+}
+
+/* P29 — shop / reward juice */
+@keyframes pulseglow {
+  0%, 100% { box-shadow: 0 0 0 rgba(212,175,55,0); }
+  50% { box-shadow: 0 0 18px rgba(212,175,55,0.35); }
+}
+@keyframes coinpop {
+  0% { transform: translateY(6px) scale(0.9); opacity: 0; }
+  60% { transform: translateY(-3px) scale(1.06); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes tabpop {
+  0% { transform: scale(0.86); }
+  100% { transform: scale(1); }
+}
+
+/* P31 — training mini-game timer */
+@keyframes shrinkbar {
+  from { width: 100%; }
+  to { width: 0%; }
+}
