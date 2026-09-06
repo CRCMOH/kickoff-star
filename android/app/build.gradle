@@ -7,23 +7,24 @@ android {
         applicationId "com.vraxis.kickoffstar"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 2
-        versionName "1.0"
+        versionCode 3
+        versionName "3.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
     signingConfigs {
         release {
             def ksPath = System.getenv("KEYSTORE_PATH")
-            if (ksPath != null) {
+            def ksPassword = System.getenv("KEYSTORE_PASSWORD")
+            def alias = System.getenv("KEY_ALIAS")
+            def keyPass = System.getenv("KEY_PASSWORD")
+            if (ksPath && ksPassword && alias && keyPass) {
                 storeFile file(ksPath)
-                storePassword System.getenv("KEYSTORE_PASSWORD")
-                keyAlias System.getenv("KEY_ALIAS")
-                keyPassword System.getenv("KEY_PASSWORD")
+                storePassword ksPassword
+                keyAlias alias
+                keyPassword keyPass
             }
         }
     }
@@ -31,7 +32,10 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.release
+            def hasReleaseSigning = System.getenv("KEYSTORE_PATH") && System.getenv("KEYSTORE_PASSWORD") && System.getenv("KEY_ALIAS") && System.getenv("KEY_PASSWORD")
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
