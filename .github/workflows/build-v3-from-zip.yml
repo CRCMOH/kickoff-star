@@ -1,0 +1,88 @@
+name: Build Kickoff Star V3 from uploaded source
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-v3:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Locate and extract V3 source ZIP
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -name 'kickoff-star-v3-aab-ready*.zip' | head -n 1)
+          test -n "$ZIP"
+          rm -rf /tmp/kickoff-v3
+          mkdir -p /tmp/kickoff-v3
+          unzip -q "$ZIP" -d /tmp/kickoff-v3
+          test -f /tmp/kickoff-v3/kickoff-star-main/package.json
+          test -f /tmp/kickoff-v3/kickoff-star-main/src/screens/MainMenu.tsx
+          test -f /tmp/kickoff-v3/kickoff-star-main/src/screens/CreditsScreen.tsx
+
+      - name: Verify source is V3 before building
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: |
+          grep -q '"version": "3.0.0"' package.json
+          grep -q 'versionCode 3' android/app/build.gradle
+          grep -q 'versionName "3.0.0"' android/app/build.gradle
+          grep -q 'onOpenSettings' src/screens/MainMenu.tsx
+          grep -q 'onOpenCredits' src/screens/MainMenu.tsx
+          grep -q 'onOpenHelp' src/screens/MainMenu.tsx
+          test -f src/screens/CreditsScreen.tsx
+          echo 'V3 source verification passed.'
+
+      - name: Install dependencies
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: npm ci
+
+      - name: Decode existing signing key
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d --ignore-garbage > /tmp/kickoff-v3/kickoff-star-main/android/app/kickoff-star-release.keystore
+          test $(stat -c%s /tmp/kickoff-v3/kickoff-star-main/android/app/kickoff-star-release.keystore) -gt 500
+
+      - name: Build signed V3 AAB
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        env:
+          KEYSTORE_PATH: /tmp/kickoff-v3/kickoff-star-main/android/app/kickoff-star-release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          npm run build:aab
+
+      - name: Build unsigned V3 AAB if signing secrets are unavailable
+        if: ${{ env.KEYSTORE_BASE64 == '' }}
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: npm run build:aab:unsigned
+
+      - name: Verify final AAB metadata
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: |
+          test -f android/app/build/outputs/bundle/release/app-release.aab
+          echo 'AAB created successfully.'
+
+      - name: Upload V3 AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: kickoff-star-v3-verified-aab
+          path: /tmp/kickoff-v3/kickoff-star-main/android/app/build/outputs/bundle/release/app-release.aab
