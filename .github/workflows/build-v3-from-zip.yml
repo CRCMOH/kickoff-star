@@ -1,6 +1,8 @@
 name: Build Kickoff Star V3 from uploaded source
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
