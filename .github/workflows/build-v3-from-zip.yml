@@ -88,3 +88,6 @@ jobs:
         with:
           name: kickoff-star-v3-verified-aab
           path: /tmp/kickoff-v3/kickoff-star-main/android/app/build/outputs/bundle/release/app-release.aab
+
+      - name: Build verification marker
+        run: echo 'KICKOFF_STAR_V3_BUILD_TRIGGERED'
