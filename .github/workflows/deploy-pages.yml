@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy Kickoff Star V3 to GitHub Pages
 
 on:
   push:
@@ -26,16 +26,58 @@ jobs:
         with:
           node-version: 22
 
-      - name: Install dependencies
-        run: npm install
+      - name: Locate and extract V3 source
+        shell: bash
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -name 'kickoff-star-v3-aab-ready*.zip' | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "Kickoff Star V3 source ZIP not found"
+            exit 1
+          fi
+          rm -rf /tmp/kickoff-v3
+          mkdir -p /tmp/kickoff-v3
+          unzip -q "$ZIP" -d /tmp/kickoff-v3
+          test -f /tmp/kickoff-v3/kickoff-star-main/package.json
+          test -f /tmp/kickoff-v3/kickoff-star-main/src/screens/MainMenu.tsx
+          echo "V3 source extracted from: $ZIP"
 
-      - name: Build web app
+      - name: Restore privacy policy into V3 public assets
+        shell: bash
+        run: |
+          mkdir -p /tmp/kickoff-v3/kickoff-star-main/public
+          cp public/privacy-policy.html /tmp/kickoff-v3/kickoff-star-main/public/privacy-policy.html
+
+      - name: Verify V3 source
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        shell: bash
+        run: |
+          grep -q '"version": "3.0.0"' package.json
+          grep -q 'onOpenSettings' src/screens/MainMenu.tsx
+          grep -q 'onOpenCredits' src/screens/MainMenu.tsx
+          grep -q 'onOpenHelp' src/screens/MainMenu.tsx
+          test -f src/screens/CreditsScreen.tsx
+          test -f public/privacy-policy.html
+          echo "Verified Kickoff Star V3 source"
+
+      - name: Install dependencies
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: npm ci
+
+      - name: Build V3 web app
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
         run: npm run build
+
+      - name: Verify Pages output
+        shell: bash
+        run: |
+          test -f /tmp/kickoff-v3/kickoff-star-main/dist/index.html
+          test -f /tmp/kickoff-v3/kickoff-star-main/dist/privacy-policy.html
+          grep -R -q 'v3.0.0' /tmp/kickoff-v3/kickoff-star-main/dist || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: /tmp/kickoff-v3/kickoff-star-main/dist
 
   deploy:
     needs: build
