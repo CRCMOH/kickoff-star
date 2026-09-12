@@ -51,6 +51,35 @@ jobs:
           test -f src/screens/CreditsScreen.tsx
           echo 'V3 source verification passed.'
 
+      - name: Inject production AdMob IDs
+        working-directory: /tmp/kickoff-v3/kickoff-star-main
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          ads = Path('src/engine/ads.ts')
+          text = ads.read_text()
+          text = text.replace("energy: 'ca-app-pub-3940256099942544/5224354917'", "energy: 'ca-app-pub-5886721718793058/3165887211'")
+          text = text.replace("cash: 'ca-app-pub-3940256099942544/5224354917'", "cash: 'ca-app-pub-5886721718793058/4997989428'")
+          text = text.replace("xp: 'ca-app-pub-3940256099942544/5224354917'", "xp: 'ca-app-pub-5886721718793058/8882032143'")
+          ads.write_text(text)
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          mtext = manifest.read_text().replace(
+              'ca-app-pub-3940256099942544~3347511713',
+              'ca-app-pub-5886721718793058~3518024822'
+          )
+          manifest.write_text(mtext)
+          PY
+
+          grep -q 'ca-app-pub-5886721718793058/3165887211' src/engine/ads.ts
+          grep -q 'ca-app-pub-5886721718793058/4997989428' src/engine/ads.ts
+          grep -q 'ca-app-pub-5886721718793058/8882032143' src/engine/ads.ts
+          grep -q 'ca-app-pub-5886721718793058~3518024822' android/app/src/main/AndroidManifest.xml
+          ! grep -q 'ca-app-pub-3940256099942544/5224354917' src/engine/ads.ts
+          ! grep -q 'ca-app-pub-3940256099942544~3347511713' android/app/src/main/AndroidManifest.xml
+          echo 'Production AdMob IDs injected and verified.'
+
       - name: Install dependencies
         working-directory: /tmp/kickoff-v3/kickoff-star-main
         run: npm ci
@@ -106,4 +135,4 @@ jobs:
           path: /tmp/kickoff-v3/kickoff-star-main/android/app/build/outputs/apk/release/app-release.apk
 
       - name: Build verification marker
-        run: echo 'KICKOFF_STAR_V3_AAB_AND_APK_BUILD_TRIGGERED'
+        run: echo 'KICKOFF_STAR_V3_PRODUCTION_ADS_AAB_AND_APK_BUILD_TRIGGERED'
