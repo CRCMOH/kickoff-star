@@ -61,7 +61,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d --ignore-garbage > /tmp/kickoff-v3/kickoff-star-main/android/app/kickoff-star-release.keystore
           test $(stat -c%s /tmp/kickoff-v3/kickoff-star-main/android/app/kickoff-star-release.keystore) -gt 500
 
-      - name: Build signed V3 AAB
+      - name: Build signed V3 AAB and APK
         if: ${{ env.KEYSTORE_BASE64 != '' }}
         working-directory: /tmp/kickoff-v3/kickoff-star-main
         env:
@@ -70,18 +70,28 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          npm run build:aab
+          npm run build
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease
 
-      - name: Build unsigned V3 AAB if signing secrets are unavailable
+      - name: Build unsigned V3 AAB and APK if signing secrets are unavailable
         if: ${{ env.KEYSTORE_BASE64 == '' }}
         working-directory: /tmp/kickoff-v3/kickoff-star-main
-        run: npm run build:aab:unsigned
+        run: |
+          npm run build
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew bundleRelease assembleRelease
 
-      - name: Verify final AAB metadata
+      - name: Verify final Android artifacts
         working-directory: /tmp/kickoff-v3/kickoff-star-main
         run: |
           test -f android/app/build/outputs/bundle/release/app-release.aab
-          echo 'AAB created successfully.'
+          test -f android/app/build/outputs/apk/release/app-release.apk
+          echo 'V3 AAB and APK created successfully.'
 
       - name: Upload V3 AAB
         uses: actions/upload-artifact@v4
@@ -89,5 +99,11 @@ jobs:
           name: kickoff-star-v3-verified-aab
           path: /tmp/kickoff-v3/kickoff-star-main/android/app/build/outputs/bundle/release/app-release.aab
 
+      - name: Upload V3 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: kickoff-star-v3-aptoide-apk
+          path: /tmp/kickoff-v3/kickoff-star-main/android/app/build/outputs/apk/release/app-release.apk
+
       - name: Build verification marker
-        run: echo 'KICKOFF_STAR_V3_BUILD_TRIGGERED'
+        run: echo 'KICKOFF_STAR_V3_AAB_AND_APK_BUILD_TRIGGERED'
