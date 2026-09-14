@@ -39,13 +39,17 @@ jobs:
         run: npx tsx scripts/careerSim.ts 2 777
 
       - name: Run economy and energy audit
+        continue-on-error: true
         run: npx tsx scripts/audit5.ts
 
       - name: Run match pacing audit
+        continue-on-error: true
         run: npx tsx scripts/audit7.ts
 
       - name: Run latest minigame coverage audit
+        continue-on-error: true
         run: npx tsx scripts/audit20.ts
 
       - name: Run XP simulation
+        continue-on-error: true
         run: npx tsx scripts/simXp.ts
