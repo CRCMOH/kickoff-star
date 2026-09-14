@@ -34,7 +34,7 @@ export default function LoadCareerScreen({ onBack, onLoad }: Props) {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs text-ks-gold tracking-widest">SLOT {slot + 1}</div>
-                      <div className="text-xl font-black mt-1">{p.name}{p.surname ? ` ${p.surname}` : ''}</div>
+                      <div className="text-xl font-black mt-1">{p.name}</div>
                       <div className="text-sm text-ks-muted mt-1">Age {p.careerClock.ageYears} · {p.position} · {p.careerClock.phase.replaceAll('-', ' ')}</div>
                     </div>
                     <span className="text-ks-gold text-xl">›</span>
