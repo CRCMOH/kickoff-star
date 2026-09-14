@@ -5,6 +5,7 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# Final V3.1 gate: typecheck/build + lint after player-feedback fixes.
 jobs:
   verify:
     runs-on: ubuntu-latest
