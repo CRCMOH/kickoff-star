@@ -28,22 +28,22 @@ export function energyGainFromPct(currentStamina: number, pct: number): number {
 }
 
 // V3.1 economy pass: recovery items are optional accelerators, not a wall.
-// The cheapest top-up should be affordable from normal youth income without
-// requiring an odd job or rewarded ad every single week.
+// Prices are high enough that an odd job can never be converted into a net
+// energy gain, but low enough that normal youth income can still fund an
+// emergency top-up without rewarded ads.
 export const SHOP_ITEMS: ShopItem[] = [
   {
-    id: 'energy-drink', name: 'Energy Drink (20%)', kind: 'consumable', slot: 'none', price: 12,
+    id: 'energy-drink', name: 'Energy Drink (20%)', kind: 'consumable', slot: 'none', price: 18,
     energyPct: 0.2, description: 'A quick top-up. Restores 20% of your energy bar, capped at full.',
   },
   {
-    id: 'recovery-shake', name: 'Recovery Shake (50%)', kind: 'consumable', slot: 'none', price: 28,
+    id: 'recovery-shake', name: 'Recovery Shake (50%)', kind: 'consumable', slot: 'none', price: 44,
     energyPct: 0.5, description: 'Proper recovery formula. Restores half your energy bar, capped at full.',
   },
   {
-    id: 'ice-bath', name: 'Ice Bath Session (100%)', kind: 'consumable', slot: 'none', price: 50,
+    id: 'ice-bath', name: 'Ice Bath Session (100%)', kind: 'consumable', slot: 'none', price: 88,
     energyPct: 1.0, description: 'An hour at the physio centre. Fills your energy bar completely.',
   },
-
   {
     id: 'boots-trainers', name: 'Worn Trainers', kind: 'equipment', slot: 'boots', price: 10,
     boosts: { pace: 1 }, durationWeeks: 8, outfieldOnly: false,
@@ -167,11 +167,10 @@ export function ageEquipment(equipment: OwnedEquipment[] | undefined): { equipme
   return { equipment: next, expired }
 }
 
-// V3.1: a 14-year-old now gets roughly £18/month before relationship modifiers,
-// enough to buy an emergency 20% top-up and still have something left to save.
+// V3.1: a 14-year-old gets roughly £18/month before relationship modifiers.
 export function monthlyAllowance(player: Player): number {
   const age = player.careerClock.ageYears
-  const base = 10 + Math.max(0, age - 13) * 8 // 14yo ~18, 17yo ~42, 19yo ~58
+  const base = 10 + Math.max(0, age - 13) * 8
   const parent = (player.relationships ?? []).find((r) => !r.ended && r.kind === 'parent')
   const bond = parent?.bond ?? 0
   const bondMod = 1 + Math.max(-0.3, Math.min(0.3, bond / 333))
