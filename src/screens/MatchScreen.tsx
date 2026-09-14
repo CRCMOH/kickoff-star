@@ -210,15 +210,16 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     // button. Compare the option's real attribute-driven chance with the strongest
     // available option instead. No raw percentage is shown to the player.
     const bestOptionChance = Math.max(...bundle.decision.options.map((o) => o.successChance))
-    const quality = bestOptionChance > 0 ? option.successChance / bestOptionChance : 0.5
+    const decisionQuality = bestOptionChance > 0 ? option.successChance / bestOptionChance : 0.5
+    const outcomeQuality = bundle.maxReward > 0 ? chosenReward / bundle.maxReward : 0.5
 
     const archBonus = archetypeMomentBonus(player.archetype, !moment.isDefensive, moment.isDefensive, option.successChance < 0.5)
     const finalChance = Math.min(0.97, adjustChance(option.successChance, grade) + archBonus)
     const success = rand() < finalChance
 
     const next = moment.scenarioId
-      ? resolveScenarioBeat(state, moment, optIndex, quality, success, chosenReward, bundle.maxReward, grade)
-      : resolvePlayerMoment(state, moment, quality, success, chosenReward, bundle.maxReward, player.position === 'GK', grade)
+      ? resolveScenarioBeat(state, moment, optIndex, outcomeQuality, success, decisionQuality, 1, grade)
+      : resolvePlayerMoment(state, moment, outcomeQuality, success, decisionQuality, 1, player.position === 'GK', grade)
 
     const tag = inferStatTag(option.label, moment.isDefensive, moment.isDistribution, player.position === 'GK', success)
     if (tag) matchStatsRef.current[tag] += 1
