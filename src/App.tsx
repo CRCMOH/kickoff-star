@@ -9,14 +9,16 @@ import Career from './screens/Career'
 import SettingsScreen from './screens/SettingsScreen'
 import CreditsScreen from './screens/CreditsScreen'
 import HelpScreen from './screens/HelpScreen'
+import LoadCareerScreen from './screens/LoadCareerScreen'
 import { useCareerStore } from './store/careerStore'
+import { listSaves, type SaveSlotId } from './engine/save'
 import type { School } from './engine/schools'
 import type { SquadRole } from './engine/trials'
 
-type Screen = 'splash' | 'menu' | 'create' | 'story' | 'school' | 'trials' | 'career' | 'settings' | 'credits' | 'help'
+type Screen = 'splash' | 'menu' | 'create' | 'story' | 'school' | 'trials' | 'career' | 'settings' | 'credits' | 'help' | 'load'
 
-const isScreen = (value: unknown): value is Screen =>
-  typeof value === 'string' && ['splash', 'menu', 'create', 'story', 'school', 'trials', 'career', 'settings', 'credits', 'help'].includes(value)
+const SCREEN_VALUES: Screen[] = ['splash', 'menu', 'create', 'story', 'school', 'trials', 'career', 'settings', 'credits', 'help', 'load']
+const isScreen = (value: unknown): value is Screen => typeof value === 'string' && SCREEN_VALUES.includes(value as Screen)
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
@@ -51,15 +53,26 @@ export default function App() {
     else replace('menu')
   }
 
-  const handleContinue = async () => {
-    await loadFromSlot(0)
+  const enterLoadedCareer = async (slot: SaveSlotId, push = true) => {
+    await loadFromSlot(slot)
     const p = useCareerStore.getState().player
-    if (p && p.trialWeekCompleted < 3) {
-      setChosenSchool(null)
-      navigate('school')
-    } else {
-      navigate('career')
+    if (!p) {
+      replace('menu')
+      return
     }
+    if (p.trialWeekCompleted < 3) {
+      setChosenSchool(null)
+      ;(push ? navigate : replace)('school')
+    } else {
+      ;(push ? navigate : replace)('career')
+    }
+  }
+
+  const handleContinue = async () => {
+    const saves = (await listSaves()).filter((s): s is NonNullable<typeof s> => !!s)
+    if (saves.length === 0) return
+    const latest = [...saves].sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))[0]
+    await enterLoadedCareer(latest.slotId)
   }
 
   const handleSchoolChosen = (school: School) => {
@@ -84,25 +97,20 @@ export default function App() {
       <MainMenu
         onNewCareer={() => navigate('create')}
         onContinue={handleContinue}
-        onLoadCareer={handleContinue}
+        onLoadCareer={() => navigate('load')}
         onOpenSettings={() => navigate('settings')}
         onOpenCredits={() => navigate('credits')}
         onOpenHelp={() => navigate('help')}
       />
     )
   }
+  if (screen === 'load') return <LoadCareerScreen onBack={goBackToMenu} onLoad={(slot) => enterLoadedCareer(slot, false)} />
   if (screen === 'settings') return <SettingsScreen onBack={goBackToMenu} />
   if (screen === 'credits') return <CreditsScreen onBack={goBackToMenu} />
   if (screen === 'help') return <HelpScreen onBack={goBackToMenu} />
-  if (screen === 'create') {
-    return <PlayerCreation onComplete={() => replace('story')} onBack={goBackToMenu} />
-  }
-  if (screen === 'story') {
-    return <StoryIntro onComplete={() => replace('school')} />
-  }
-  if (screen === 'school') {
-    return <SchoolSelection onChoose={handleSchoolChosen} />
-  }
+  if (screen === 'create') return <PlayerCreation onComplete={() => replace('story')} onBack={goBackToMenu} />
+  if (screen === 'story') return <StoryIntro onComplete={() => replace('school')} />
+  if (screen === 'school') return <SchoolSelection onChoose={handleSchoolChosen} />
   if (screen === 'trials' && player && chosenSchool) {
     return <TrialsScreen player={player} school={chosenSchool} onComplete={handleTrialsComplete} />
   }
