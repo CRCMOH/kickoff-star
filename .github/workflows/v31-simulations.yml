@@ -1,0 +1,72 @@
+name: V3.1 Simulation Suite
+
+on:
+  push:
+    branches: [v3.1-player-feedback-fixes]
+  workflow_dispatch: {}
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run balance check
+        run: npx tsx scripts/balanceCheck.ts
+
+      - name: Run full career simulation - 2 seasons seed 42
+        run: npx tsx scripts/careerSim.ts 2 42
+
+      - name: Run full career simulation - 4 seasons seed 1337
+        run: npx tsx scripts/careerSim.ts 4 1337
+
+      - name: Run full career simulation - goalkeeper path
+        env:
+          FORCE_GK: '1'
+        run: npx tsx scripts/careerSim.ts 2 777
+
+      - name: Run economy and energy audit
+        run: npx tsx scripts/audit5.ts
+
+      - name: Run match pacing audit
+        run: npx tsx scripts/audit7.ts
+
+      - name: Run minigame coverage audit
+        run: npx tsx scripts/audit20.ts
+
+      - name: Run navigation economy and save audit
+        run: npx tsx scripts/audit21.ts
+
+      - name: Run match fairness and repetition audit
+        run: npx tsx scripts/audit22.ts
+
+      - name: Run XP simulation
+        run: npx tsx scripts/simXp.ts
+
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: Compile Android debug build
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace

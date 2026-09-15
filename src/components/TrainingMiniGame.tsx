@@ -2,23 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { sfx } from '../engine/audio'
 import { haptics } from '../engine/haptics'
 
-// ============================================================================
-// PHASE 31 — TRAINING MINI-GAMES
-//
-// Player report: "training gets boring". It was one interaction repeated
-// forever — pick an option, then hit a timing bar. Every drill in every
-// session, all career.
-//
-// These are three genuinely different inputs, chosen per drill so a session
-// mixes them up. Each returns the same 0-1 quality score the decision path
-// already produces, so the grading, objective and growth systems underneath
-// are untouched and stay balanced — only the way you EARN the score changes.
-//
-//   RONDO     tap in rhythm as the ball goes round. Tests timing consistency.
-//   TARGETS   hit the lit zones before they expire. Tests speed and accuracy.
-//   SPRINT    alternate taps to drive the shuttle run. Tests sustained effort.
-// ============================================================================
-
 export type MiniGameKind = 'rondo' | 'targets' | 'sprint'
 
 export interface MiniGameProps {
@@ -29,7 +12,54 @@ export interface MiniGameProps {
   onComplete: (quality: number) => void
 }
 
+const INSTRUCTIONS: Record<MiniGameKind, { title: string; body: string; tip: string }> = {
+  rondo: {
+    title: 'Rondo timing',
+    body: 'Watch the ball move around the circle. Tap PLAY IT when the ball reaches the gold player.',
+    tip: 'You get 5 attempts. Timing matters more than speed.',
+  },
+  targets: {
+    title: 'Reaction targets',
+    body: 'Tap the glowing gold square before its timer ring disappears.',
+    tip: 'You get 6 targets. Faster correct taps score better.',
+  },
+  sprint: {
+    title: 'Sprint drill',
+    body: 'Alternate LEFT and RIGHT as quickly as you can until the timer runs out.',
+    tip: 'Only the highlighted side counts. Keep the rhythm going.',
+  },
+}
+
 export default function TrainingMiniGame({ kind, label, ceiling, onComplete }: MiniGameProps) {
+  const [started, setStarted] = useState(false)
+
+  // Critical UX fix: the actual mini-game component does not mount until the
+  // player presses START. That means none of its timers, intervals or targets
+  // can begin while the player is still reading the instructions.
+  if (!started) {
+    const copy = INSTRUCTIONS[kind]
+    return (
+      <div className="rounded-2xl border border-ks-border bg-[#0f0f0d] p-5 flex flex-col gap-4">
+        <div>
+          <div className="font-display tracking-widest text-[10px] text-ks-gold uppercase">how to play</div>
+          <h2 className="font-display text-ks-ink text-xl tracking-wide mt-1">{copy.title}</h2>
+          <p className="text-sm text-ks-ink/90 leading-relaxed mt-3">{copy.body}</p>
+          <p className="text-[11px] text-ks-muted leading-relaxed mt-2">{copy.tip}</p>
+        </div>
+        <div className="rounded-xl border border-ks-border bg-[#151512] px-3 py-2">
+          <div className="text-[9px] uppercase tracking-widest text-ks-muted">drill</div>
+          <div className="text-sm text-ks-ink mt-0.5">{label}</div>
+        </div>
+        <button
+          onClick={() => setStarted(true)}
+          className="w-full rounded-xl py-4 bg-ks-gold text-ks-black font-display tracking-widest text-sm uppercase active:scale-[0.99]"
+        >
+          start drill
+        </button>
+      </div>
+    )
+  }
+
   if (kind === 'rondo') return <Rondo label={label} ceiling={ceiling} onComplete={onComplete} />
   if (kind === 'targets') return <Targets label={label} ceiling={ceiling} onComplete={onComplete} />
   return <Sprint label={label} ceiling={ceiling} onComplete={onComplete} />
@@ -47,13 +77,10 @@ function Shell({ label, hint, children }: { label: string; hint: string; childre
   )
 }
 
-// ---------------------------------------------------------------------------
-// RONDO — tap when the ball reaches the highlighted player. Rhythm and timing.
-// ---------------------------------------------------------------------------
 function Rondo({ label, ceiling, onComplete }: { label: string; ceiling: number; onComplete: (q: number) => void }) {
   const SLOTS = 6
   const ROUNDS = 5
-  const speed = 620 - (1 - ceiling) * 220 // harder drills move faster
+  const speed = 620 - (1 - ceiling) * 220
   const [active, setActive] = useState(0)
   const [target, setTarget] = useState(2)
   const [round, setRound] = useState(0)
@@ -73,7 +100,6 @@ function Rondo({ label, ceiling, onComplete }: { label: string; ceiling: number;
   }, [speed])
 
   const tap = () => {
-    // distance from the target slot, wrapped
     const d = Math.min(Math.abs(activeRef.current - target), SLOTS - Math.abs(activeRef.current - target))
     const quality = d === 0 ? 1 : d === 1 ? 0.55 : 0.15
     if (quality >= 0.55) { sfx.perfect(); haptics.hit() } else { sfx.miss(); haptics.fail() }
@@ -101,7 +127,7 @@ function Rondo({ label, ceiling, onComplete }: { label: string; ceiling: number;
           return (
             <div
               key={i}
-              className={`absolute w-9 h-9 -ml-4.5 -mt-4.5 rounded-full border-2 flex items-center justify-center transition-colors ${
+              className={`absolute w-9 h-9 rounded-full border-2 flex items-center justify-center transition-colors ${
                 isTarget ? 'border-ks-gold bg-ks-gold/20' : 'border-ks-border bg-[#14140f]'
               }`}
               style={{ left: `${x}%`, top: `${y}%`, marginLeft: '-1.125rem', marginTop: '-1.125rem' }}
@@ -117,19 +143,16 @@ function Rondo({ label, ceiling, onComplete }: { label: string; ceiling: number;
           flash === 'good' ? 'bg-green-500 text-ks-black' : flash === 'miss' ? 'bg-red-500/70 text-white' : 'bg-ks-gold text-ks-black'
         }`}
       >
-        {flash === 'good' ? 'yes!' : flash === 'miss' ? 'early' : 'play it'}
+        {flash === 'good' ? 'yes!' : flash === 'miss' ? 'miss' : 'play it'}
       </button>
     </Shell>
   )
 }
 
-// ---------------------------------------------------------------------------
-// TARGETS — hit lit zones before they expire. Speed and accuracy.
-// ---------------------------------------------------------------------------
 function Targets({ label, ceiling, onComplete }: { label: string; ceiling: number; onComplete: (q: number) => void }) {
   const GRID = 9
   const ROUNDS = 6
-  const window_ms = 900 - (1 - ceiling) * 320
+  const windowMs = 900 - (1 - ceiling) * 320
   const [lit, setLit] = useState(() => Math.floor(Math.random() * GRID))
   const [round, setRound] = useState(0)
   const [scores, setScores] = useState<number[]>([])
@@ -154,7 +177,7 @@ function Targets({ label, ceiling, onComplete }: { label: string; ceiling: numbe
       setExpired(true)
       sfx.miss()
       window.setTimeout(() => advance(0), 260)
-    }, window_ms)
+    }, windowMs)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round])
@@ -163,7 +186,7 @@ function Targets({ label, ceiling, onComplete }: { label: string; ceiling: numbe
     if (expired) return
     if (i !== lit) { sfx.miss(); haptics.fail(); advance(0.1); return }
     const elapsed = Date.now() - litAt.current
-    const quality = Math.max(0.35, 1 - elapsed / window_ms)
+    const quality = Math.max(0.35, 1 - elapsed / windowMs)
     sfx.perfect()
     haptics.hit()
     advance(quality)
@@ -182,15 +205,12 @@ function Targets({ label, ceiling, onComplete }: { label: string; ceiling: numbe
                 : 'border-ks-border bg-[#14140f]'
             }`}
           >
-            {/* P53 — Joel/reviewer: "shrinking ring timer so the player knows
-                how much time before the lit target disappears," on the
-                target itself, not just the shared bar below the whole grid. */}
             {i === lit && !expired && (
               <svg key={round} className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
                 <circle
                   cx="18" cy="18" r="16" fill="none" stroke="#d4af37" strokeWidth="2.5"
                   strokeDasharray={2 * Math.PI * 16}
-                  style={{ animation: `ringshrink ${window_ms}ms linear forwards` }}
+                  style={{ animation: `ringshrink ${windowMs}ms linear forwards` }}
                 />
               </svg>
             )}
@@ -201,16 +221,13 @@ function Targets({ label, ceiling, onComplete }: { label: string; ceiling: numbe
         <div
           key={round}
           className="h-full bg-ks-gold rounded-full"
-          style={{ animation: `shrinkbar ${window_ms}ms linear forwards` }}
+          style={{ animation: `shrinkbar ${windowMs}ms linear forwards` }}
         />
       </div>
     </Shell>
   )
 }
 
-// ---------------------------------------------------------------------------
-// SPRINT — alternate taps to drive a shuttle run. Sustained effort.
-// ---------------------------------------------------------------------------
 function Sprint({ label, ceiling, onComplete }: { label: string; ceiling: number; onComplete: (q: number) => void }) {
   const DURATION = 5000
   const needed = 26 + Math.round((1 - ceiling) * 16)
