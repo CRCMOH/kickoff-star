@@ -56,6 +56,9 @@ jobs:
       - name: Run navigation economy and save audit
         run: npx tsx scripts/audit21.ts
 
+      - name: Run match fairness and repetition audit
+        run: npx tsx scripts/audit22.ts
+
       - name: Run XP simulation
         run: npx tsx scripts/simXp.ts
 
