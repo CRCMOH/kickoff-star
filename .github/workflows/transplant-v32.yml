@@ -1,0 +1,23 @@
+name: V3.2 Transplant Validation
+on:
+  push:
+    branches: [v3.2-match-engine-redesign]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/transplantMatchV32.mjs
+      - run: npx tsc --noEmit
+      - run: npx tsx scripts/auditMatchEngineV2.ts
+      - run: npx tsx scripts/auditLiveBridgeV2.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: transplanted-match-ts
+          path: src/engine/match.ts
