@@ -44,8 +44,13 @@ export function resolveLiveShot(model: LiveMatchModel, side: LiveSide, tier: 'ha
   const ownGoals = home ? model.homeGoals : model.awayGoals
   const oppGoals = home ? model.awayGoals : model.homeGoals
   const matchXg = home ? model.environment.homeXg : model.environment.awayXg
-  const onTargetChance = clamp(0.31 + xg * 0.58, 0.28, 0.70)
-  const onTarget = onTargetRandom < onTargetChance
+  const chance = expectedGoalChance(xg, ownGoals, matchXg, ownGoals, oppGoals, minute)
+
+  // xG is unconditional goal probability. Goals are automatically on target;
+  // only non-goals use the separate on-target/save roll.
+  const goal = random < chance
+  const nonGoalOnTargetChance = clamp(0.31 + xg * 0.58, 0.28, 0.70)
+  const onTarget = goal || onTargetRandom < nonGoalOnTargetChance
 
   let next: LiveMatchModel = {
     ...model,
@@ -56,10 +61,7 @@ export function resolveLiveShot(model: LiveMatchModel, side: LiveSide, tier: 'ha
     homeShotsOnTarget: model.homeShotsOnTarget + (home && onTarget ? 1 : 0),
     awayShotsOnTarget: model.awayShotsOnTarget + (!home && onTarget ? 1 : 0),
   }
-  if (!onTarget) return { model: next, goal: false, onTarget, xg }
 
-  const chance = expectedGoalChance(xg, ownGoals, matchXg, ownGoals, oppGoals, minute)
-  const goal = random < chance
   if (goal) {
     next = {
       ...next,
