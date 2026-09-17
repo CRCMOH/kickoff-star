@@ -26,7 +26,6 @@ export type RandomSource = () => number
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 function shotQuality(rng: RandomSource): number {
-  // Most football shots are low-value; genuinely clear chances are uncommon.
   const r = rng()
   if (r < 0.58) return 0.035 + rng() * 0.075
   if (r < 0.88) return 0.11 + rng() * 0.12
@@ -35,10 +34,18 @@ function shotQuality(rng: RandomSource): number {
 }
 
 /**
- * Event simulator used by V3.2. It produces one coherent match record: score,
- * xG, shots and possession all come from the same events. Player moments can
- * later intercept these events instead of living in a parallel universe.
+ * xG is the unconditional probability that a shot becomes a goal. We therefore
+ * roll the goal first and guarantee that every goal is on target. Non-goal
+ * shots receive a separate save/on-target roll. This avoids multiplying xG by
+ * the on-target probability a second time.
  */
+function resolveShot(xg: number, goalChance: number, rng: RandomSource): { goal: boolean; onTarget: boolean } {
+  const goal = rng() < goalChance
+  if (goal) return { goal: true, onTarget: true }
+  const onTargetChance = clamp(0.30 + xg * 0.55, 0.28, 0.68)
+  return { goal: false, onTarget: rng() < onTargetChance }
+}
+
 export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math.random, modifiers: MatchContextModifiers = {}): SimulatedMatch {
   const env = createMatchEnvironment(home, away, modifiers)
   let homeGoals = 0
@@ -50,10 +57,6 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
   let realisedHomeXg = 0
   let realisedAwayXg = 0
   const goals: SimulatedGoal[] = []
-
-  // Convert pre-match xG into attacking-event pressure. Each minute has a
-  // small chance to produce a shot; the budget prevents independent endless
-  // goal rolls while still allowing match-to-match variance.
   let homeBudget = env.homeXg
   let awayBudget = env.awayXg
 
@@ -63,7 +66,6 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
     const budget = attackingHome ? homeBudget : awayBudget
     if (budget <= 0.01) continue
 
-    // ~8-15 shots for ordinary youth matches depending on xG and match state.
     const shotRate = clamp(0.075 + budget * 0.012, 0.07, 0.15)
     if (rng() >= shotRate) continue
 
@@ -74,11 +76,10 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
       homeShots++
       realisedHomeXg += rawXg
       homeBudget = Math.max(0, homeBudget - rawXg * 0.72)
-      const onTarget = rng() < clamp(0.30 + rawXg * 0.55, 0.28, 0.68)
-      if (!onTarget) continue
-      homeShotsOnTarget++
       const chance = expectedGoalChance(rawXg, homeGoals, env.homeXg, homeGoals, awayGoals, minute)
-      if (rng() < chance) {
+      const shot = resolveShot(rawXg, chance, rng)
+      if (shot.onTarget) homeShotsOnTarget++
+      if (shot.goal) {
         homeGoals++
         goals.push({ minute, side: 'home', eventXg: rawXg })
       }
@@ -86,11 +87,10 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
       awayShots++
       realisedAwayXg += rawXg
       awayBudget = Math.max(0, awayBudget - rawXg * 0.72)
-      const onTarget = rng() < clamp(0.30 + rawXg * 0.55, 0.28, 0.68)
-      if (!onTarget) continue
-      awayShotsOnTarget++
       const chance = expectedGoalChance(rawXg, awayGoals, env.awayXg, awayGoals, homeGoals, minute)
-      if (rng() < chance) {
+      const shot = resolveShot(rawXg, chance, rng)
+      if (shot.onTarget) awayShotsOnTarget++
+      if (shot.goal) {
         awayGoals++
         goals.push({ minute, side: 'away', eventXg: rawXg })
       }
