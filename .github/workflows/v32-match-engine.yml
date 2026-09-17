@@ -1,0 +1,30 @@
+name: V3.2 Match Engine Validation
+
+on:
+  push:
+    branches: [v3.2-match-engine-redesign]
+    paths:
+      - 'src/engine/matchModel.ts'
+      - 'src/engine/matchSimulationV2.ts'
+      - 'src/engine/matchStats.ts'
+      - 'src/engine/liveMatchV2.ts'
+      - 'src/engine/matchResolutionV2.ts'
+      - 'scripts/auditMatchEngineV2.ts'
+      - '.github/workflows/v32-match-engine.yml'
+  workflow_dispatch:
+
+jobs:
+  realism-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Type-check V3.2 engine
+        run: npx tsc --noEmit
+      - name: Run 100k-match realism audit
+        run: npx tsx scripts/auditMatchEngineV2.ts
