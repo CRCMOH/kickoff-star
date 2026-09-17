@@ -33,12 +33,6 @@ function shotQuality(rng: RandomSource): number {
   return 0.43 + rng() * 0.22
 }
 
-/**
- * xG is the unconditional probability that a shot becomes a goal. We therefore
- * roll the goal first and guarantee that every goal is on target. Non-goal
- * shots receive a separate save/on-target roll. This avoids multiplying xG by
- * the on-target probability a second time.
- */
 function resolveShot(xg: number, goalChance: number, rng: RandomSource): { goal: boolean; onTarget: boolean } {
   const goal = rng() < goalChance
   if (goal) return { goal: true, onTarget: true }
@@ -46,6 +40,13 @@ function resolveShot(xg: number, goalChance: number, rng: RandomSource): { goal:
   return { goal: false, onTarget: rng() < onTargetChance }
 }
 
+/**
+ * V3.2 statistical match simulator. The pre-match environment defines the
+ * expected scoring shape; the event layer then creates enough legitimate shot
+ * volume to realise that shape. Budgets are intentionally larger than raw xG
+ * because possession selection means each side only receives part of the 90
+ * minute event clock. Runaway scores are still suppressed by expectedGoalChance.
+ */
 export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math.random, modifiers: MatchContextModifiers = {}): SimulatedMatch {
   const env = createMatchEnvironment(home, away, modifiers)
   let homeGoals = 0
@@ -57,8 +58,13 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
   let realisedHomeXg = 0
   let realisedAwayXg = 0
   const goals: SimulatedGoal[] = []
-  let homeBudget = env.homeXg
-  let awayBudget = env.awayXg
+
+  // Each side only owns its possession share of the event clock. Scaling the
+  // budget compensates for that without inflating the probability of any one
+  // shot. This targets ordinary youth-football shot volumes rather than a
+  // sequence of independent goal rolls.
+  let homeBudget = env.homeXg * 2.15
+  let awayBudget = env.awayXg * 2.15
 
   for (let minute = 1; minute <= 90; minute++) {
     const homeShare = clamp(env.homePossession + (homeGoals < awayGoals ? 0.025 : homeGoals - awayGoals >= 3 ? -0.035 : 0), 0.30, 0.70)
@@ -66,7 +72,9 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
     const budget = attackingHome ? homeBudget : awayBudget
     if (budget <= 0.01) continue
 
-    const shotRate = clamp(0.075 + budget * 0.012, 0.07, 0.15)
+    // Roughly 9-14 attempts per team in ordinary matches, with stronger or
+    // trailing sides able to generate somewhat more pressure.
+    const shotRate = clamp(0.17 + budget * 0.008, 0.16, 0.23)
     if (rng() >= shotRate) continue
 
     const rawXg = Math.min(shotQuality(rng), budget)
@@ -75,7 +83,7 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
     if (attackingHome) {
       homeShots++
       realisedHomeXg += rawXg
-      homeBudget = Math.max(0, homeBudget - rawXg * 0.72)
+      homeBudget = Math.max(0, homeBudget - rawXg)
       const chance = expectedGoalChance(rawXg, homeGoals, env.homeXg, homeGoals, awayGoals, minute)
       const shot = resolveShot(rawXg, chance, rng)
       if (shot.onTarget) homeShotsOnTarget++
@@ -86,7 +94,7 @@ export function simulateMatchV2(home: Team, away: Team, rng: RandomSource = Math
     } else {
       awayShots++
       realisedAwayXg += rawXg
-      awayBudget = Math.max(0, awayBudget - rawXg * 0.72)
+      awayBudget = Math.max(0, awayBudget - rawXg)
       const chance = expectedGoalChance(rawXg, awayGoals, env.awayXg, awayGoals, homeGoals, minute)
       const shot = resolveShot(rawXg, chance, rng)
       if (shot.onTarget) awayShotsOnTarget++
