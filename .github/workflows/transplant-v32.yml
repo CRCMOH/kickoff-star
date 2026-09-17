@@ -1,16 +1,11 @@
-name: V3.2 Match Engine Transplant
-
+name: V3.2 Apply Transplant
 on:
   push:
     branches: [v3.2-match-engine-redesign]
-    paths:
-      - '.github/workflows/transplant-v32.yml'
-
 permissions:
   contents: write
-
 jobs:
-  transplant:
+  apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,106 +15,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm ci
-      - name: Transplant V3.2 resolver into playable match loop
+      - run: node scripts/transplantMatchV32.mjs
+      - run: npx tsc --noEmit
+      - run: npx tsx scripts/auditMatchEngineV2.ts
+      - run: npx tsx scripts/auditLiveBridgeV2.ts
+      - name: Save validated transplant
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('src/engine/match.ts')
-          s = p.read_text()
-          marker = "import { debugScenarioOverride } from './devTools'\n"
-          addition = "import { resolveLegacyDriveShot, scoreSnapshot } from './matchResolutionV2'\n"
-          if addition not in s:
-              if marker not in s: raise SystemExit('import marker missing')
-              s = s.replace(marker, marker + addition, 1)
-
-          start = s.index('function autoResolveTeammateChance(')
-          end = s.index('/**\n * A goal line needs to describe the scoreline AFTER the goal', start)
-          replacement = r'''function autoResolveTeammateChance(s: MatchState, tier: ChanceTier): MatchState {
-  // V3.2: the playable match now uses the same xG semantics as the green
-  // statistical engine. Team strength and current score shape the chance;
-  // there is no independent 60/40/22 percent goal roll anymore.
-  const shot = resolveLegacyDriveShot(
-    s.homeTeam,
-    s.awayTeam,
-    scoreSnapshot(s.homeScore, s.awayScore, s.minute, s.playerIsHome),
-    true,
-    tier,
-    rand(),
-    rand(),
-  )
-
-  if (shot.goal) {
-    let squad = s.squad
-    let scorer: SquadPlayer | null = null
-    let assister: SquadPlayer | null = null
-    if (squad) {
-      scorer = pickGoalscorer(squad)
-      if (scorer) {
-        assister = pickAssister(squad, scorer.id)
-        squad = applyTeammateGoal(squad, scorer.id, assister?.id ?? null)
-      }
-    }
-    const scoredState = { ...nextScore(s, true), squad }
-    const ctx = { ...ctxOf(scoredState), scorer: scorer ? surnameOf(scorer.name) : undefined, assister: assister ? surnameOf(assister.name) : undefined }
-    return applyGoal({ ...s, squad }, true, s.commentator.line('goal-teammate', ctx))
-  }
-
-  const missed = { ...s, momentum: clamp(s.momentum + 1, -10, 10) }
-  return {
-    ...missed,
-    events: [...missed.events, { minute: s.minute, text: s.commentator.line('chance-wasted-teammate', ctxOf(missed)), kind: 'chance' as const }],
-  }
-}
-
-function autoResolveOpponentChance(s: MatchState, tier: ChanceTier): MatchState {
-  // V3.2 uses the exact same resolver for the opposition. Home/away context,
-  // team units, current score, match minute, tempo and runaway-score
-  // diminishing are therefore symmetric and coherent.
-  const shot = resolveLegacyDriveShot(
-    s.homeTeam,
-    s.awayTeam,
-    scoreSnapshot(s.homeScore, s.awayScore, s.minute, s.playerIsHome),
-    false,
-    tier,
-    rand(),
-    rand(),
-  )
-
-  if (shot.goal) {
-    return applyGoal(s, false, s.commentator.line('goal-opponent', ctxOf(nextScore(s, false))))
-  }
-
-  const survived = { ...s, momentum: clamp(s.momentum - 1, -10, 10) }
-  return {
-    ...survived,
-    events: [...survived.events, { minute: s.minute, text: s.commentator.line('chance-survived', ctxOf(survived)), kind: 'chance' as const }],
-  }
-}
-
-'''
-          s = s[:start] + replacement + s[end:]
-          p.write_text(s)
-          PY
-      - name: Verify old absurd scoring formula is gone
-        run: |
-          ! grep -q "tierMod = tier === 'clear' ? 0.6" src/engine/match.ts
-          grep -q "resolveLegacyDriveShot" src/engine/match.ts
-      - name: Type-check
-        run: npx tsc --noEmit
-      - name: Run 100k realism audit
-        run: npx tsx scripts/auditMatchEngineV2.ts
-      - name: Run live bridge regression audit
-        run: npx tsx scripts/auditLiveBridgeV2.ts
-      - name: Commit transplant
-        run: |
-          if git diff --quiet -- src/engine/match.ts; then
-            echo 'Playable engine already transplanted.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name github-actions
+          git config user.email actions@github.com
           git add src/engine/match.ts
-          git commit -m 'Transplant V3.2 xG resolver into playable matches'
-          git push origin HEAD:v3.2-match-engine-redesign
+          git commit -m "Transplant V3.2 xG resolver into playable matches"
+          git push
