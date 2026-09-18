@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SplashScreen from './screens/SplashScreen'
 import MainMenu from './screens/MainMenu'
 import PlayerCreation from './screens/PlayerCreation'
@@ -24,7 +24,7 @@ const isScreen = (value: unknown): value is Screen => typeof value === 'string' 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
   const [chosenSchool, setChosenSchool] = useState<School | null>(null)
-  const screenRef = { current: screen }
+  const screenRef = useRef<Screen>(screen)
   screenRef.current = screen
   const player = useCareerStore((s) => s.player)
   const loadFromSlot = useCareerStore((s) => s.loadFromSlot)
