@@ -93,7 +93,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
       : divisionLabel(world.playerDivision as 1 | 2 | 3)
   }
 
-  const nextEvent = calendar.currentWeek.events.find((e) => e.day === DAYS.find((d) => eventsByDay[d])) ?? calendar.currentWeek.events[0]
+  const nextEvent = DAYS.map((day) => eventsByDay[day]).find((e) => e && !e.resolved) ?? calendar.currentWeek.events.find((e) => !e.resolved) ?? calendar.currentWeek.events[0]
   return (
     <div className="career-home flex flex-col gap-2.5 stagger-children">
       <section className="career-hero">
@@ -235,34 +235,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </button>
       ))}
 
-      {/* header — tapping opens the full player screen */}
-      <button
-        onClick={() => onGoTo('player')}
-        className="relative overflow-hidden texture-floodlight rounded-lg border border-ks-border bg-gradient-to-br from-[#161510] to-[#0d0d0b] px-3 py-2.5 flex items-center gap-3 text-left active:scale-[0.995] transition-transform"
-      >
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 55% 90% at 10% 30%, rgba(212,175,55,0.12), transparent 65%)' }} />
-        <Avatar id={player.avatarId ?? 0} size={44} className="relative z-10 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-display tracking-wide text-ks-ink text-sm leading-tight truncate">{getNation(player.nationality).flag} {player.name}</span>
-            <span className="ml-auto font-display text-ks-gold text-[11px] tabular-nums shrink-0">{formatMoney(player.money ?? 0)}</span>
-          </div>
-          <div className="text-[10px] text-ks-muted">
-            {player.position} &middot; age {player.careerClock.ageYears} &middot; {player.preferredFoot} foot
-          </div>
-        </div>
-        <OvrRing value={ovr} />
-        <div className="text-center shrink-0">
-          <div className="text-[9px] text-ks-muted uppercase tracking-wider">potential</div>
-          <div className="font-display text-green-500 text-sm">{player.potential}</div>
-        </div>
-      </button>
-
-      {/* mini version of PlayerTab's radar — Home previously had no visual
-          sense of a player's attribute "shape" at all, only bars elsewhere */}
-      <Panel title={<span className="flex items-center gap-1"><Icon src={iconShape} />shape</span>}>
-        <RadarChart points={shapePoints} size={180} />
-      </Panel>
+      <button onClick={() => onGoTo('player')} className="home-player-link"><span>PLAYER PROFILE</span><b>View development, form & career record →</b></button>
 
       <div className="home-section-label"><span>THIS WEEK</span><i/></div>
       {/* Phase 25: the Gazette teaser — a fresh issue drops every week */}
