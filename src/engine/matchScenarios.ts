@@ -1470,6 +1470,16 @@ export const SINGLE_MOMENTS: MatchScenario[] = [
   gd1, gd2, gd3, gd4, gd5, gd6, gd7, gd8, gd9, gk5,
 ]
 
+export type AttackMomentRole = 'finishing' | 'creation' | 'progression'
+
+export function scenariosForAttackRole(tier: ChanceTier, role: AttackMomentRole): MatchScenario[] {
+  const base = [...SCENARIOS, ...SINGLE_MOMENTS].filter((s) => s.category === 'attack' && s.tiers.includes(tier))
+  const creation = CREATION_MOMENTS.filter((s) => s.tiers.includes(tier))
+  if (role === 'creation') return creation.length ? [...creation, ...base.filter(s => /cross|pass|overlap|give-and-go|square|flick|midfield|byline/.test(s.id))] : base
+  if (role === 'finishing') return base.filter(s => !/deep-cross|overlap|midfield-dribble|give-and-go|square-ball|flick-on/.test(s.id))
+  return [...base.filter(s => /dribble|quick-break|overlap|give-and-go|midfield|long-range/.test(s.id)), ...creation.slice(0,3)]
+}
+
 export function scenariosFor(category: ScenarioCategory, tier: ChanceTier): MatchScenario[] {
   // P41: single moments were being authored into a pool nothing ever drew
   // from — SCENARIOS and SINGLE_MOMENTS are combined here so both the
