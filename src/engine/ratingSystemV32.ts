@@ -3,7 +3,7 @@ import type { PlayerMatchStats } from './matchStats'
 
 const clamp=(v:number,lo:number,hi:number)=>Math.max(lo,Math.min(hi,v))
 export interface RatingBreakdown {
-  base:number; decisions:number; execution:number; attacking:number; defending:number; background:number; cleanSheet:number; discipline:number; total:number
+  base:number; decisions:number; execution:number; attacking:number; defending:number; background:number; cleanSheet:number; exceptional:number; discipline:number; total:number
 }
 
 /**
@@ -51,11 +51,11 @@ export function calculatePlayerRating(args:{
    else if(s==='FB') cleanSheet=.20*minuteFactor
  }
  if((s==='GK'||s==='CB'||s==='FB')&&x.goalsConceded>=3) defending-=Math.min(.65,(x.goalsConceded-2)*.16)
- const discipline=-(args.redCarded?.55:0)-Math.min(.24,(args.yellowCards??0)*.12)
+ // Exceptional performances get a narrow route into 9+ territory. This is\n // deliberately combination-based: one ordinary goal or a routine clean sheet\n // cannot trigger it.\n let exceptional=0\n const direct=x.goals+x.assists\n if(x.goals>=3) exceptional+=.55\n else if(x.goals>=2&&direct>=3) exceptional+=.35\n else if(direct>=3) exceptional+=.22\n if(s==='GK'&&x.saves>=7&&x.goalsConceded===0) exceptional+=.45\n if((s==='CB'||s==='FB')&&x.goalsConceded===0&&(x.tacklesWon+x.interceptions+x.blocks+x.headersWon)>=8) exceptional+=.30\n exceptional=Math.min(.65,exceptional)*scale\n const discipline=-(args.redCarded?.55:0)-Math.min(.24,(args.yellowCards??0)*.12)
  // Background contribution is deliberately capped: the few decisions the
  // player actually makes remain the main controllable source of rating.
  background=clamp(background,-.25,.65)*scale
  attacking*=scale;defending*=scale;cleanSheet*=scale
- const total=Number(clamp(base+decisions+execution+attacking+defending+background+cleanSheet+discipline,1,10).toFixed(1))
- return {base,decisions,execution,attacking,defending,background,cleanSheet,discipline,total}
+ const total=Number(clamp(base+decisions+execution+attacking+defending+background+cleanSheet+exceptional+discipline,1,10).toFixed(1))
+ return {base,decisions,execution,attacking,defending,background,cleanSheet,exceptional,discipline,total}
 }
