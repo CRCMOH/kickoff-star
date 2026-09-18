@@ -113,3 +113,19 @@ for(const pos of positions){
  console.log(`${pos} avg ${(moments/200).toFixed(2)} moments | attack ${(attack/200).toFixed(2)} defend ${(def/200).toFixed(2)} distribution ${(dist/200).toFixed(2)} | avg mins ${(mins/200).toFixed(1)} | moment-count [${buckets.map((n,i)=>`${i}:${n}`).join(' ')}]`)
 }
 console.log('PLAYABLE MOMENT FREQUENCY AUDIT COMPLETE — 1,400 matches')
+
+
+console.log('\nRATING LEDGER CALIBRATION — 100 random-style matches/position')
+for(const pos of positions){
+ const p=player(pos,12);let sum=0,hi8=0,hi9=0,lo=10,hi=0,cs=0
+ for(let m=0;m<100;m++){
+  const s=playStyle(p,'random',12300000+positions.indexOf(pos)*1000+m),r=s.playerRating
+  sum+=r;if(r>=8)hi8++;if(r>=9)hi9++;lo=Math.min(lo,r);hi=Math.max(hi,r)
+  if((pos==='GK'||pos==='CB'||pos==='FB')&&s.playerStats.goalsConceded===0&&((s.ratingBreakdown?.cleanSheet??0)>0))cs++
+ }
+ const avg=sum/100
+ console.log(`${pos} avg ${avg.toFixed(2)} range ${lo.toFixed(1)}-${hi.toFixed(1)} | 8+ ${hi8}% 9+ ${hi9}% | defensive-CS-credit ${cs}`)
+ if(avg<5.8||avg>8.0) throw new Error(`${pos} rating average outside calibration band: ${avg.toFixed(2)}`)
+ if(hi9>20) throw new Error(`${pos} has too many 9+ ratings: ${hi9}%`)
+}
+console.log('RATING LEDGER CALIBRATION PASSED — 700 matches')
