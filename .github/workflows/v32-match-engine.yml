@@ -64,7 +64,17 @@ jobs:
       - name: Run captaincy progression audit
         run: npx tsx scripts/auditCaptaincyV32.ts
       - name: Build web bundle for Android
-        run: npm run build
+        run: |
+          set +e
+          npm run build 2>&1 | tee /tmp/kickoff-build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "### Android web bundle failure" >> "$GITHUB_STEP_SUMMARY"
+            echo '\`\`\`text' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 120 /tmp/kickoff-build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '\`\`\`' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
       - name: Sync Capacitor Android project
         run: npx cap sync android
       - name: Compile Android debug shell
