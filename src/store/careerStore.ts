@@ -298,8 +298,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // then the appearance is recorded using the role held for this match.
     const heldCaptaincy = player.captaincy ?? { role: 'none' as const, matchesAsCaptain: 0, matchesAsViceCaptain: 0, appointedWeek: null }
     const recordedCaptaincy = recordCaptainAppearance(heldCaptaincy)
-    updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
-        const event = nextUnresolvedEvent(calendar)
+    const event = nextUnresolvedEvent(calendar)
     const effect = result.effect
 
     let updatedPlayer: Player = {
@@ -315,6 +314,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       reputation: clamp((player.reputation ?? 0) + (effect.reputation ?? 0), 0, 100),
       money: Math.max(0, (player.money ?? 0) + (effect.money ?? 0)),
     }
+    updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
 
     // Phase 28 — this is the link that makes the life layer causal:
     // a choice can move a NAMED person's bond, introduce someone new to the
@@ -1343,7 +1343,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     void getState().saveCurrent()
   },
 
-  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats) => {
+  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats, playerWonMotm = false) => {
     const { player, calendar, league, academyLeague, cups, international } = getState()
     if (!player || !calendar) return
     // P24 rebalance: was tuned for a 9-match season; the flat 2/-1 values
