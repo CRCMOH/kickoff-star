@@ -25,21 +25,9 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="rounded-lg border border-ks-border bg-[#0f0f0d] px-3 py-3 flex items-center gap-3">
-        <TeamCrest primary={playerTeam.primaryColor} secondary={playerTeam.secondaryColor} short={playerTeam.short} />
-        <div className="flex-1 min-w-0">
-          <div className="font-display tracking-wide text-ks-ink text-base leading-tight truncate">{playerTeam.name}</div>
-          <div className="text-[10px] text-ks-muted">
-            {divName} &middot; {pos > 0 ? ordinal(pos) : '—'} &middot; prestige {playerTeam.prestige}/10
-          </div>
-        </div>
-        <div className="text-center shrink-0">
-          <div className="text-[9px] text-ks-muted uppercase tracking-wider">strength</div>
-          <div className="font-display text-ks-gold text-lg">{teamOverall(playerTeam)}</div>
-        </div>
-      </div>
+      <section className="club-hero" style={{'--club-primary':playerTeam.primaryColor,'--club-secondary':playerTeam.secondaryColor} as React.CSSProperties}><div className="club-stand"/><small>{isAcademy?'ACADEMY CLUB':'GRASSROOTS CLUB'} · {divName}</small><div className="club-identity"><TeamCrest primary={playerTeam.primaryColor} secondary={playerTeam.secondaryColor} short={playerTeam.short} /><div><h2>{playerTeam.name}</h2><p>{pos>0?ordinal(pos):'—'} IN LEAGUE · PRESTIGE {playerTeam.prestige}/10</p></div><div className="club-strength"><b>{teamOverall(playerTeam)}</b><span>TEAM OVR</span></div></div><div className="club-record"><div><span>PLAYED</span><b>{standing?.played??0}</b></div><div><span>W-D-L</span><b>{standing?.won??0}-{standing?.drawn??0}-{standing?.lost??0}</b></div><div><span>POINTS</span><b>{standing?.points??0}</b></div><div><span>GD</span><b>{((standing?.goalsFor??0)-(standing?.goalsAgainst??0))>0?'+':''}{(standing?.goalsFor??0)-(standing?.goalsAgainst??0)}</b></div></div></section>
 
-      <Panel title="💪 team strength">
+      <div className="home-section-label"><span>SQUAD PROFILE</span><i/></div><Panel title="💪 team strength">
         <div className="flex flex-col gap-1.5">
           {(['attack', 'midfield', 'defense'] as const).map((line) => (
             <div key={line} className="flex items-center gap-2">
@@ -68,7 +56,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      <Panel title={`rivals — ${divName}`}>
+      <div className="home-section-label"><span>THE DIVISION</span><i/></div><Panel title={`rivals — ${divName}`}>
         <div className="flex flex-col gap-2">
           {rivals.map((t) => (
             <div key={t.id} className="flex items-center gap-2.5">
