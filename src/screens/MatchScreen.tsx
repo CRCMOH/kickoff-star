@@ -5,7 +5,7 @@ import type { MatchState, KeyMoment, ChanceTier } from '../engine/match'
 import { initMatch, advanceToKeyMoment, resolvePlayerMoment, resolveScenarioBeat, resolveInjuryDecision } from '../engine/match'
 import { momentToDecision, miniGameKindForMoment, inferStatTag, type MatchDecisionBundle } from '../engine/matchDecisions'
 import { TeamCrest } from '../components/ui'
-import FormationPitch from '../components/FormationPitch'
+import LiveMatchPitch from '../components/LiveMatchPitch'
 import {
   executionSpecFor, adjustChance, autoResolveGrade, GRADE_LABEL, GRADE_COLOR,
   type ExecutionGrade, type ExecutionSpec,
@@ -359,12 +359,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       </div>
 
       <div className="relative z-10 px-5 max-w-md mx-auto w-full mb-2">
-        <FormationPitch
-          momentum={state.momentum}
-          homeColor={state.homeTeam.primaryColor}
-          awayColor={state.awayTeam.primaryColor}
-          playerIsHome={playerIsHome}
-        />
+        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} minute={displayMinute} />
       </div>
 
       <div ref={feedRef} className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 max-w-md mx-auto w-full" style={{ maxHeight: '30vh' }}>
