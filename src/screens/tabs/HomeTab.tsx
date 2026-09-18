@@ -264,11 +264,12 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         <RadarChart points={shapePoints} size={180} />
       </Panel>
 
+      <div className="home-section-label"><span>THIS WEEK</span><i/></div>
       {/* Phase 25: the Gazette teaser — a fresh issue drops every week */}
       {latestGazetteMasthead && (
         <button
           onClick={onOpenGazette}
-          className="rounded-lg border border-ks-gold/40 bg-[#14120a] px-3 py-2.5 text-left active:scale-[0.995] transition-transform"
+          className="gazette-feature text-left active:scale-[0.995] transition-transform"
         >
           <div className="flex items-center justify-between">
             <span className="font-display tracking-widest text-[9px] text-ks-gold uppercase flex items-center gap-1"><Icon src={iconGazette} />the gazette · this week</span>
@@ -278,6 +279,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </button>
       )}
 
+      <div className="home-section-label"><span>PLAYER MANAGEMENT</span><i/></div>
       {/* energy — now a real meter with an explainer, not a bare number */}
       <button
         onClick={onOpenEnergy}
@@ -346,6 +348,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
       </div>
 
+      <div className="home-section-label"><span>SCHEDULE</span><i/></div>
       <Panel title={<span className="flex items-center gap-1"><Icon src={iconWeek} />week overview</span>}>
         <div className="grid grid-cols-7 gap-1">
           {DAYS.map((day) => {
@@ -371,6 +374,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
       </Panel>
 
+      <div className="home-section-label"><span>CAREER STATUS</span><i/></div>
       <Section
         title={<span className="flex items-center gap-1"><Icon src={iconCareer} />career</span>}
         action={
