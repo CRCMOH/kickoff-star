@@ -48,3 +48,45 @@ for(const pos of positions) for(let pi=0;pi<profiles.length;pi++){
  console.log(`${pos.padEnd(2)} ${profile.padEnd(10)} W/D/L ${totals.w}/${totals.d}/${totals.l} GF-GA ${totals.gf}-${totals.ga} rating ${(totals.r/matchesPerCareer).toFixed(2)} | G ${totals.goals} A ${totals.assists} shots ${totals.shots}/SOT ${totals.shotsOnTarget} | pass ${totals.passesCompleted}/${totals.passesAttempted} ${pp.toFixed(1)}% prog ${totals.progressivePasses} key ${totals.keyPasses} chances ${totals.chancesCreated} | drib ${totals.dribblesCompleted}/${totals.dribblesAttempted} runs ${totals.progressiveRuns} | tackles ${totals.tacklesWon}/${totals.tacklesAttempted} int ${totals.interceptions} rec ${totals.recoveries} clr ${totals.clearances} blk ${totals.blocks} duels ${totals.duelsWon}/${totals.duelsAttempted} | saves ${totals.saves}/${totals.shotsFaced} ${sp.toFixed(1)}% CS-context ${totals.goalsConceded===0?'yes':'career'} GC ${totals.goalsConceded} dist ${totals.distributionCompleted}/${totals.distributionAttempted}`)
 }
 console.log('\nDIRECT MATCH.TS 21-CAREER AUDIT COMPLETE — 504 playable matches')
+
+
+/* V3.2 behaviour isolation audit.
+   Same engine + attributes; only the decision personality changes.
+   This tells us whether extreme G/A totals come from player choice rather than
+   hidden positional forcing in the match engine. */
+type Style='balanced'|'safe'|'aggressive'|'creator'|'random'
+const styles:Style[]=['balanced','safe','aggressive','creator','random']
+function styleChoice(bundle:any,style:Style){
+ const opts=bundle.decision.options
+ if(style==='random') return Math.floor(rand()*opts.length)
+ const text=(i:number)=>((opts[i]?.label||'')+' '+(opts[i]?.description||'')).toLowerCase()
+ const score=(i:number)=>{
+  const o=opts[i], reward=bundle.rewards[i]||0, t=text(i)
+  if(style==='safe') return o.successChance*3 + reward*.03
+  if(style==='aggressive') return reward*.35 + (/shoot|strike|finish|header|volley|goal|drill/.test(t)?1.4:0) + o.successChance*.5
+  if(style==='creator') return (/pass|cross|cutback|square|through|release|switch|lay|slip|delivery/.test(t)?1.5:0) + o.successChance*1.2 + reward*.08
+  return o.successChance*1.8 + reward*.12
+ }
+ return opts.map((_:any,i:number)=>({i,v:score(i)})).sort((a:any,b:any)=>b.v-a.v)[0].i
+}
+function playStyle(p:Player,style:Style,seed:number){
+ reseed(seed); const team=generatePlayerTeam('Audit FC',4),opp=generateTeam(4)
+ let s=initMatch(p,team,opp,seed%2===0),guard=0
+ while(!s.finished&&guard++<300){
+  const a=advanceToKeyMoment(s,p);s=a.state;if(!a.keyMoment)continue
+  const m=a.keyMoment;if(m.isInjuryDecision){s=resolveInjuryDecision(s,false,p);continue}
+  const b=momentToDecision(p,m,'audit'),i=styleChoice(b,style),o=b.decision.options[i]
+  const success=rand()<o.successChance,q=b.maxReward?b.rewards[i]/b.maxReward:.5
+  s=m.scenarioId?resolveScenarioBeat(s,m,i,q,success,b.rewards[i],b.maxReward,'good'):resolvePlayerMoment(s,m,q,success,b.rewards[i],b.maxReward,p.position==='GK'&&m.isDefensive,'good')
+ }
+ if(!s.finished)throw new Error('style match guard exceeded');return s
+}
+console.log('\nBEHAVIOUR ISOLATION — identical solid attributes, 48 matches/style')
+for(const pos of ['FB','CM','WG','ST'] as Position[]){
+ for(const style of styles){
+  const p=player(pos,12);let g=0,a=0,sh=0,key=0,r=0
+  for(let m=0;m<48;m++){const s=playStyle(p,style,8800000+positions.indexOf(pos)*10000+styles.indexOf(style)*100+m);g+=s.playerStats.goals;a+=s.playerStats.assists;sh+=s.playerStats.shots;key+=s.playerStats.keyPasses;r+=s.playerRating}
+  console.log(`${pos} ${style.padEnd(10)} G ${g} A ${a} shots ${sh} key ${key} rating ${(r/48).toFixed(2)}`)
+ }
+}
+console.log('BEHAVIOUR ISOLATION AUDIT COMPLETE — 960 playable matches')
