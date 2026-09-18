@@ -35,6 +35,9 @@ import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycl
 import { generateGazetteIssue } from '../engine/gazette'
 import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, applyAcademyPromotion, type AcademyWorld } from '../engine/academy'
 import { evaluateCaptaincy, recordCaptainAppearance, clearCaptaincyStory } from '../engine/captaincy'
+import { createYouthWorld } from '../engine/youthWorld'
+import { applyTrialOutcome } from '../engine/youthPathways'
+import type { YouthWorld } from '../types/youthWorld'
 
 interface CareerStore {
   player: Player | null
@@ -43,6 +46,7 @@ interface CareerStore {
   academyLeague: AcademyWorld | null
   cups: CupWorlds
   international: InternationalWorld | null
+  youthWorld: YouthWorld | null
   activeSlot: SaveSlotId | null
   /** P53 — in-progress training session, checkpointed after every completed
       drill so a mobile reload mid-session resumes instead of silently
@@ -195,13 +199,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   academyLeague: null,
   cups: { ...EMPTY_CUPS },
   international: null,
+  youthWorld: null,
   activeSlot: null,
   pendingTraining: null,
 
   loadFromSlot: async (slot) => {
     const save = await readSave(slot)
     if (!save) return
-    setState({ player: migratePlayer(save.player), calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
+    const migratedPlayer = migratePlayer(save.player)
+    const youthWorld = save.youthWorld ?? createYouthWorld(migratedPlayer.id, migratedPlayer.schoolId)
+    setState({ player: migratedPlayer, calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, youthWorld, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
   },
 
   startNewCareer: async (player, calendar, slot) => {
@@ -246,14 +253,15 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       clubGlory: {},
       nationalGlory: {},
     }
-    setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, activeSlot: slot, pendingTraining: null })
-    await writeSave({ schemaVersion: 3, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null })
+    const youthWorld = createYouthWorld(player.id, player.schoolId)
+    setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, youthWorld, activeSlot: slot, pendingTraining: null })
+    await writeSave({ schemaVersion: 4, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null, youthWorld })
   },
 
   saveCurrent: async () => {
-    const { player, calendar, league, academyLeague, cups, international, activeSlot, pendingTraining } = getState()
+    const { player, calendar, league, academyLeague, cups, international, youthWorld, activeSlot, pendingTraining } = getState()
     if (!player || !calendar || activeSlot === null) return
-    await writeSave({ schemaVersion: 3, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null })
+    await writeSave({ schemaVersion: 4, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null, youthWorld })
   },
 
   setPendingTraining: (snapshot) => {
@@ -1315,14 +1323,15 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   },
 
   setSchool: (schoolId) => {
-    const { player } = getState()
+    const { player, youthWorld } = getState()
     if (!player) return
-    setState({ player: { ...player, schoolId } })
+    const nextWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId } : createYouthWorld(player.id, schoolId)
+    setState({ player: { ...player, schoolId }, youthWorld: nextWorld })
     void getState().saveCurrent()
   },
 
   completeTrials: (role, performance) => {
-    const { player } = getState()
+    const { player, youthWorld } = getState()
     if (!player) return
     // Trial performance nudges starting attributes within a small band (potential untouched).
     // Strong trials (+) lift attrs slightly; poor trials (-) start lower. Never exceeds potential.
@@ -1331,15 +1340,19 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     for (const k of Object.keys(values)) {
       values[k] = clamp(Math.round((values[k] + band) * 10) / 10, 1, player.potential - 1)
     }
+    const baseWorld = youthWorld ?? createYouthWorld(player.id, player.schoolId)
+    const youthTrial = applyTrialOutcome(baseWorld, performance, 3)
     const updatedPlayer: Player = {
       ...player,
       attributes: { ...player.attributes, values } as Player['attributes'],
-      squadRole: role,
+      // V4 pathway engine is authoritative; legacy role mirrors it so the
+      // existing V3.2 match/selection screens remain compatible during migration.
+      squadRole: youthTrial.legacySquadRole ?? role,
       squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
       trialWeekCompleted: 3,
       careerClock: { ...player.careerClock, phase: 'grassroots-season' },
     }
-    setState({ player: updatedPlayer })
+    setState({ player: updatedPlayer, youthWorld: youthTrial.world })
     void getState().saveCurrent()
   },
 
