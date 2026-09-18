@@ -27,7 +27,7 @@ export function simulateMotmField(args:{homeScore:number;awayScore:number;player
   const home=side===0
   // The controlled player already occupies one XI slot. Do not create a
   // phantom 12th player on their side.
-  if(home===args.playerIsHome && positions[i]===args.player.position && !sidePlayers[side].some(p=>p.position===args.player.position)) continue
+  if(home===args.playerIsHome && i===positions.indexOf(args.player.position)) continue
   const won=home?args.homeScore>args.awayScore:args.awayScore>args.homeScore,drew=args.homeScore===args.awayScore
   const pos=positions[i],st=empty(),conceded=home?args.awayScore:args.homeScore
   let rating=6.0+(won?.24:drew?.06:-.12)+(rng()-.5)*1.25
