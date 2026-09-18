@@ -10,7 +10,7 @@ import { injuryRisk, rollInjury } from './injuries'
 import { createCommentator, surnameOf, fill, type Commentator, type CommentaryContext } from './commentary'
 import { ratingNudgeFor, type ExecutionGrade } from './execution'
 import { pickGoalscorer, pickAssister, applyTeammateGoal, type SquadPlayer } from './squad'
-import { scenariosFor, scenarioById, type ScenarioCategory } from './matchScenarios'
+import { scenariosFor, scenariosForAttackRole, scenarioById, type ScenarioCategory } from './matchScenarios'
 import { debugScenarioOverride } from './devTools'
 import { resolveLegacyDriveShot, scoreSnapshot } from './matchResolutionV2'
 import { emptyMatchStats, simulateBackgroundStats, mergeMatchStats, type PlayerMatchStats } from './matchStats'
@@ -592,7 +592,21 @@ const SCENARIO_CHANCE = 0.4
 function enterMomentOrScenario(s: MatchState, tier: ChanceTier, isDefensive: boolean, player: Player): { state: MatchState; keyMoment: KeyMoment } {
   const isGK = player.position === 'GK'
   const category: ScenarioCategory = isGK && isDefensive ? 'gk-defend' : isGK && !isDefensive ? 'gk-distribution' : isDefensive ? 'defend' : 'attack'
-  const eligible = scenariosFor(category, tier)
+  // V3.2: being involved in an attack no longer means being selected as the finisher.
+  // Position shapes the player's football role before a scenario is drawn.
+  const attackRole = (() => {
+    const r = rand()
+    switch (player.position) {
+      case 'ST': return r < .62 ? 'finishing' : r < .84 ? 'creation' : 'progression'
+      case 'WG': return r < .38 ? 'finishing' : r < .72 ? 'creation' : 'progression'
+      case 'WM': return r < .18 ? 'finishing' : r < .65 ? 'creation' : 'progression'
+      case 'CM': return r < .12 ? 'finishing' : r < .60 ? 'creation' : 'progression'
+      case 'FB': return r < .07 ? 'finishing' : r < .62 ? 'creation' : 'progression'
+      case 'CB': return r < .06 ? 'finishing' : r < .28 ? 'creation' : 'progression'
+      default: return 'progression'
+    }
+  })()
+  const eligible = category === 'attack' ? scenariosForAttackRole(tier, attackRole) : scenariosFor(category, tier)
 
   // P45 — content-creation override. If the page was loaded with
   // ?debugScenario=<id>, the next eligible chance for THAT scenario's own
@@ -618,7 +632,10 @@ function enterMomentOrScenario(s: MatchState, tier: ChanceTier, isDefensive: boo
     }
   }
 
-  if (eligible.length > 0 && rand() < SCENARIO_CHANCE) {
+  // Attack moments now always use a role-aware authored passage when one exists.
+  // Defensive/GK content keeps the existing pacing mix.
+  const scenarioChance = category === 'attack' ? 1 : SCENARIO_CHANCE
+  if (eligible.length > 0 && rand() < scenarioChance) {
     const scen = eligible[Math.floor(rand() * eligible.length)]
     const entryBeat = scen.beats[scen.entryBeatId]
     const next: MatchState = { ...s, activeScenario: { scenarioId: scen.id, beatId: scen.entryBeatId, tier } }
