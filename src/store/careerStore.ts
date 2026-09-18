@@ -34,7 +34,7 @@ import { generateSquad } from '../engine/squad'
 import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycle'
 import { generateGazetteIssue } from '../engine/gazette'
 import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, applyAcademyPromotion, type AcademyWorld } from '../engine/academy'
-import { evaluateCaptaincy, recordCaptainAppearance } from '../engine/captaincy'
+import { evaluateCaptaincy, recordCaptainAppearance, clearCaptaincyStory } from '../engine/captaincy'
 
 interface CareerStore {
   player: Player | null
@@ -78,6 +78,7 @@ interface CareerStore {
   /** P33: end-of-season review, drained by the UI. */
   pendingSeasonReview: import('../engine/seasonReview').SeasonReview | null
   clearSeasonReview: () => void
+  clearCaptaincyStory: () => void
   /** Player-initiated relationship interaction (the BitLife-style verb list). */
   interactWith: (relationshipId: string, interactionId: string) => { success: boolean; delta: number } | null
   /** P29 economy. */
@@ -507,6 +508,11 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     void getState().saveCurrent()
   },
   clearSeasonReview: () => setState({ pendingSeasonReview: null }),
+  clearCaptaincyStory: () => {
+    const player=getState().player
+    if(!player?.captaincy)return
+    setState({player:{...player,captaincy:clearCaptaincyStory(player.captaincy)}})
+  },
 
   // ---- P49 XP-based attribute progression --------------------------------
   spendAttributeXp: (attr, xpAmount) => {
