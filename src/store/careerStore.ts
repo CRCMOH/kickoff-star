@@ -1326,7 +1326,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   setSchool: (schoolId) => {
     const { player, youthWorld } = getState()
     if (!player) return
-    const nextWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId } : createYouthWorld(player.id, schoolId)
+    const baseWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId } : createYouthWorld(player.id, schoolId)
+    const nextWorld = initializeCompetitionWorld(baseWorld)
     setState({ player: { ...player, schoolId }, youthWorld: nextWorld })
     void getState().saveCurrent()
   },
