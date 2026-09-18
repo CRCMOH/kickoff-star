@@ -24,5 +24,9 @@ for(const position of positions){
 }
 console.log('MOTM DISTRIBUTION AUDIT —',trials*positions.length,'player-candidate matches')
 for(const p of positions)console.log(p,wins[p],(wins[p]/trials*100).toFixed(1)+'%')
-for(const p of positions)if(wins[p]===0)throw new Error(p+' never won MOTM')
+for(const p of positions){
+ const rate=wins[p]/trials
+ if(wins[p]===0)throw new Error(p+' never won MOTM')
+ if(rate>.80)throw new Error(p+' wins MOTM too easily: '+(rate*100).toFixed(1)+'%')
+}
 console.log('MOTM DISTRIBUTION AUDIT PASSED')
