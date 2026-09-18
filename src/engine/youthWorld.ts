@@ -1,7 +1,7 @@
 import type { Position } from '../types/attributes'
 import type {
   AcademyClub, SundayLeagueClub, YouthCalendarBlock, YouthCompetition, YouthNpcPlayer,
-  YouthCompetitionRuntime, YouthFinanceState, YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthScoutingProfile, YouthWorld, YouthFinanceState,
+  YouthFinanceState, YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthScoutingProfile, YouthWorld,
 } from '../types/youthWorld'
 
 function hashSeed(input: string): number {
@@ -129,7 +129,11 @@ function initialFinances(seed:string): YouthFinanceState {
   return {
     balance,
     familySupportLevel,
+    familyAllowancePerMonth: familySupportLevel === 'limited' ? 12 : familySupportLevel === 'strong' ? 24 : 18,
+    lastAllowanceWeek:0,
     transportPass:false,
+    transportPasses:0,
+    recoveryCredits:0,
     bootsCondition:82,
     weeklyPersonalBudget:familySupportLevel === 'limited' ? 5 : familySupportLevel === 'strong' ? 10 : 7,
     totalEarned:balance,
@@ -138,38 +142,6 @@ function initialFinances(seed:string): YouthFinanceState {
       id:'opening-balance',week:1,amount:balance,category:'allowance',
       description:'Starting pocket money / family support.',
     }],
-  }
-}
-
-function initialCompetitionRuntime(): Record<string, YouthCompetitionRuntime> {
-  const out: Record<string, YouthCompetitionRuntime> = {}
-  for (const comp of YOUTH_COMPETITIONS) {
-    out[comp.id] = {
-      competitionId: comp.id,
-      seasonYear: 1,
-      stage: 'not-started',
-      teams: [],
-      groups: [],
-      fixtures: [],
-      standings: {},
-      qualifiedTeamIds: [],
-      championTeamId: null,
-      playerEliminated: false,
-    }
-  }
-  return out
-}
-
-function initialFinance(): YouthFinanceState {
-  return {
-    balance: 25,
-    familyAllowancePerMonth: 18,
-    lastAllowanceWeek: 0,
-    transportPasses: 0,
-    recoveryCredits: 0,
-    transactions: [],
-    totalIncome: 0,
-    totalSpent: 0,
   }
 }
 
