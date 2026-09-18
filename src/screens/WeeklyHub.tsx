@@ -17,6 +17,7 @@ import ArcVerdictCard from '../components/ArcVerdictCard'
 import SeasonReviewCard from '../components/SeasonReviewCard'
 import HeadlineToast from '../components/HeadlineToast'
 import GazetteScreen from './GazetteScreen'
+import CaptaincyStoryCard from '../components/CaptaincyStoryCard'
 
 // Phase 10: WeeklyHub is now a shell that hosts six real, routed tabs.
 // Tab state is owned by Career so it survives event resolution (training,
@@ -46,6 +47,7 @@ export default function WeeklyHub({
   const pendingHeadlines = useCareerStore((s) => s.pendingHeadlines)
   const clearHeadline = useCareerStore((s) => s.clearHeadline)
   const clearPendingAchievements = useCareerStore((s) => s.clearPendingAchievements)
+  const clearCaptaincyStory = useCareerStore((s) => s.clearCaptaincyStory)
 
   if (!player || !calendar) {
     return <div className="min-h-screen bg-ks-black flex items-center justify-center text-ks-muted">no active career</div>
@@ -107,10 +109,13 @@ export default function WeeklyHub({
       {pendingSeasonReview && (
         <SeasonReviewCard review={pendingSeasonReview} onDismiss={clearSeasonReview} />
       )}
-      {!pendingSeasonReview && pendingArcVerdicts.length > 0 && (
+      {!pendingSeasonReview && player.captaincy?.pendingStory && (
+        <CaptaincyStoryCard story={player.captaincy.pendingStory} onDismiss={clearCaptaincyStory} />
+      )}
+      {!pendingSeasonReview && !player.captaincy?.pendingStory && pendingArcVerdicts.length > 0 && (
         <ArcVerdictCard queue={pendingArcVerdicts} onDismiss={() => clearArcVerdicts()} />
       )}
-      {pendingAchievements.length > 0 && (
+      {!pendingSeasonReview && !player.captaincy?.pendingStory && pendingArcVerdicts.length === 0 && pendingAchievements.length > 0 && (
         <AchievementCeremony queue={pendingAchievements} onDismiss={clearPendingAchievements} />
       )}
 
