@@ -356,7 +356,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
             <span className={`font-display tracking-wide text-xs ${!playerIsHome ? 'text-ks-black' : 'text-ks-ink'}`}>{state.awayTeam.short}</span>
           </div>
         </div>
-        <div className="h-1 rounded-full bg-[#2a2a27] overflow-hidden mb-3 relative">
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          <div className="broadcast-stat"><span>RATING</span><b>{state.playerRating.toFixed(1)}</b></div>
+          <div className="broadcast-stat"><span>STAMINA</span><b>{Math.round(state.matchStamina)}%</b></div>
+          <div className="broadcast-stat"><span>ROLE</span><b>{player.captaincy?.role==='captain'?'© CAP':player.position}</b></div>
+        </div>
+                <div className="h-1 rounded-full bg-[#2a2a27] overflow-hidden mb-3 relative">
           <div className="absolute inset-y-0 left-1/2 w-px bg-ks-border" />
           <div
             className="h-full bg-ks-gold rounded-full transition-all"
@@ -369,7 +374,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       </div>
 
       <div className="relative z-10 px-5 max-w-md mx-auto w-full mb-2">
-        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} minute={displayMinute} action={pitchAction} />
+        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} minute={displayMinute} action={pitchAction} focusPlayer={showMoment || executing !== null} />
       </div>
 
       <div ref={feedRef} className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 max-w-md mx-auto w-full" style={{ maxHeight: '30vh' }}>
