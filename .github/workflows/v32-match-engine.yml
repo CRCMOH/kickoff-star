@@ -11,7 +11,7 @@ on:
       - 'src/engine/liveMatchV2.ts'
       - 'src/engine/matchResolutionV2.ts'
       - 'scripts/auditMatchEngineV2.ts'
-      - 'scripts/auditMatchResolutionV2.ts'
+      - 'scripts/auditLiveBridgeV2.ts'
       - '.github/workflows/v32-match-engine.yml'
   workflow_dispatch:
 
@@ -31,4 +31,4 @@ jobs:
       - name: Run 100k-match realism audit
         run: npx tsx scripts/auditMatchEngineV2.ts
       - name: Run live resolution bridge regression audit
-        run: npx tsx scripts/auditMatchResolutionV2.ts
+        run: npx tsx scripts/auditLiveBridgeV2.ts
