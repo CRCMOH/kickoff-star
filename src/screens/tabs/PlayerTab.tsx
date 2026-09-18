@@ -208,6 +208,27 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         )}
       </Section>
 
+      <Section title="🧭 career pathway" defaultOpen>
+        <div className="flex items-stretch gap-1.5">
+          {([
+            { key: 'grassroots', label: 'Grassroots', active: player.careerClock.phase !== 'academy' && !player.turnedPro, complete: player.careerClock.phase === 'academy' || !!player.turnedPro },
+            { key: 'academy', label: 'Academy', active: player.careerClock.phase === 'academy' && !player.turnedPro, complete: !!player.turnedPro },
+            { key: 'pro', label: 'Professional', active: !!player.turnedPro, complete: false },
+          ]).map((stage, index) => (
+            <div key={stage.key} className="contents">
+              <div className={`flex-1 rounded-lg border px-2 py-2.5 text-center ${stage.active ? 'border-ks-gold bg-ks-gold/10' : stage.complete ? 'border-green-500/40 bg-green-500/5' : 'border-ks-border bg-[#0f0f0d]'}`}>
+                <div className={`text-[8px] uppercase tracking-wider ${stage.active ? 'text-ks-gold' : stage.complete ? 'text-green-500' : 'text-ks-muted'}`}>{stage.complete ? 'complete' : stage.active ? 'current' : 'locked'}</div>
+                <div className="font-display text-[10px] text-ks-ink mt-1">{stage.label}</div>
+              </div>
+              {index < 2 && <div className="flex items-center text-ks-muted text-[10px]">›</div>}
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-ks-muted leading-relaxed mt-2.5">
+          {player.careerClock.phase === 'academy' ? 'Perform in academy competitions, build scout interest and earn a professional contract.' : 'Stand out in school and Sunday football to earn an academy invitation.'}
+        </p>
+      </Section>
+
       <Section title={<span className="flex items-center gap-1"><Icon src={iconGlory} />glory</span>}>
         <GloryCabinet player={player} />
       </Section>

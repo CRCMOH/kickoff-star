@@ -47,6 +47,8 @@ import { sfx, isMuted, toggleMuted } from '../engine/audio'
 import { syncMusicMute } from '../engine/music'
 import { archetypeMomentBonus } from '../engine/archetypes'
 import { captainMomentFor, applyCaptainMoment, type CaptainMoment } from '../engine/captainMomentsV32'
+import type { RatingBreakdown } from '../engine/ratingSystemV32'
+import type { PlayerMatchStats } from '../engine/matchStats'
 
 interface MatchScreenProps {
   player: Player
@@ -55,7 +57,7 @@ interface MatchScreenProps {
   playerIsHome: boolean
   autoResolve: boolean
   onToggleAutoResolve: () => void
-  onComplete: (result: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }) => void
+  onComplete: (result: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number }; playerStats: PlayerMatchStats; ratingBreakdown?: RatingBreakdown; minutesPlayed: number; yellowCards: number }) => void
 }
 
 const SPEEDS = [1, 2, 3] as const
@@ -512,6 +514,8 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
                 rating: Math.round(state.playerRating * 10) / 10, goals: state.playerGoals, assists: state.playerAssists,
                 won, drew, finalMatchStamina: state.matchStamina, injury: state.injury, wasSubbed: state.substituted, redCarded: state.redCarded,
                 playerScore, opponentScore, motm: state.motm ? { playerWon: state.motm.playerWon, winnerName: state.motm.winner.name, winnerRating: state.motm.winner.rating, winnerPosition: state.motm.winner.position } : undefined, squad: state.squad, matchStats: matchStatsRef.current,
+                playerStats: state.playerStats, ratingBreakdown: state.ratingBreakdown,
+                minutesPlayed: Math.max(0, Math.min(state.minute, state.subMinute ?? state.minute) - state.entryMinute), yellowCards: state.yellowCards,
               })
             }}
             className="w-full bg-ks-gold text-ks-black font-display tracking-wide rounded-xl py-3.5 text-sm shadow-[0_0_25px_rgba(212,175,55,0.3)]"

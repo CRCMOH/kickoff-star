@@ -46,8 +46,22 @@ function ItemCard({ item, player, onBuy }: { item: ShopItem; player: Player; onB
       <div className="flex items-start gap-2 mb-1">
         <span className="text-[11px] text-ks-ink flex-1 leading-snug">{item.name}</span>
         {held > 0 && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">x{held}</span>}
-        {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.weeksRemaining}w left</span>}
+        {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.condition ?? Math.round((owned.weeksRemaining / Math.max(1, item.durationWeeks ?? owned.weeksRemaining)) * 100)}% · {owned.weeksRemaining}w</span>}
       </div>
+
+      {(player.finances?.transactions.length ?? 0) > 0 && (
+        <Panel title={<span className="flex items-center gap-1"><Icon src={iconCoins} />recent transactions</span>}>
+          <div className="flex flex-col gap-1.5">
+            {[...(player.finances?.transactions ?? [])].reverse().slice(0, 6).map((transaction) => (
+              <div key={transaction.id} className="flex items-center gap-2 text-[10px]">
+                <span className="text-ks-muted w-8">wk {transaction.week}</span>
+                <span className="text-ks-ink flex-1 truncate">{transaction.description}</span>
+                <span className={transaction.amount >= 0 ? 'text-green-500' : 'text-orange-400'}>{transaction.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(transaction.amount))}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
       <p className="text-[10px] text-ks-muted leading-relaxed mb-2">{item.description}</p>
       <button
         onClick={() => onBuy(item.id)}

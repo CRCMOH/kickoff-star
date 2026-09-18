@@ -53,6 +53,8 @@ export interface MatchPerformanceForReputation {
   keyPasses: number
   saves: number
   cleanSheet: boolean
+  /** Layer 5: the same display matters more on a bigger stage. */
+  competitionPrestigeMultiplier?: number
 }
 
 export function updateReputation(state: ScoutingState, perf: MatchPerformanceForReputation): ScoutingState {
@@ -94,7 +96,7 @@ export function updateReputation(state: ScoutingState, perf: MatchPerformanceFor
     if (goalInvolvement) delta += 0.12
   }
 
-  return { ...state, reputation: clamp(state.reputation + delta, 0, 100) }
+  return { ...state, reputation: clamp(state.reputation + delta * (perf.competitionPrestigeMultiplier ?? 1), 0, 100) }
 }
 
 // Reputation gates which tier of club COULD notice you — not whether they do.

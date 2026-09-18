@@ -43,7 +43,7 @@ function ordinal(n: number): string {
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 
-export default function HomeTab({ player, calendar, league, academyLeague, offerCount, onOpenOffers, onGoTo, onOpenEnergy, latestGazetteMasthead, onOpenGazette }: {
+export default function HomeTab({ player, calendar, league, academyLeague, offerCount, onOpenOffers, onGoTo, onOpenEnergy, latestGazetteMasthead, onOpenGazette, onOpenInbox }: {
   player: Player
   calendar: CalendarState
   league: LeagueWorld | null
@@ -54,6 +54,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   onOpenEnergy: () => void
   latestGazetteMasthead: string | null
   onOpenGazette: () => void
+  onOpenInbox: () => void
 }) {
   const consumeItem = useCareerStore((s) => s.consumeItem)
   const restoreEnergyFromAd = useCareerStore((s) => s.restoreEnergyFromAd)
@@ -65,6 +66,8 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const ovr = toOvr(computeCurrentAbility(player))
   const isAcademy = player.careerClock.phase === 'academy'
   const world = isAcademy ? academyLeague : league
+  const inbox = player.inbox ?? []
+  const unreadInbox = inbox.filter((item) => !item.read).length
 
   let leaguePos: string | null = null
   let leagueName: string | null = null
@@ -96,6 +99,14 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
           <div><span>NEXT</span><b>{nextEvent?.type?.replace(/-/g,' ') ?? 'OPEN'}</b></div>
         </div>
       </section>
+      <button onClick={onOpenInbox} className={`rounded-lg border px-3 py-2.5 flex items-center gap-3 text-left ${unreadInbox > 0 ? 'border-ks-gold/60 bg-ks-gold/10' : 'border-ks-border bg-[#0f0f0d]'}`}>
+        <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm ${unreadInbox > 0 ? 'border-ks-gold text-ks-gold' : 'border-ks-border text-ks-muted'}`}>✉</div>
+        <div className="flex-1 min-w-0">
+          <div className="font-display text-[11px] text-ks-ink tracking-wide">Career inbox</div>
+          <div className="text-[9px] text-ks-muted truncate">{inbox.length > 0 ? inbox[inbox.length - 1].title : 'Announcements, selections and invitations'}</div>
+        </div>
+        <span className={`text-[10px] ${unreadInbox > 0 ? 'text-ks-gold' : 'text-ks-muted'}`}>{unreadInbox > 0 ? `${unreadInbox} new` : 'open'} →</span>
+      </button>
       {offerCount > 0 && (
         <button
           onClick={onOpenOffers}

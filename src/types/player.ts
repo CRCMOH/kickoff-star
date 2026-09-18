@@ -63,6 +63,8 @@ export interface Player {
 
   // Phase 29 — money, kit and consumables
   money?: number
+  /** V4 Layer 6: auditable youth-finance ledger, family context and club support. */
+  finances?: import('../engine/youthFinances').YouthFinanceState
   equipment?: import('../engine/economy').OwnedEquipment[]
   consumables?: import('../engine/economy').Consumables
   /** P35: the synthetic rival scorer the golden-boot headline tracks against — see engine/headlines.ts. */
@@ -137,6 +139,10 @@ export interface Player {
     international: { goals: number; assists: number; appearances: number }
     other: { goals: number; assists: number; appearances: number }
   }
+  /** V4 Layer 5: exact competition records, discipline, awards and history. */
+  competitionCareer?: import('../engine/competitionCareer').CompetitionCareerState
+  /** V4 Layer 8: durable announcements and career story beats. */
+  inbox?: import('../engine/presentation').StoryMoment[]
   /** Phase 16: unlocked achievement keys. */
   achievements?: string[]
 
