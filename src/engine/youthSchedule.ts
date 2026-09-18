@@ -1,5 +1,5 @@
 import type { DayOfWeek } from '../types/calendar'
-import type { CompetitionKind, SchoolSquadTier, YouthWorld } from '../types/youthWorld'
+import type { CompetitionKind, YouthWorld } from '../types/youthWorld'
 
 export type YouthScheduleEventKind =
   | 'school-training'
