@@ -141,6 +141,8 @@ export interface Player {
   }
   /** V4 Layer 5: exact competition records, discipline, awards and history. */
   competitionCareer?: import('../engine/competitionCareer').CompetitionCareerState
+  /** V4 Layer 8: durable announcements and career story beats. */
+  inbox?: import('../engine/presentation').StoryMoment[]
   /** Phase 16: unlocked achievement keys. */
   achievements?: string[]
 

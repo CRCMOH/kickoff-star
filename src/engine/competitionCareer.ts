@@ -31,6 +31,7 @@ export interface CompetitionDefinition {
 
 export const COMPETITION_DEFINITIONS: Record<string, CompetitionDefinition> = {
   sundayLeague: { id: 'sundayLeague', name: 'Sunday League', format: 'league', category: 'sunday', level: 'local', prestige: 20, eligibility: { minAge: 14, maxAge: 18, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
+  academyLeague: { id: 'academyLeague', name: 'Academy League', format: 'league', category: 'academy', level: 'national', prestige: 60, eligibility: { minAge: 15, maxAge: 19, academyPlayersAllowed: true, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   schoolFriendlies: { id: 'schoolFriendlies', name: 'School Friendlies', format: 'friendly', category: 'school', level: 'local', prestige: 15, eligibility: { minAge: 14, maxAge: 18, schoolRegistered: true, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   schoolCup: { id: 'schoolCup', name: 'School Cup', format: 'group-knockout', category: 'school', level: 'regional', prestige: 45, eligibility: { minAge: 14, maxAge: 18, schoolRegistered: true, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   sundayCup: { id: 'sundayCup', name: 'Sunday Cup', format: 'knockout', category: 'sunday', level: 'local', prestige: 30, eligibility: { minAge: 14, maxAge: 18, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 2 },

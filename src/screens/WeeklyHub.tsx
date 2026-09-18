@@ -17,6 +17,8 @@ import ArcVerdictCard from '../components/ArcVerdictCard'
 import SeasonReviewCard from '../components/SeasonReviewCard'
 import HeadlineToast from '../components/HeadlineToast'
 import GazetteScreen from './GazetteScreen'
+import InboxScreen from './InboxScreen'
+import StoryRevealCard from '../components/StoryRevealCard'
 
 // Phase 10: WeeklyHub is now a shell that hosts six real, routed tabs.
 // Tab state is owned by Career so it survives event resolution (training,
@@ -38,6 +40,7 @@ export default function WeeklyHub({
   const cups = useCareerStore((s) => s.cups)
   const [energyOpen, setEnergyOpen] = useState(false)
   const [gazetteOpen, setGazetteOpen] = useState(false)
+  const [inboxOpen, setInboxOpen] = useState(false)
   const pendingAchievements = useCareerStore((s) => s.pendingAchievements)
   const pendingArcVerdicts = useCareerStore((s) => s.pendingArcVerdicts)
   const pendingSeasonReview = useCareerStore((s) => s.pendingSeasonReview)
@@ -46,6 +49,7 @@ export default function WeeklyHub({
   const pendingHeadlines = useCareerStore((s) => s.pendingHeadlines)
   const clearHeadline = useCareerStore((s) => s.clearHeadline)
   const clearPendingAchievements = useCareerStore((s) => s.clearPendingAchievements)
+  const markStoryRead = useCareerStore((s) => s.markStoryRead)
 
   if (!player || !calendar) {
     return <div className="min-h-screen bg-ks-black flex items-center justify-center text-ks-muted">no active career</div>
@@ -55,6 +59,7 @@ export default function WeeklyHub({
   const offerCount = (player.contractOffers ?? []).length
   const activeLabel = NAV_ITEMS.find((n) => n.tab === tab)?.label ?? ''
   const latestGazette = player.gazetteIssues && player.gazetteIssues.length > 0 ? player.gazetteIssues[player.gazetteIssues.length - 1] : null
+  const unreadStory = (player.inbox ?? []).find((item) => !item.read) ?? null
 
   return (
     <div className="min-h-screen bg-ks-black flex flex-col">
@@ -78,6 +83,7 @@ export default function WeeklyHub({
             onOpenEnergy={() => setEnergyOpen(true)}
             latestGazetteMasthead={latestGazette?.masthead ?? null}
             onOpenGazette={() => setGazetteOpen(true)}
+            onOpenInbox={() => setInboxOpen(true)}
           />
         )}
         {(tab === 'player' || tab === 'scouts') && <PlayerTab player={player} onOpenOffers={onOpenOffers} />}
@@ -102,15 +108,19 @@ export default function WeeklyHub({
 
       {energyOpen && <EnergySheet player={player} onClose={() => setEnergyOpen(false)} />}
       {gazetteOpen && latestGazette && <GazetteScreen issue={latestGazette} onClose={() => setGazetteOpen(false)} />}
+      {inboxOpen && <InboxScreen items={player.inbox ?? []} onRead={markStoryRead} onClose={() => setInboxOpen(false)} />}
 
       {/* the season review takes precedence — it's the biggest beat of the year */}
       {pendingSeasonReview && (
         <SeasonReviewCard review={pendingSeasonReview} onDismiss={clearSeasonReview} />
       )}
-      {!pendingSeasonReview && pendingArcVerdicts.length > 0 && (
+      {!pendingSeasonReview && unreadStory && (
+        <StoryRevealCard moment={unreadStory} onDismiss={() => markStoryRead(unreadStory.id)} />
+      )}
+      {!pendingSeasonReview && !unreadStory && pendingArcVerdicts.length > 0 && (
         <ArcVerdictCard queue={pendingArcVerdicts} onDismiss={() => clearArcVerdicts()} />
       )}
-      {pendingAchievements.length > 0 && (
+      {!pendingSeasonReview && !unreadStory && pendingArcVerdicts.length === 0 && pendingAchievements.length > 0 && (
         <AchievementCeremony queue={pendingAchievements} onDismiss={clearPendingAchievements} />
       )}
 

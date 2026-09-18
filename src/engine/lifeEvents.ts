@@ -844,7 +844,7 @@ export const LIFE_EVENTS: LifeEvent[] = [
     build: () => decision('The corner shop needs someone for a Saturday morning shift. Cash in hand.', 'money',
       [
         opt('take the shift', 'earn it', 0.85,
-          { money: 28, energy: -16, narrative: 'Four hours on your feet and R28 in your pocket.' },
+          { money: 28, energy: -16, narrative: 'Four hours on your feet and £28 in your pocket.' },
           { money: 20, energy: -20, confidence: -1, narrative: 'Long, miserable shift and you are wrecked for training.' }),
         opt('turn it down', 'legs come first', 1,
           { energy: 3, narrative: 'You rest instead. The money would have been nice.' }),
@@ -867,7 +867,7 @@ export const LIFE_EVENTS: LifeEvent[] = [
     build: () => decision('Your side won a weekend tournament and there is prize money to split.', 'money',
       [
         opt('take your share', 'you earned it', 1,
-          { money: 40, confidence: 1, narrative: 'R40 each. Best weekend of the season.' }),
+          { money: 40, confidence: 1, narrative: '£40 each. Best weekend of the season.' }),
         opt('put it all into the team fund', 'for the squad', 0.8,
           { coachTrust: 2, confidence: 1, narrative: 'New training bibs and balls for everyone. The coach notices who suggested it.' },
           { coachTrust: 1, narrative: 'A nice gesture that quietly gets forgotten.' }),

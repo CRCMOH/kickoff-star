@@ -4,6 +4,8 @@ import type { AcademyWorld } from '../../engine/academy'
 import type { CupWorlds } from '../../engine/save'
 import FixturesTab from './FixturesTab'
 import TableTab from './TableTab'
+import CompetitionHub from './CompetitionHub'
+import { useCareerStore } from '../../store/careerStore'
 
 // P29: fixtures and the table were separate nav tabs, which pushed the bottom
 // bar to seven items and wrapped it onto two rows. They answer the same
@@ -17,12 +19,13 @@ export default function LeagueTab({ division, playerTeamId, cups, world, isAcade
   isAcademy: boolean
   initialView?: 'fixtures' | 'table'
 }) {
-  const [view, setView] = useState<'fixtures' | 'table'>(initialView ?? 'fixtures')
+  const player = useCareerStore((s) => s.player)
+  const [view, setView] = useState<'hub' | 'fixtures' | 'table'>(initialView ?? 'hub')
 
   return (
     <div className="flex flex-col gap-2.5">
       <div className="flex gap-1.5 p-1 rounded-xl bg-[#0f0f0d] border border-ks-border">
-        {(['fixtures', 'table'] as const).map((v) => (
+        {(['hub', 'fixtures', 'table'] as const).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
@@ -35,7 +38,9 @@ export default function LeagueTab({ division, playerTeamId, cups, world, isAcade
         ))}
       </div>
 
-      {view === 'fixtures'
+      {view === 'hub' && player
+        ? <CompetitionHub player={player} division={division} playerTeamId={playerTeamId} cups={cups} />
+        : view === 'fixtures'
         ? <FixturesTab division={division} playerTeamId={playerTeamId} cups={cups} />
         : <TableTab world={world} playerTeamId={playerTeamId} isAcademy={isAcademy} />}
     </div>

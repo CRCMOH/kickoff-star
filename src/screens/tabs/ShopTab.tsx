@@ -48,6 +48,20 @@ function ItemCard({ item, player, onBuy }: { item: ShopItem; player: Player; onB
         {held > 0 && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">x{held}</span>}
         {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.condition ?? Math.round((owned.weeksRemaining / Math.max(1, item.durationWeeks ?? owned.weeksRemaining)) * 100)}% · {owned.weeksRemaining}w</span>}
       </div>
+
+      {(player.finances?.transactions.length ?? 0) > 0 && (
+        <Panel title={<span className="flex items-center gap-1"><Icon src={iconCoins} />recent transactions</span>}>
+          <div className="flex flex-col gap-1.5">
+            {[...(player.finances?.transactions ?? [])].reverse().slice(0, 6).map((transaction) => (
+              <div key={transaction.id} className="flex items-center gap-2 text-[10px]">
+                <span className="text-ks-muted w-8">wk {transaction.week}</span>
+                <span className="text-ks-ink flex-1 truncate">{transaction.description}</span>
+                <span className={transaction.amount >= 0 ? 'text-green-500' : 'text-orange-400'}>{transaction.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(transaction.amount))}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
       <p className="text-[10px] text-ks-muted leading-relaxed mb-2">{item.description}</p>
       <button
         onClick={() => onBuy(item.id)}
@@ -109,7 +123,7 @@ export default function ShopTab({ player }: { player: Player }) {
         <div className="relative z-10 flex items-end justify-between">
           <div>
             <div className="font-display tracking-[0.25em] text-[9px] text-ks-muted uppercase mb-0.5">your money</div>
-            <div className="font-display text-3xl text-ks-gold tabular-nums leading-none">R<AnimatedNumber from={displayFrom} to={currentMoney} duration={700} /></div>
+            <div className="font-display text-3xl text-ks-gold tabular-nums leading-none">£<AnimatedNumber from={displayFrom} to={currentMoney} duration={700} /></div>
           </div>
           <div className="text-right">
             <div className="text-[9px] text-ks-muted uppercase tracking-wider">allowance</div>
@@ -327,11 +341,11 @@ export default function ShopTab({ player }: { player: Player }) {
             <button
               onClick={async () => {
                 const reward = await watchRewardedAd('cash')
-                if (reward) { grantCashFromAd(10); say('earned R10') }
+                if (reward) { grantCashFromAd(10); say('earned £10') }
               }}
               className="w-full mt-2 rounded-lg border border-ks-border bg-[#0f0f0d] py-2 font-display tracking-widest text-[10px] uppercase text-ks-muted"
             >
-              watch ad for R10 · {remainingToday('cash')} left today
+              watch ad for £10 · {remainingToday('cash')} left today
             </button>
           )}
         </Panel>

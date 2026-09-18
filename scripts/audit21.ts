@@ -57,12 +57,12 @@ console.log('\n[D] youth finance choices and ledger')
   let finances = initYouthFinance('grassroots-season', 'limited')
   finances = postTransaction(finances, 'grassroots-season', { week: 1, amount: 100, category: 'allowance', description: 'Allowance', coveredBy: 'family' })
   finances = postTransaction(finances, 'grassroots-season', { week: 1, amount: -35, category: 'transport', description: 'Taxi', coveredBy: 'player' })
-  check(finances.currency === 'ZAR' && finances.transactions.length === 2, 'rand ledger records income and expenses')
-  check(formatMoney(35) === 'R35', 'visible currency is South African rand')
+  check(finances.currency === 'GBP' && finances.transactions.length === 2, 'pound ledger records income and expenses')
+  check(formatMoney(35) === '£35', 'visible currency is pounds sterling')
   check(new Set(TRANSPORT_OPTIONS.map((o) => o.cost)).size > 2, 'transport offers real cost/reliability choices')
-  const trip = { id: 'trial-jhb', title: 'Johannesburg academy trial', travelCost: 480, accommodationCovered: true, mealsCovered: true }
-  check(!resolveOpportunityFunding({ opportunity: trip, choice: 'savings', balance: 320, finances, roll: 0 }).canAttend, 'insufficient savings cannot silently fund a trip')
-  check(resolveOpportunityFunding({ opportunity: trip, choice: 'coach', balance: 320, finances, roll: 0 }).canAttend, 'coach assistance can unlock an otherwise unaffordable opportunity')
+  const trip = { id: 'trial-away', title: 'Away academy trial', travelCost: 80, accommodationCovered: true, mealsCovered: true }
+  check(!resolveOpportunityFunding({ opportunity: trip, choice: 'savings', balance: 40, finances, roll: 0 }).canAttend, 'insufficient savings cannot silently fund a trip')
+  check(resolveOpportunityFunding({ opportunity: trip, choice: 'coach', balance: 40, finances, roll: 0 }).canAttend, 'coach assistance can unlock an otherwise unaffordable opportunity')
 }
 
 console.log('\n[E] equipment remains subtle and local sponsorship stays believable')

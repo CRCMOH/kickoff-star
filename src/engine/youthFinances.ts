@@ -31,7 +31,7 @@ export interface SponsorshipRecord {
 }
 
 export interface YouthFinanceState {
-  currency: 'ZAR'
+  currency: 'GBP'
   familySupport: FamilySupportTier
   clubSupport: ClubSupport
   transactions: FinanceTransaction[]
@@ -45,7 +45,7 @@ export function defaultClubSupport(phase: 'grassroots-trials' | 'grassroots-seas
 }
 
 export function initYouthFinance(phase: 'grassroots-trials' | 'grassroots-season' | 'academy', familySupport: FamilySupportTier = 'stable'): YouthFinanceState {
-  return { currency: 'ZAR', familySupport, clubSupport: defaultClubSupport(phase), transactions: [], sponsorships: [] }
+  return { currency: 'GBP', familySupport, clubSupport: defaultClubSupport(phase), transactions: [], sponsorships: [] }
 }
 
 export function postTransaction(state: YouthFinanceState | undefined, phase: 'grassroots-trials' | 'grassroots-season' | 'academy', transaction: Omit<FinanceTransaction, 'id'>): YouthFinanceState {
@@ -63,10 +63,10 @@ export interface TransportOption {
 }
 
 export const TRANSPORT_OPTIONS: TransportOption[] = [
-  { id: 'bus', name: 'Bus', cost: 15, energyCost: 3, reliability: 'medium' },
-  { id: 'taxi', name: 'Taxi', cost: 35, energyCost: 2, reliability: 'high' },
+  { id: 'bus', name: 'Bus', cost: 2, energyCost: 3, reliability: 'medium' },
+  { id: 'taxi', name: 'Taxi', cost: 7, energyCost: 2, reliability: 'high' },
   { id: 'lift', name: 'Lift', cost: 0, energyCost: 1, reliability: 'low' },
-  { id: 'ride-share', name: 'Ride-share', cost: 70, energyCost: 1, reliability: 'high' },
+  { id: 'ride-share', name: 'Ride-share', cost: 12, energyCost: 1, reliability: 'high' },
 ]
 
 export interface FootballOpportunity {
