@@ -18,7 +18,12 @@ for(const position of positions){
   const rating=calculatePlayerRating({position,stats:s,decisionQuality:.62+(n%7)*.035,executionQuality:.62+(n%5)*.045,ratedMoments:5,minutes:90}).total
   const player:MotmCandidate={id:'career-player',name:'Test Player',position,rating,stats:s}
   const homeScore=Math.max(goals,n%4),awayScore=n%3
-  const result=selectManOfTheMatch(simulateMotmField({homeScore,awayScore,playerIsHome:true,player,random:()=>((n*37+17)%101)/101}),'career-player')
+  const field=simulateMotmField({homeScore,awayScore,playerIsHome:true,player,random:()=>((n*37+17)%101)/101})
+  if(field.length!==22)throw new Error(position+' MOTM field has '+field.length+' players, expected 22')
+  if(field.filter(c=>c.id==='career-player').length!==1)throw new Error(position+' controlled player must appear exactly once')
+  const allocatedHomeGoals=field.filter(c=>c.id!=='career-player'&&c.id.startsWith('npc-0-')).reduce((sum,c)=>sum+c.stats.goals,0)+player.stats.goals
+  if(allocatedHomeGoals!==homeScore)throw new Error(position+' home scorers do not reconcile: '+allocatedHomeGoals+' vs '+homeScore)
+  const result=selectManOfTheMatch(field,'career-player')
   if(result?.playerWon)wins[position]++
  }
 }
