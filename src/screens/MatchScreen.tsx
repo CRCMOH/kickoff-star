@@ -38,6 +38,27 @@ function resolveExecutionComponent(bundle: MatchDecisionBundle, optIndex: number
   if (attrs.includes('passing') || attrs.includes('vision')) return PassingMinigame
   return TimingBar
 }
+
+const EXECUTION_GUIDES = {
+  shooting: { icon: '◎', title: 'Pick your finish', body: 'A marker sweeps across the goal. Tap when it reaches the green centre zone to make the cleanest contact.', tip: 'Gold is good. Green is perfect. Do not rush the first sweep.' },
+  passing: { icon: '↗', title: 'Thread the pass', body: 'Read the moving passing lane, then release the ball when your teammate is open and the route is clear.', tip: 'Wait for the lane to open—accuracy beats speed.' },
+  dribbling: { icon: '◇', title: 'Beat your marker', body: 'React to the defender and choose the open route before the space disappears.', tip: 'Watch the defender, not just the ball.' },
+  tackling: { icon: '◆', title: 'Time the challenge', body: 'Hold your position and commit when the attacker enters the winning zone.', tip: 'Too early gets beaten; too late gives away the chance.' },
+  keeping: { icon: '▣', title: 'Make the save', body: 'Track the shot and tap when your goalkeeper reaches the projected path of the ball.', tip: 'The smallest green zone produces the strongest save.' },
+  crossing: { icon: '⌁', title: 'Attack the cross', body: 'Let the delivery arrive, then tap as your player meets the ball in the central contact zone.', tip: 'The header phase starts only after the cross lands.' },
+  timing: { icon: '◉', title: 'Execute the action', body: 'Stop the moving marker as close to the green centre as possible.', tip: 'Read one pass of the marker before committing.' },
+} as const
+
+function executionGuideFor(bundle: MatchDecisionBundle, optIndex: number) {
+  const Component = resolveExecutionComponent(bundle, optIndex)
+  if (Component === ShootingMinigame) return EXECUTION_GUIDES.shooting
+  if (Component === PassingMinigame) return EXECUTION_GUIDES.passing
+  if (Component === DribbleMinigame) return EXECUTION_GUIDES.dribbling
+  if (Component === TackleMinigame) return EXECUTION_GUIDES.tackling
+  if (Component === KeeperMinigame) return EXECUTION_GUIDES.keeping
+  if (Component === CrossHeaderMinigame) return EXECUTION_GUIDES.crossing
+  return EXECUTION_GUIDES.timing
+}
 import TrainingMiniGame from '../components/TrainingMiniGame'
 import { gradeFromRatio } from '../engine/xp'
 import GoalCelebration, { type CelebrationKind } from '../components/GoalCelebration'
@@ -68,7 +89,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const [moment, setMoment] = useState<KeyMoment | null>(null)
   const [bundle, setBundle] = useState<MatchDecisionBundle | null>(null)
   const [revealed, setRevealed] = useState<{ text: string; success: boolean; grade: ExecutionGrade | null; action?: PitchAction } | null>(null)
-  const [executing, setExecuting] = useState<{ optIndex: number } | null>(null)
+  const [executing, setExecuting] = useState<{ optIndex: number; started: boolean } | null>(null)
   const [muted, setMutedUi] = useState(isMuted())
   const [speed, setSpeed] = useState<1 | 2 | 3>(1)
   const [displayMinute, setDisplayMinute] = useState(0)
@@ -229,7 +250,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       settle(optIndex, autoResolveGrade(player, state.matchStamina))
       return
     }
-    setExecuting({ optIndex })
+    setExecuting({ optIndex, started: false })
   }
 
   const settle = (optIndex: number, grade: ExecutionGrade) => {
@@ -405,7 +426,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
         </div>
       </div>
 
-      {(showMoment || revealed) && (
+      {(showMoment || revealed) && !celebration && (
         <div
           className="fixed inset-0 z-[65] flex items-center justify-center p-5"
           style={{ background: 'radial-gradient(ellipse 70% 50% at 50% 40%, rgba(212,175,55,0.08), transparent 65%), #050504' }}
@@ -423,15 +444,31 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
                     ceiling={bundle.ceilings[executing.optIndex]}
                     onComplete={(quality) => settle(executing.optIndex, gradeFromRatio(quality))}
                   />
-                ) : (() => {
+                ) : !executing.started ? (() => {
+                  const guide = executionGuideFor(bundle, executing.optIndex)
+                  return (
+                    <div className="minigame-preview">
+                      <div className="minigame-steps"><b>1</b><span>READ</span><i/><b>2</b><span>EXECUTE</span><i/><b>3</b><span>RESULT</span></div>
+                      <div className="minigame-preview-icon">{guide.icon}</div>
+                      <div className="text-[9px] uppercase tracking-[.24em] text-ks-gold">how to play</div>
+                      <h2>{guide.title}</h2>
+                      <p>{guide.body}</p>
+                      <div className="minigame-tip"><span>COACH'S TIP</span>{guide.tip}</div>
+                      <button onClick={() => setExecuting({ ...executing, started: true })}>I'm ready →</button>
+                    </div>
+                  )
+                })() : (() => {
                   const ExecutionComponent = resolveExecutionComponent(bundle, executing.optIndex)
                   return (
-                    <ExecutionComponent
-                      spec={executionSpecFor(player, bundle.ceilings[executing.optIndex], state.matchStamina)}
-                      label={bundle.decision.options[executing.optIndex].label}
-                      onResolve={(grade) => settle(executing.optIndex, grade)}
-                      tier={moment.tier}
-                    />
+                    <div className="minigame-live-stage">
+                      <div className="minigame-live-label"><span>2 / 3</span> EXECUTE</div>
+                      <ExecutionComponent
+                        spec={executionSpecFor(player, bundle.ceilings[executing.optIndex], state.matchStamina)}
+                        label={bundle.decision.options[executing.optIndex].label}
+                        onResolve={(grade) => settle(executing.optIndex, grade)}
+                        tier={moment.tier}
+                      />
+                    </div>
                   )
                 })()}
               </div>
