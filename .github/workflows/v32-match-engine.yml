@@ -9,6 +9,8 @@ on:
       - 'src/engine/matchSimulationV2.ts'
       - 'src/engine/matchStats.ts'
       - 'src/engine/liveMatchV2.ts'
+      - 'src/engine/ratingSystemV32.ts'
+      - 'src/engine/motmV32.ts'
       - 'src/engine/matchResolutionV2.ts'
       - 'scripts/auditMatchEngineV2.ts'
       - 'scripts/auditLiveBridgeV2.ts'
