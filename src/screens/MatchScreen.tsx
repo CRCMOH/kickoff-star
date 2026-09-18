@@ -428,15 +428,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
               </div>
             ) : showMoment && bundle && moment ? (
               <div className="flex flex-col gap-2.5">
-                <div className="font-display tracking-[0.3em] text-[10px] text-ks-gold uppercase text-center animate-pulse">
-                  ⏸ your moment — clock stopped
-                </div>
-                <div className="rounded-xl border border-ks-gold/40 bg-ks-gold/5 px-4 py-3 mb-1 shadow-[0_0_30px_rgba(212,175,55,0.12)]">
-                  <p className="text-ks-ink text-sm leading-relaxed">{moment.situation}</p>
-                </div>
+                <div className="moment-kicker"><span>{clockLabel}</span><b>{moment.isDefensive ? 'DEFENSIVE MOMENT' : moment.tier === 'clear' ? 'CLEAR CHANCE' : moment.tier === 'good' ? 'ATTACKING MOMENT' : 'KEY MOMENT'}</b><span>{player.position}</span></div>
+                <div className={"moment-danger "+(moment.tier==='clear'?'danger-clear':moment.tier==='good'?'danger-good':'danger-half')}><span></span><span></span><span></span></div>
+                <div className="moment-scene"><div className="moment-scene-glow"/><div className="text-[9px] uppercase tracking-[.24em] text-ks-gold mb-2">The game slows down</div><p className="text-white text-[15px] font-medium leading-relaxed relative z-10">{moment.situation}</p></div>
                 {bundle.decision.options.map((opt, i) => (
                   <button key={opt.id} onClick={() => handleChoose(i)}
-                    className="text-left rounded-xl border border-ks-border bg-[#0f0f0d] px-4 py-3 hover:border-ks-gold hover:bg-ks-gold/5 transition-colors">
+                    className="moment-choice text-left" style={{animationDelay:`${120+i*90}ms`}}>
                     <div className="font-display tracking-wide text-ks-gold text-sm uppercase">{opt.label}</div>
                     {opt.hint && <div className="text-[11px] text-ks-muted mt-0.5">{opt.hint}</div>}
                   </button>
