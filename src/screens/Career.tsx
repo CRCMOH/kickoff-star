@@ -475,6 +475,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         tab={tab}
         onTabChange={setTab}
         onOpenOffers={() => setMode({ kind: isLive(player.negotiation) ? 'negotiation' : 'offers' })}
+        onExitToMenu={() => onExitToMenu?.()}
         league={league}
         academyLeague={academyLeague}
         playerTeam={playerTeam}
