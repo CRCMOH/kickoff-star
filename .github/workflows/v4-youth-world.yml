@@ -1,0 +1,32 @@
+name: V4 Youth World Validation
+
+on:
+  push:
+    branches: [v4-youth-world]
+    paths:
+      - 'src/types/youthWorld.ts'
+      - 'src/engine/youthWorld.ts'
+      - 'src/engine/youthPathways.ts'
+      - 'src/engine/save.ts'
+      - 'src/store/careerStore.ts'
+      - 'scripts/auditYouthWorldV4.ts'
+      - '.github/workflows/v4-youth-world.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Youth world audit
+        run: npx tsx scripts/auditYouthWorldV4.ts
+      - name: Production build
+        run: npm run build
