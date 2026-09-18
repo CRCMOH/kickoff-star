@@ -184,7 +184,7 @@ export function generateSundayApproaches(world: YouthWorld, week: number): Youth
   if (week < 7 || week > 41 || world.pathway.sundayClubId) return world
   const path = world.pathway
   const visible = path.exposure.school + path.exposure.regional * .7 + path.exposure.grassroots
-  const threshold = path.schoolTier === 'cut' ? 3 : path.schoolTier === 'development' ? 7 : path.schoolTier === 'reserve' ? 10 : 14
+  const threshold = path.schoolTier === 'cut' ? 0 : path.schoolTier === 'development' ? 7 : path.schoolTier === 'reserve' ? 10 : 14
   if (visible < threshold) return world
 
   const existing = new Set(path.pendingSundayApproaches.map(a => a.clubId))
@@ -203,7 +203,7 @@ export function generateSundayApproaches(world: YouthWorld, week: number): Youth
     return {
       id:`${club.id}-w${week}`, clubId:club.id, kind, week, expiresWeek:week + 2, status:'pending',
       reason: path.schoolTier === 'cut'
-        ? 'The club heard you were available and wants to assess you.'
+        ? 'You registered for open community football after being cut; the club wants to assess you.'
         : 'A local coach has been following your school performances.',
     }
   })
