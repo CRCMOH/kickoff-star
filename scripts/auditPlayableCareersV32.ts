@@ -16,9 +16,14 @@ function player(position:Position,level:number):Player{
 }
 function choose(bundle:any,profile:string){
  const opts=bundle.decision.options
- if(profile==='developing') return Math.floor(rand()*opts.length)
- if(profile==='solid') return opts.reduce((b:any,o:any,i:number)=>o.successChance>opts[b].successChance?i:b,0)
- return opts.reduce((b:any,o:any,i:number)=>(o.successChance*(bundle.rewards[i]||1))>(opts[b].successChance*(bundle.rewards[b]||1))?i:b,0)
+ // Human-like policy: stronger players make better decisions more often, but
+ // do not deterministically spam one option. This keeps shooting/creation mixed.
+ const scores=opts.map((o:any,i:number)=>o.successChance*(0.7+0.3*(bundle.rewards[i]||1)/Math.max(1,bundle.maxReward)))
+ const ranked=scores.map((v:number,i:number)=>({v,i})).sort((a:any,b:any)=>b.v-a.v)
+ const r=rand()
+ if(profile==='developing') return r<.45?ranked[0].i:r<.70?(ranked[1]?.i??ranked[0].i):Math.floor(rand()*opts.length)
+ if(profile==='solid') return r<.68?ranked[0].i:r<.90?(ranked[1]?.i??ranked[0].i):Math.floor(rand()*opts.length)
+ return r<.78?ranked[0].i:r<.96?(ranked[1]?.i??ranked[0].i):Math.floor(rand()*opts.length)
 }
 function play(p:Player,profile:string,seed:number){
  reseed(seed); const team=generatePlayerTeam('Audit FC',4), opp=generateTeam(4)
