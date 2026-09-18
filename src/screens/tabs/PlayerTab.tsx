@@ -52,9 +52,10 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="rounded-lg border border-ks-border bg-gradient-to-br from-[#15140f] to-[#0d0d0b] px-3 py-3 flex items-center gap-3 relative overflow-hidden texture-floodlight">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 80% at 15% 20%, rgba(212,175,55,0.10), transparent 60%)' }} />
-        <Avatar id={player.avatarId ?? 0} size={58} className="relative z-10 shrink-0" />
+      <div className="player-card-v2">
+        <div className="player-card-number">{player.position}</div>
+        <div className="player-card-beam"/>
+        <Avatar id={player.avatarId ?? 0} size={72} className="relative z-10 shrink-0 player-card-avatar" />
         <div className="flex-1 min-w-0 relative z-10">
           <div className="font-display tracking-wide text-ks-ink text-base leading-tight truncate">
             {getNation(player.nationality).flag} {player.name}
@@ -71,9 +72,10 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
             <span className="font-display text-green-500 text-xs">{player.potential}</span>
           </div>
         </div>
-        <OvrRing value={ovr} size="lg" />
+        <div className="player-card-ovr"><strong>{ovr}</strong><span>OVERALL</span></div>
       </div>
 
+      <div className="player-quick-strip"><div><span>APPS</span><b>{c?.appearances ?? 0}</b></div><div><span>GOALS</span><b>{c?.goals ?? 0}</b></div><div><span>ASSISTS</span><b>{c?.assists ?? 0}</b></div><div><span>BEST</span><b>{c?.bestRating?.toFixed(1) ?? '—'}</b></div></div>
       {/* P50 — the coach's verdict used to only ever surface as a one-time
           weekly note that scrolled away. Now it's always visible: where you
           actually stand, and how long until it can change — the real
