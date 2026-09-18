@@ -24,11 +24,12 @@ import CaptaincyStoryCard from '../components/CaptaincyStoryCard'
 // matches, decisions) and returns the player to where they were.
 
 export default function WeeklyHub({
-  tab, onTabChange, onOpenOffers, league, academyLeague, playerTeam, playerDivision,
+  tab, onTabChange, onOpenOffers, onExitToMenu, league, academyLeague, playerTeam, playerDivision,
 }: {
   tab: HubTab
   onTabChange: (tab: HubTab) => void
   onOpenOffers: () => void
+  onExitToMenu: () => void
   league: LeagueWorld | null
   academyLeague: AcademyWorld | null
   playerTeam: Team
@@ -63,7 +64,7 @@ export default function WeeklyHub({
       {/* tab header — gives every destination a sense of place */}
       <div className="sticky top-0 z-20 bg-ks-black/95 backdrop-blur border-b border-ks-border/50">
         <div className="max-w-md mx-auto w-full px-3 py-2">
-          <span className="font-display tracking-widest text-[10px] text-ks-gold uppercase">{activeLabel}</span>
+          <div className="flex items-center justify-between gap-3"><span className="font-display tracking-widest text-[10px] text-ks-gold uppercase">{activeLabel}</span><button type="button" onClick={onExitToMenu} className="career-menu-button" aria-label="Return to Kickoff Star main menu">☰ <span>MENU</span></button></div>
         </div>
       </div>
 
