@@ -164,6 +164,8 @@ export interface Player {
 
   // Coach Trust (single running score, locked spec)
   coachTrust: number
+  /** V3.2 actual team captaincy; separate from the Captain archetype/passive. */
+  captaincy?: import('../engine/captaincy').CaptaincyState
   /** Phase 15: recent life-event keys, so the same event can't fire twice running. */
   recentLifeEvents?: string[]
 
