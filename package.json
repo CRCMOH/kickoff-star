@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "audit:v4": "node --import tsx scripts/audit21.ts",
+    "audit:v4-ui": "node --import tsx scripts/audit22.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -68,6 +68,26 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
+      <Panel title="🎽 squad">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 rounded-md border border-ks-gold/40 bg-ks-gold/10 px-2 py-2">
+            <span className="text-[9px] text-ks-gold w-8">YOU</span>
+            <span className="text-[11px] text-ks-ink flex-1 truncate">{player.name}</span>
+            <span className="text-[9px] text-ks-muted">{player.position}</span>
+            <span className="text-[9px] text-ks-gold uppercase">{player.squadRole ?? 'trial'}</span>
+          </div>
+          {[...(player.squad ?? [])].sort((a, b) => (a.squadRole === b.squadRole ? b.quality - a.quality : a.squadRole === 'starter' ? -1 : 1)).map((mate) => (
+            <div key={mate.id} className="flex items-center gap-2 px-2 py-1.5 border-b border-ks-border/35 last:border-0">
+              <span className={`text-[8px] uppercase w-10 ${mate.squadRole === 'starter' ? 'text-green-500' : 'text-ks-muted'}`}>{mate.squadRole === 'starter' ? 'XI' : 'bench'}</span>
+              <span className="text-[11px] text-ks-ink flex-1 truncate">{mate.name}</span>
+              <span className="text-[9px] text-ks-muted w-7">{mate.position}</span>
+              <span className="font-display text-[10px] text-ks-gold w-5 text-right">{mate.quality}</span>
+              <span className="text-[8px] text-ks-muted w-12 text-right">{mate.seasonGoals}G {mate.seasonAssists}A</span>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
       <Panel title={`rivals — ${divName}`}>
         <div className="flex flex-col gap-2">
           {rivals.map((t) => (
