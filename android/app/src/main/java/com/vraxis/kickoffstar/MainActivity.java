@@ -1,28 +1,17 @@
 package com.vraxis.kickoffstar;
 
 import android.os.Bundle;
-import androidx.activity.OnBackPressedCallback;
-import com.getcapacitor.BridgeActivity;
+ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
-  private OnBackPressedCallback backCallback;
-
   @Override
-  protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    backCallback = new OnBackPressedCallback(true) {
-      @Override public void handleOnBackPressed() {
-        if (bridge != null && bridge.getWebView() != null) {
-          bridge.getWebView().evaluateJavascript(
-            "window.dispatchEvent(new Event('kickoffstar:native-back'))", null);
-        } else {
-          setEnabled(false);
-          getOnBackPressedDispatcher().onBackPressed();
-          setEnabled(true);
-        }
-      }
-    };
-    getOnBackPressedDispatcher().addCallback(this, backCallback);
+  public void onBackPressed() {
+    if (bridge != null && bridge.getWebView() != null) {
+      bridge.getWebView().evaluateJavascript(
+        "window.dispatchEvent(new Event('kickoffstar:native-back'))", null);
+      return;
+    }
+    super.onBackPressed();
   }
 
   @Override
