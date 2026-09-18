@@ -129,3 +129,18 @@ for(const pos of positions){
  if(hi9>20) throw new Error(`${pos} has too many 9+ ratings: ${hi9}%`)
 }
 console.log('RATING LEDGER CALIBRATION PASSED — 700 matches')
+
+
+console.log('\nEXCEPTIONAL RATING CASES')
+const {calculatePlayerRating}=await import('../src/engine/ratingSystemV32')
+const {emptyMatchStats:ems}=await import('../src/engine/matchStats')
+for(const [label,pos,mut] of [
+ ['ST hat-trick','ST',(s:any)=>{s.goals=3;s.shotsOnTarget=5;s.keyPasses=2}],
+ ['GK hero','GK',(s:any)=>{s.saves=8;s.shotsFaced=8;s.highDifficultySaves=3;s.goalsConceded=0}],
+ ['CB wall','CB',(s:any)=>{s.tacklesWon=4;s.interceptions=3;s.blocks=2;s.headersWon=4;s.clearances=6;s.goalsConceded=0}],
+] as any[]){
+ const st=ems();mut(st);const r=calculatePlayerRating({position:pos,stats:st,decisionQuality:.88,executionQuality:.88,ratedMoments:5,minutes:90})
+ console.log(`${label}: ${r.total} (exceptional +${r.exceptional.toFixed(2)})`)
+ if(r.total<8.5)throw new Error(`${label} did not reach exceptional band`)
+}
+console.log('EXCEPTIONAL RATING CASES PASSED')
