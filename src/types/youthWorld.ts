@@ -131,6 +131,35 @@ export interface YouthPathwayState {
   history: PathwayHistoryEntry[]
 }
 
+export interface AcademyClub {
+  id: string
+  name: string
+  region: string
+  prestige: number
+  coaching: number
+  facilities: number
+  positionNeeds: Partial<Record<Position, number>>
+}
+
+export interface AcademyScoutInterest {
+  clubId: string
+  awareness: number
+  interest: number
+  lastSeenWeek: number | null
+  matchesSeen: number
+  status: 'unknown' | 'aware' | 'monitoring' | 'watchlist' | 'trial-ready'
+}
+
+export interface YouthScoutingProfile {
+  localVisibility: number
+  schoolReputation: number
+  grassrootsReputation: number
+  regionalReputation: number
+  academyExposure: number
+  academyInterest: Record<string, AcademyScoutInterest>
+  knownScoutVisits: { week: number; clubId: string; competition: CompetitionKind; reason: string }[]
+}
+
 export interface YouthWorld {
   version: 1
   seed: string
@@ -141,6 +170,8 @@ export interface YouthWorld {
   schools: YouthSchool[]
   schoolSquads: Record<string, YouthSchoolSquads>
   sundayClubs: SundayLeagueClub[]
+  academyClubs: AcademyClub[]
+  scouting: YouthScoutingProfile
   competitions: YouthCompetition[]
   calendar: YouthCalendarBlock[]
   pathway: YouthPathwayState
