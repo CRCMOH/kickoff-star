@@ -241,80 +241,23 @@ export interface FinanceTransaction {
   id: string
   week: number
   amount: number
-  category: 'allowance' | 'odd-job' | 'transport' | 'food' | 'recovery' | 'equipment' | 'club-support' | 'match-allowance' | 'academy-support' | 'other'
+  category: 'allowance' | 'odd-job' | 'transport' | 'food' | 'recovery' | 'equipment' | 'club-support' | 'match-allowance' | 'academy-support' | 'showcase' | 'trial' | 'other'
   description: string
 }
 
 export interface YouthFinanceState {
   balance: number
   familySupportLevel: 'limited' | 'normal' | 'strong'
+  familyAllowancePerMonth: number
+  lastAllowanceWeek: number
   transportPass: boolean
+  transportPasses: number
+  recoveryCredits: number
   bootsCondition: number
   weeklyPersonalBudget: number
   totalEarned: number
   totalSpent: number
   transactions: FinanceTransaction[]
-}
-
-export interface YouthStanding {
-  teamId: string
-  played: number
-  won: number
-  drawn: number
-  lost: number
-  goalsFor: number
-  goalsAgainst: number
-  points: number
-}
-
-export interface YouthFixture {
-  id: string
-  competitionId: string
-  stage: 'league' | 'group' | 'quarter-final' | 'semi-final' | 'final'
-  groupId?: string
-  round: number
-  homeTeamId: string
-  awayTeamId: string
-  played: boolean
-  homeGoals: number | null
-  awayGoals: number | null
-  winnerTeamId?: string | null
-}
-
-export interface YouthCompetitionRuntime {
-  competitionId: string
-  seasonYear: number
-  stage: 'not-started' | 'league' | 'group' | 'knockout' | 'complete'
-  teams: string[]
-  groups: { id: string; teamIds: string[] }[]
-  fixtures: YouthFixture[]
-  standings: Record<string, YouthStanding[]>
-  qualifiedTeamIds: string[]
-  championTeamId: string | null
-  playerEliminated: boolean
-}
-
-export type YouthFinanceCategory =
-  | 'allowance' | 'odd-job' | 'club-support' | 'transport'
-  | 'recovery' | 'equipment' | 'food' | 'showcase' | 'trial' | 'other'
-
-export interface YouthFinanceTransaction {
-  id: string
-  week: number
-  amount: number
-  category: YouthFinanceCategory
-  label: string
-}
-
-export interface YouthFinanceState {
-  balance: number
-  familyAllowancePerMonth: number
-  lastAllowanceWeek: number
-  transportPasses: number
-  recoveryCredits: number
-  transactions: YouthFinanceTransaction[]
-  totalIncome: number
-  totalSpent: number
 }
 
 export interface YouthWorld {
