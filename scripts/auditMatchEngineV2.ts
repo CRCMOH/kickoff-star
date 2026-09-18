@@ -35,16 +35,19 @@ interface AuditResult {
   tenPlusTeamGoals: number
   maxScore: string
   maxTotal: number
+  scorelines: Record<string, number>
 }
 
 function run(label: string, home: Team, away: Team, matches = 25000): AuditResult {
   const rng = seeded(20260917 + label.length)
   const result: AuditResult = {
     label, matches, homeGoals: 0, awayGoals: 0, draws: 0, homeWins: 0, awayWins: 0,
-    fiveGoalMargins: 0, sevenPlusTeamGoals: 0, tenPlusTeamGoals: 0, maxScore: '0-0', maxTotal: 0,
+    fiveGoalMargins: 0, sevenPlusTeamGoals: 0, tenPlusTeamGoals: 0, maxScore: '0-0', maxTotal: 0, scorelines: {},
   }
   for (let i = 0; i < matches; i++) {
     const m = simulateMatchV2(home, away, rng)
+    const scoreline = `${m.homeGoals}-${m.awayGoals}`
+    result.scorelines[scoreline] = (result.scorelines[scoreline] ?? 0) + 1
     result.homeGoals += m.homeGoals
     result.awayGoals += m.awayGoals
     if (m.homeGoals === m.awayGoals) result.draws++
@@ -78,6 +81,12 @@ for (const r of cases) {
   console.log(`\n${r.label}`)
   console.log(`avg goals ${avgH.toFixed(2)}-${avgA.toFixed(2)} | W/D/L ${(r.homeWins/r.matches*100).toFixed(1)} / ${(r.draws/r.matches*100).toFixed(1)} / ${(r.awayWins/r.matches*100).toFixed(1)}%`)
   console.log(`5+ margin ${(blowoutRate*100).toFixed(3)}% | 7+ goals by team ${(sevenRate*100).toFixed(3)}% | 10+ ${(tenRate*100).toFixed(4)}% | max ${r.maxScore}`)
+  const top = Object.entries(r.scorelines).sort((a,b) => b[1]-a[1]).slice(0,15)
+  console.log('top scorelines:', top.map(([s,n]) => `${s}=${n} (${(n/r.matches*100).toFixed(2)}%)`).join(' | '))
+  if (r.label.startsWith('equal')) {
+    const selected = ['0-0','1-0','0-1','1-1','2-0','0-2','2-1','1-2','2-2','3-0','0-3','3-1','1-3','3-2','2-3','3-3','4-2','2-4','4-3','3-4','4-4']
+    console.log('equal-team selected scorelines:', selected.map(s => `${s}=${r.scorelines[s] ?? 0}`).join(' | '))
+  }
 
   if (r.label.startsWith('equal') && (avgH + avgA < 1.5 || avgH + avgA > 4.0)) failed = true
   if (r.label.includes('+3') && blowoutRate > 0.01) failed = true
