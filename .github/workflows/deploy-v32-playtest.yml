@@ -11,6 +11,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  deployments: write
 
 concurrency:
   group: pages
@@ -40,7 +41,6 @@ jobs:
             find docs -maxdepth 1 -type f -exec cp {} _site/ \;
           fi
           touch _site/.nojekyll
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
