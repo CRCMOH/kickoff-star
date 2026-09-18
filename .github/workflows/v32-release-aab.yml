@@ -2,6 +2,10 @@ name: V3.2 Signed Release AAB
 
 on:
   workflow_dispatch:
+  push:
+    branches: [v3.2-match-engine-redesign]
+    paths:
+      - '.github/workflows/v32-release-aab.yml'
 
 jobs:
   release-aab:
