@@ -16,19 +16,16 @@ export default function TableTab({ world, playerTeamId, isAcademy }: {
   const tiers = Object.keys(world.divisions).map(Number).sort()
   const [tier, setTier] = useState<number>(world.playerDivision)
   const division = (world.divisions as Record<number, Division>)[tier]
+  const sorted = [...division.standings].sort((a,b)=>b.points-a.points || (b.goalsFor-b.goalsAgainst)-(a.goalsFor-a.goalsAgainst))
+  const playerStanding = tier===world.playerDivision ? sorted.find(s=>s.teamId===playerTeamId) : undefined
+  const playerPos = playerStanding ? sorted.findIndex(s=>s.teamId===playerTeamId)+1 : 0
+  const leader = sorted[0]
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div>
-        <div className="font-display tracking-widest text-[10px] text-ks-gold uppercase mb-0.5">
-          {isAcademy ? 'academy' : 'sunday league'} pyramid
-        </div>
-        <h1 className="font-display text-ks-ink text-xl tracking-wide">
-          {isAcademy ? academyDivisionLabel(tier as 1 | 2) : divisionLabel(tier as 1 | 2 | 3)}
-        </h1>
-      </div>
+      <section className="table-hero"><small>{isAcademy?'ACADEMY':'SUNDAY LEAGUE'} · COMPETITION CENTRE</small><h1>{isAcademy?academyDivisionLabel(tier as 1|2):divisionLabel(tier as 1|2|3)}</h1><div className="table-story">{playerStanding?<><div><span>YOUR POSITION</span><b>{playerPos}</b></div><div><span>POINTS</span><b>{playerStanding.points}</b></div><div><span>LEADER</span><strong>{leader?.teamName??'—'}</strong></div><div><span>GAP</span><b>{Math.max(0,(leader?.points??0)-playerStanding.points)}</b></div></>:<><div><span>LEADER</span><strong>{leader?.teamName??'—'}</strong></div><div><span>POINTS</span><b>{leader?.points??0}</b></div></>}</div></section>
 
-      <div className="flex gap-1.5">
+      <div className="division-switcher flex gap-1.5">
         {tiers.map((t) => (
           <button
             key={t}
