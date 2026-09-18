@@ -158,3 +158,17 @@ html.reduce-motion *::after {
 .pitch-action-goal{font-size:20px;color:#d4af37;border-color:#d4af3780;text-shadow:0 0 20px #d4af37}
 .pitch-action-save{color:#75d5ff}.pitch-action-shot{color:#ffd36b}.pitch-action-tackle{color:#ff936b}.pitch-action-cross{color:#d9c6ff}
 @keyframes pitchActionIn{0%{opacity:0;transform:translate(-50%,-50%) scale(1.8)}18%{opacity:1;transform:translate(-50%,-50%) scale(.9)}35%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-65%) scale(.96)}}
+
+/* UI2 broadcast camera */
+.live-pitch{transition:transform .7s cubic-bezier(.2,.8,.2,1),filter .45s ease;transform-origin:center}
+.live-pitch.camera-third{transform:scale(1.035)}
+.live-pitch.camera-box{transform:scale(1.075);filter:saturate(1.18) brightness(1.06)}
+.live-pitch.player-focus{transform:scale(1.09);filter:saturate(1.2) brightness(.9)}
+.match-dot.user-player{width:22px;height:22px;border:2px solid #d4af37;box-shadow:0 0 0 4px #d4af3728,0 0 20px #d4af37aa,0 4px 10px #000;z-index:6}
+.match-dot.user-player:after{content:'';position:absolute;left:50%;top:-9px;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;border-top:6px solid #d4af37;transform:translateX(-50%);filter:drop-shadow(0 0 4px #d4af37)}
+.player-focus .match-dot:not(.user-player){opacity:.55;filter:blur(.2px)}
+.player-focus .user-player{animation:userPulse .7s ease-in-out infinite alternate}
+@keyframes userPulse{to{box-shadow:0 0 0 8px #d4af3715,0 0 28px #d4af37,0 4px 10px #000;transform:translate(-50%,-50%) scale(1.1)}}
+.broadcast-stat{height:34px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(24,24,20,.92),rgba(7,7,6,.94));border-radius:7px;padding:4px 8px;display:flex;align-items:center;justify-content:space-between;box-shadow:inset 0 1px rgba(255,255,255,.04)}
+.broadcast-stat span{font-size:7px;letter-spacing:.16em;color:#777;text-transform:uppercase}
+.broadcast-stat b{font-family:var(--font-display,inherit);font-size:11px;color:#d4af37;letter-spacing:.04em}
