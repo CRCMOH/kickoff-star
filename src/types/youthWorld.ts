@@ -160,6 +160,102 @@ export interface YouthScoutingProfile {
   knownScoutVisits: { week: number; clubId: string; competition: CompetitionKind; reason: string }[]
 }
 
+export interface CompetitionTeamEntry {
+  id: string
+  name: string
+  strength: number
+  source: 'school' | 'sunday' | 'representative'
+}
+
+export interface CompetitionFixture {
+  id: string
+  competitionId: string
+  round: number
+  stage: 'league' | 'group' | 'quarter-final' | 'semi-final' | 'final'
+  groupId?: string
+  homeTeamId: string
+  awayTeamId: string
+  played: boolean
+  homeGoals?: number
+  awayGoals?: number
+  winnerId?: string | null
+}
+
+export interface CompetitionStanding {
+  teamId: string
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  goalsFor: number
+  goalsAgainst: number
+  goalDifference: number
+  points: number
+}
+
+export interface LeagueCompetitionState {
+  id: string
+  kind: 'league'
+  teams: CompetitionTeamEntry[]
+  fixtures: CompetitionFixture[]
+  standings: CompetitionStanding[]
+  currentRound: number
+  complete: boolean
+}
+
+export interface GroupCompetitionState {
+  id: string
+  kind: 'groups-knockout'
+  teams: CompetitionTeamEntry[]
+  groups: Record<string, string[]>
+  fixtures: CompetitionFixture[]
+  standings: Record<string, CompetitionStanding[]>
+  currentRound: number
+  stage: 'groups' | 'quarter-final' | 'semi-final' | 'final' | 'complete'
+  qualifiedTeamIds: string[]
+  eliminatedTeamIds: string[]
+  championId: string | null
+}
+
+export interface KnockoutCompetitionState {
+  id: string
+  kind: 'knockout'
+  teams: CompetitionTeamEntry[]
+  fixtures: CompetitionFixture[]
+  currentRound: number
+  stage: 'quarter-final' | 'semi-final' | 'final' | 'complete'
+  eliminatedTeamIds: string[]
+  championId: string | null
+}
+
+export interface YouthCompetitionWorld {
+  interSchools: LeagueCompetitionState | null
+  reserveLeague: LeagueCompetitionState | null
+  regionalSchools: GroupCompetitionState | null
+  minorSchoolCup: KnockoutCompetitionState | null
+  sundayLeague: LeagueCompetitionState | null
+  nationalChampionship: GroupCompetitionState | null
+}
+
+export interface FinanceTransaction {
+  id: string
+  week: number
+  amount: number
+  category: 'allowance' | 'odd-job' | 'transport' | 'food' | 'recovery' | 'equipment' | 'club-support' | 'match-allowance' | 'academy-support' | 'other'
+  description: string
+}
+
+export interface YouthFinanceState {
+  balance: number
+  familySupportLevel: 'limited' | 'normal' | 'strong'
+  transportPass: boolean
+  bootsCondition: number
+  weeklyPersonalBudget: number
+  totalEarned: number
+  totalSpent: number
+  transactions: FinanceTransaction[]
+}
+
 export interface YouthWorld {
   version: 1
   seed: string
@@ -172,6 +268,8 @@ export interface YouthWorld {
   sundayClubs: SundayLeagueClub[]
   academyClubs: AcademyClub[]
   scouting: YouthScoutingProfile
+  competitionWorld: YouthCompetitionWorld
+  finances: YouthFinanceState
   competitions: YouthCompetition[]
   calendar: YouthCalendarBlock[]
   pathway: YouthPathwayState
