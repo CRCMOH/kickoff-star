@@ -1,0 +1,55 @@
+name: Deploy V3.2 Playtest to GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [v3.2-match-engine-redesign]
+    paths:
+      - '.github/workflows/deploy-v32-playtest.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact V3.2 AAB source
+        uses: actions/checkout@v4
+        with:
+          ref: ef0ca79db69d4ee01460fa3091846a5e286705fb
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build exact V3.2 web bundle
+        run: npm run build
+      - name: Assemble Pages site
+        run: |
+          mkdir -p _site/play
+          cp -R dist/. _site/play/
+          if [ -f privacy-policy.html ]; then cp privacy-policy.html _site/privacy-policy.html; fi
+          if [ -d docs ]; then
+            find docs -maxdepth 1 -type f -exec cp {} _site/ \;
+          fi
+          touch _site/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy exact V3.2 playtest
+        uses: actions/deploy-pages@v4
