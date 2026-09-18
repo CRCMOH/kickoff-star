@@ -476,10 +476,23 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       <div className="relative z-10 px-5 pb-8 max-w-md mx-auto w-full" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }}>
         {matchOver ? (
           <>
+          <div className="fulltime-stage">
+            <div className="ft-label">FULL TIME</div>
+            <div className="ft-scoreline">
+              <div><TeamCrest primary={state.homeTeam.primaryColor} secondary={state.homeTeam.secondaryColor} short={state.homeTeam.short} size="sm" /><span>{state.homeTeam.short}</span></div>
+              <b><span>{state.homeScore}</span><i>—</i><span>{state.awayScore}</span></b>
+              <div><TeamCrest primary={state.awayTeam.primaryColor} secondary={state.awayTeam.secondaryColor} short={state.awayTeam.short} size="sm" /><span>{state.awayTeam.short}</span></div>
+            </div>
+            <div className="ft-player-line">
+              <div><small>RATING</small><strong>{state.playerRating.toFixed(1)}</strong></div>
+              <div><small>GOALS</small><strong>{state.playerGoals}</strong></div>
+              <div><small>ASSISTS</small><strong>{state.playerAssists}</strong></div>
+            </div>
+          </div>
           {state.motm && (
-            <div className="mb-3 rounded-xl border border-ks-gold/40 bg-ks-gold/5 px-4 py-3 text-center">
-              <div className="font-display tracking-[0.22em] text-[10px] text-ks-gold uppercase">⭐ Player of the Match</div>
-              <div className="text-ks-ink text-sm mt-1">{state.motm.winner.name} · {state.motm.winner.position} · {state.motm.winner.rating.toFixed(1)}</div>
+            <div className={"motm-reveal "+(state.motm.playerWon?'motm-you':'')}>
+              <div className="motm-star">★</div>
+              <div><small>PLAYER OF THE MATCH</small><strong>{state.motm.winner.name}</strong><span>{state.motm.winner.position} · {state.motm.winner.rating.toFixed(1)}</span></div>
             </div>
           )}
           <button
