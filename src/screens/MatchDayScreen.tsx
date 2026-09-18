@@ -136,10 +136,11 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
         )}
 
         <button
-          onClick={() => { setWalkout(true); window.setTimeout(onKickOff, 900) }}
-          className="matchday-walkout w-full bg-ks-gold text-ks-black font-display tracking-widest rounded-xl py-4 text-sm uppercase active:scale-[0.99]"
+          onClick={() => { if (walkout) return; setWalkout(true); window.setTimeout(onKickOff, 900) }}
+          disabled={walkout}
+          className="matchday-walkout disabled:opacity-60 disabled:pointer-events-none w-full bg-ks-gold text-ks-black font-display tracking-widest rounded-xl py-4 text-sm uppercase active:scale-[0.99]"
         >
-          walk out
+          {walkout ? 'walking out…' : 'walk out'}
         </button>
       </div>
     </div>
