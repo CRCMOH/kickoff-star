@@ -119,14 +119,12 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
 
       {/* P60 — reference: a radar/hexagon chart showing the player's
           attribute "shape" at a glance, alongside (not replacing) the bars. */}
-      <Panel title={<span className="flex items-center gap-1"><Icon src={iconShape} />shape</span>}>
-        <RadarChart
+      <div className="development-card"><div className="development-title"><span><Icon src={iconShape} /> PLAYER DNA</span><b>OVR {ovr}</b></div><div className="development-radar"><RadarChart
           points={groups.flatMap((g) => g.attrs.slice(0, isGk ? 4 : 2)).map((attr) => ({
             label: ATTR_LABELS[attr] ?? attr,
             value: values[attr] ?? 0,
           }))}
-        />
-      </Panel>
+        /></div><div className="development-meta"><span>{getArchetype(player.archetype)?.label ?? player.position}</span><i>Potential {player.potential}</i></div></div>
 
       {groups.map((group) =>
         group.title === 'physical' || group.title === 'mental' ? null : (
@@ -159,16 +157,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
           <EmptyNote>No matches played yet. Your recent ratings will show here.</EmptyNote>
         ) : (
           <>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              {recent.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-md border border-ks-border bg-[#161613] py-1.5 text-center"
-                >
-                  <span className={`font-display text-xs ${ratingColor(r)}`}>{r.toFixed(1)}</span>
-                </div>
-              ))}
-            </div>
+            <div className="form-track mb-3">{recent.map((r,i)=><div key={i} className="form-match"><span className={ratingColor(r)}>{r.toFixed(1)}</span><i style={{height:`${Math.max(14,(r-4)*18)}px`}}/><small>M{i+1}</small></div>)}</div>
             <div className="flex flex-col gap-1.5">
               <StatRow label="matches played" value={ratings.length} />
               <StatRow label="average rating" value={avg ? avg.toFixed(2) : '—'} />
