@@ -75,6 +75,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const halfTimeSeen = useRef(false)
   const priorPlayerGoals = useRef(0)
   const priorPlayerAssists = useRef(0)
+  const priorGoalRating = useRef(6.0)
   const goalsShown = useRef(0)
   const displayScoreRef = useRef({ home: 0, away: 0 })
   const matchStatsRef = useRef({ tackle: 0, interception: 0, header: 0, keyPass: 0, save: 0 })
@@ -181,8 +182,10 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     goalsShown.current = revealedGoals
     displayScoreRef.current = { home, away }
     setDisplayScore({ home, away })
-    const ratingDelta=Math.max(0,state.playerRating-priorCelebrationRating.current)
-    priorCelebrationRating.current=state.playerRating
+    // Only claim a rating gain on a PLAYER goal. Team/opponent goals must not
+    // inherit rating movement from unrelated decisions between celebrations.
+    const ratingDelta=lastKind==='player-goal' ? Math.max(0,state.playerRating-priorGoalRating.current) : undefined
+    if(lastKind==='player-goal') priorGoalRating.current=state.playerRating
     setCelebration({ kind: lastKind, minute: state.minute, ratingDelta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedGoals, state.homeScore, state.awayScore, state.playerGoals, state.playerAssists, state.minute, playerIsHome])
