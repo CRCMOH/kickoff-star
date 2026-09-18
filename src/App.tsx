@@ -14,6 +14,7 @@ import { useCareerStore } from './store/careerStore'
 import { listSaves, type SaveSlotId } from './engine/save'
 import type { School } from './engine/schools'
 import type { SquadRole } from './engine/trials'
+import { installMusicLifecycle, pauseMusic } from './engine/music'
 
 type Screen = 'splash' | 'menu' | 'create' | 'story' | 'school' | 'trials' | 'career' | 'settings' | 'credits' | 'help' | 'load'
 
@@ -29,13 +30,14 @@ export default function App() {
   const completeTrials = useCareerStore((s) => s.completeTrials)
 
   useEffect(() => {
+    const removeMusicLifecycle = installMusicLifecycle()
     window.history.replaceState({ screen: 'splash' }, '')
     const onPopState = (event: PopStateEvent) => {
       const next = event.state?.screen
       setScreen(isScreen(next) ? next : 'menu')
     }
     window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
+    return () => { window.removeEventListener('popstate', onPopState); removeMusicLifecycle() }
   }, [])
 
   const navigate = (next: Screen) => {
@@ -48,9 +50,11 @@ export default function App() {
     setScreen(next)
   }
 
-  const goBackToMenu = () => {
-    if (window.history.length > 1) window.history.back()
-    else replace('menu')
+  const goBackToMenu = () => replace('menu')
+
+  const exitCareerToMenu = () => {
+    pauseMusic()
+    replace('menu')
   }
 
   const enterLoadedCareer = async (slot: SaveSlotId, push = true) => {
@@ -114,5 +118,5 @@ export default function App() {
   if (screen === 'trials' && player && chosenSchool) {
     return <TrialsScreen player={player} school={chosenSchool} onComplete={handleTrialsComplete} />
   }
-  return <Career onExitToMenu={() => replace('menu')} />
+  return <Career onExitToMenu={exitCareerToMenu} />
 }
