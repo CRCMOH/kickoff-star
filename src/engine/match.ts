@@ -16,6 +16,7 @@ import { resolveLegacyDriveShot, scoreSnapshot } from './matchResolutionV2'
 import { emptyMatchStats, simulateBackgroundStats, mergeMatchStats, type PlayerMatchStats } from './matchStats'
 import { createMatchEnvironment } from './matchModel'
 import { calculatePlayerRating, type RatingBreakdown } from './ratingSystemV32'
+import { simulateMotmField, selectManOfTheMatch, type MotmResult } from './motmV32'
 
 // ============================================================================
 // FOOTBALL ENGINE — Sections 1-4 (Possession, Chance/Decision, Goals, Ratings)
@@ -74,6 +75,8 @@ export interface MatchState {
   ratedMoments: number
   /** Transparent full-time rating ledger; populated when the match finishes. */
   ratingBreakdown?: RatingBreakdown
+  /** Comparative player-of-the-match result, generated at full time. */
+  motm?: MotmResult
   events: MatchEvent[]
   finished: boolean
   // Phase 12. Non-serialised: MatchState is transient (never written to a save slot),
@@ -1067,6 +1070,12 @@ export function finishMatchForAudit(s: MatchState): MatchState {
     minutes, yellowCards: s.yellowCards, redCarded: s.redCarded,
   })
   const finalRating = breakdown.total
-  return { ...s, finished: true, playerStats: stats, playerRating: finalRating, ratingBreakdown: breakdown,
+  const playerId='career-player'
+  const field=simulateMotmField({
+    homeScore:s.homeScore, awayScore:s.awayScore, playerIsHome:s.playerIsHome,
+    player:{id:playerId,name:s.playerSurname,position,rating:finalRating,stats},
+  })
+  const motm=selectManOfTheMatch(field,playerId) ?? undefined
+  return { ...s, finished: true, playerStats: stats, playerRating: finalRating, ratingBreakdown: breakdown, motm,
     events: [...s.events, { minute: s.minute, text: s.commentator.line('fulltime', ctxOf(s)), kind: 'fulltime' as const }] }
 }
