@@ -308,9 +308,12 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
     <div className="relative min-h-screen w-full bg-ks-black flex flex-col justify-center px-5 py-8">
       <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 20%, rgba(212,175,55,0.08), transparent 60%), linear-gradient(180deg,#0a0a09,#050504)' }} />
       <div className="relative z-10 max-w-md mx-auto w-full">
-        <div className="text-center mb-6">
-          <div className="font-display tracking-widest text-[11px] text-ks-muted uppercase mb-2">session grade</div>
-          <div className={`font-display text-7xl ${gradeColor}`}>{grade}</div>
+        <div className={"training-result "+(GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('A')?'elite':'')}>
+          <div className="training-result-rays"/>
+          <div className="training-result-kicker">SESSION COMPLETE</div>
+          <div className={`training-grade ${gradeColor}`}>{grade}</div>
+          <div className="training-verdict">{GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('A')?'ELITE SESSION':GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('B')?'STRONG WORK':grade==='F'?'SESSION MISSED':'WORK BANKED'}</div>
+          <div className="training-payoff"><div><span>XP EARNED</span><b>+{Math.round(xpEarned)}</b></div><div><span>ENERGY</span><b>−{Math.round(energySpent)}</b></div><div><span>OBJECTIVES</span><b>{outcome!.objectivesMet}/{session.objectives.length}</b></div></div>
         </div>
 
         {injury && (
@@ -326,8 +329,8 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
           </div>
         )}
 
-        <div className="rounded-2xl border border-ks-border bg-[#0f0f0d] px-5 py-4 mb-3">
-          <div className="font-display tracking-widest text-[10px] text-ks-muted uppercase mb-3">development</div>
+        <div className="training-development">
+          <div className="font-display tracking-widest text-[10px] text-ks-muted uppercase mb-3">development report</div>
           {/* P50 — this used to show a per-attribute "+X" breakdown computed
               from a formula that no longer actually applies anything (XP
               allocation replaced it in P49) — actively misleading numbers
