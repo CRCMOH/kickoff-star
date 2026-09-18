@@ -1,7 +1,7 @@
 import type { Player } from '../../types/player'
 import { computeCurrentAbility, toOvr } from '../../engine/rating'
 import { trustLabel, trustEmoji, generateNotebookEntry, notebookTone } from '../../engine/coachTrust'
-import { Panel, Bar, TickBar, VerticalBarChart, RadarChart, OvrRing, StatRow, EmptyNote, Section, Icon } from '../../components/ui'
+import { Panel, Bar, TickBar, VerticalBarChart, RadarChart, StatRow, EmptyNote, Section, Icon } from '../../components/ui'
 import iconShape from '../../assets/icons/shape.png'
 import iconScouts from '../../assets/icons/scouts.png'
 import iconMedical from '../../assets/icons/medical.png'
