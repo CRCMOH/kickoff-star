@@ -34,6 +34,8 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
   const spec = bandSpec(player.fitness.stamina)
   const sharpness = matchSharpnessFrom(player.fitness.stamina)
   const gap = teamOverall(playerTeam) - teamOverall(opponent)
+  const captaincy=player.captaincy?.role ?? 'none'
+  const armband=captaincy==='captain'?'Captain · wearing the armband':captaincy==='vice-captain'?'Vice-Captain':''
   const billing = gap >= 6 ? 'You should be winning this.'
     : gap <= -6 ? 'They\'re the better side on paper.'
     : 'There\'s very little between these two.'
@@ -96,6 +98,12 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
             </span>
           </div>
 
+          {armband && (
+            <div className="flex items-center justify-between mb-2 rounded-lg border border-ks-gold/30 bg-ks-gold/5 px-2 py-1.5">
+              <span className="text-[11px] text-ks-muted">leadership</span>
+              <span className="text-[11px] text-ks-gold font-display tracking-wide">{captaincy==='captain'?'© ':''}{armband}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] text-ks-muted">role</span>
             <span className="text-[11px] text-ks-ink capitalize">{player.squadRole ?? 'TBD'}</span>
