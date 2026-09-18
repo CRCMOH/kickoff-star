@@ -255,3 +255,7 @@ html.low-power .pitch-vignette,html.low-power .matchday-lights,html.low-power .m
 html.low-power .live-pitch,html.low-power .career-hero,html.low-power .training-hero,html.low-power .training-result,html.low-power .scout-hero,html.low-power .club-hero,html.low-power .fixtures-hero,html.low-power .table-hero{box-shadow:none!important}
 html.low-power .match-dot,html.low-power .match-ball,html.low-power .training-grade{filter:none!important;text-shadow:none!important}
 html.low-power *{backdrop-filter:none!important}
+
+.career-menu-button{min-width:58px;min-height:34px;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #ffffff12;border-radius:9px;background:#ffffff05;color:#aaa;font-family:var(--font-display,inherit);font-size:7px;letter-spacing:.12em}.career-menu-button:active{transform:scale(.97);border-color:#d4af3760;color:#d4af37}
+html,body,#root{min-height:100%;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}button,[role=button]{touch-action:manipulation}
+@media(max-width:380px){.career-menu-button{min-width:52px}.career-menu-button span{display:none}}
