@@ -90,3 +90,26 @@ for(const pos of ['FB','CM','WG','ST'] as Position[]){
  }
 }
 console.log('BEHAVIOUR ISOLATION AUDIT COMPLETE — 960 playable matches')
+
+
+/* Moment-frequency audit: rating weights must be calibrated to what the player
+   can actually touch in this key-moment game, not to full-match event counts. */
+console.log('\nPLAYABLE MOMENT FREQUENCY — 200 matches/position, solid player, random decisions')
+for(const pos of positions){
+ const p=player(pos,12);let moments=0,def=0,dist=0,attack=0,mins=0
+ const buckets=[0,0,0,0,0,0,0,0,0,0]
+ for(let m=0;m<200;m++){
+  reseed(9900000+positions.indexOf(pos)*1000+m);const team=generatePlayerTeam('Audit FC',4),opp=generateTeam(4)
+  let s=initMatch(p,team,opp,m%2===0),guard=0,mc=0,dc=0,dic=0,ac=0
+  while(!s.finished&&guard++<300){
+   const a=advanceToKeyMoment(s,p);s=a.state;if(!a.keyMoment)continue
+   const km=a.keyMoment;mc++;if(km.isDistribution)dic++;else if(km.isDefensive)dc++;else ac++
+   if(km.isInjuryDecision){s=resolveInjuryDecision(s,false,p);continue}
+   const b=momentToDecision(p,km,'audit'),i=Math.floor(rand()*b.decision.options.length),o=b.decision.options[i],success=rand()<o.successChance,q=b.maxReward?b.rewards[i]/b.maxReward:.5
+   s=km.scenarioId?resolveScenarioBeat(s,km,i,q,success,b.rewards[i],b.maxReward,'good'):resolvePlayerMoment(s,km,q,success,b.rewards[i],b.maxReward,p.position==='GK'&&km.isDefensive,'good')
+  }
+  moments+=mc;def+=dc;dist+=dic;attack+=ac;mins+=Math.max(0,(s.subMinute??s.minute)-s.entryMinute);buckets[Math.min(9,mc)]++
+ }
+ console.log(`${pos} avg ${(moments/200).toFixed(2)} moments | attack ${(attack/200).toFixed(2)} defend ${(def/200).toFixed(2)} distribution ${(dist/200).toFixed(2)} | avg mins ${(mins/200).toFixed(1)} | moment-count [${buckets.map((n,i)=>`${i}:${n}`).join(' ')}]`)
+}
+console.log('PLAYABLE MOMENT FREQUENCY AUDIT COMPLETE — 1,400 matches')
