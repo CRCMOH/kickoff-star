@@ -109,7 +109,7 @@ interface CareerStore {
   setSchool: (schoolId: string) => void
   completeTrials: (role: SquadRole, trialPerformance: number) => void
   /** competitionId routes the result: 'sundayLeague' updates the league table; cup ids update their bracket; 'international' the nation's campaign; 'schoolFriendlies' nothing. shootoutWonByPlayer is only set for drawn knockout ties. */
-  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }) => void
+  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }, playerWonMotm?: boolean) => void
   respondToOffer: (offerId: string, accept: boolean) => void
   ensureLeagueWorld: () => void
 }
@@ -1446,7 +1446,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
         // rating threshold.
         cleanSheets: (player.career?.cleanSheets ?? 0) + (player.position === 'GK' && opponentGoalsScored === 0 ? 1 : 0),
         bestRating: Math.max(player.career?.bestRating ?? 0, rating),
-        motmAwards: (player.career?.motmAwards ?? 0) + (rating >= 8.3 && (goals + assists > 0 || (player.position === 'GK' && opponentGoalsScored === 0)) ? 1 : 0),
+        motmAwards: (player.career?.motmAwards ?? 0) + (playerWonMotm ? 1 : 0),
         // P52 — the real stats a scout actually watches, not just goals/assists.
         tacklesWon: (player.career?.tacklesWon ?? 0) + (matchStats?.tackle ?? 0),
         interceptions: (player.career?.interceptions ?? 0) + (matchStats?.interception ?? 0),
