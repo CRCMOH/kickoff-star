@@ -11,12 +11,15 @@ on:
       - 'src/engine/liveMatchV2.ts'
       - 'src/engine/ratingSystemV32.ts'
       - 'src/engine/motmV32.ts'
+      - 'src/engine/captaincy.ts'
+      - 'src/screens/MatchDayScreen.tsx'
       - 'src/engine/matchResolutionV2.ts'
       - 'scripts/auditMatchEngineV2.ts'
       - 'scripts/auditLiveBridgeV2.ts'
       - 'scripts/auditPositionInfluenceV32.ts'
       - 'scripts/auditPlayableCareersV32.ts'
       - 'scripts/auditMotmV32.ts'
+      - 'scripts/auditCaptaincyV32.ts'
       - '.github/workflows/v32-match-engine.yml'
   workflow_dispatch:
 
@@ -43,3 +46,5 @@ jobs:
         run: npx tsx scripts/auditPlayableCareersV32.ts
       - name: Run cross-position MOTM distribution audit
         run: npx tsx scripts/auditMotmV32.ts
+      - name: Run captaincy progression audit
+        run: npx tsx scripts/auditCaptaincyV32.ts
