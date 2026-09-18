@@ -12,6 +12,8 @@ on:
       - 'src/engine/ratingSystemV32.ts'
       - 'src/engine/motmV32.ts'
       - 'src/engine/captaincy.ts'
+      - 'src/engine/captainMomentsV32.ts'
+      - 'src/screens/MatchScreen.tsx'
       - 'src/screens/MatchDayScreen.tsx'
       - 'src/engine/matchResolutionV2.ts'
       - 'scripts/auditMatchEngineV2.ts'
