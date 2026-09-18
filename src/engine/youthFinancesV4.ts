@@ -6,7 +6,7 @@ function txId(week:number,category:string,n:number){return `w${week}-${category}
 export interface YouthExpense {
   id: string
   name: string
-  category: 'transport' | 'food' | 'recovery' | 'equipment'
+  category: 'transport' | 'food' | 'recovery' | 'equipment' | 'showcase' | 'trial'
   cost: number
   optional: boolean
   description: string
@@ -21,6 +21,8 @@ export const YOUTH_EXPENSES: YouthExpense[] = [
   { id:'recovery-physio',name:'Community Physio Session',category:'recovery',cost:16,optional:true,energyGain:16,description:'A proper recovery session after a heavy week.' },
   { id:'boots-repair',name:'Repair Boots',category:'equipment',cost:12,optional:true,bootsRepair:28,description:'Studs, stitching and glue. Extends the life of your current boots.' },
   { id:'boots-replace',name:'Replace Worn Boots',category:'equipment',cost:34,optional:true,bootsRepair:100,description:'Reliable youth-level boots. No magical attribute boost.' },
+  { id:'showcase-travel',name:'Showcase Travel',category:'showcase',cost:12,optional:false,description:'Travel contribution for an earned youth showcase invitation.' },
+  { id:'academy-travel',name:'Academy Trial Travel',category:'trial',cost:16,optional:false,description:'Travel contribution for an earned academy assessment.' },
 ]
 
 export interface YouthOddJob {
@@ -83,10 +85,15 @@ export function chargeEssential(finance:YouthFinanceState,week:number,cost:numbe
 }
 
 export function applyMonthlyAllowance(world:YouthWorld,week:number,age:number):YouthWorld{
-  // Approx every four in-game weeks. Week 1 opening balance already exists.
-  if(week<=1||((week-1)%4)!==0)return world
+  const last=world.finances.lastAllowanceWeek??0
+  if(week-last<4)return world
   const amount=allowanceAmount(age,world.finances.familySupportLevel)
-  return {...world,finances:addTransaction(world.finances,week,amount,'allowance','Monthly family allowance.')}
+  const finances=addTransaction(world.finances,week,amount,'allowance','Monthly family allowance.')
+  return {...world,finances:{...finances,familyAllowancePerMonth:amount,lastAllowanceWeek:week}}
+}
+
+export function processMonthlyAllowance(world:YouthWorld,week:number,age:number,_parentBond=0):YouthWorld{
+  return applyMonthlyAllowance(world,week,age)
 }
 
 function sundayClub(world:YouthWorld):SundayLeagueClub|undefined{
@@ -145,8 +152,17 @@ export function buyYouthExpense(world:YouthWorld,week:number,itemId:string):{wor
   let f=world.finances
   if(item.optional){
     f=addTransaction(f,week,-item.cost,item.category,item.name)
-  }else{
-    f=chargeEssential(f,week,item.cost,item.category as 'transport'|'food',item.name)
+  }else if(item.category==='transport'||item.category==='food'){
+    f=chargeEssential(f,week,item.cost,item.category,item.name)
+  }else {
+    const personal=Math.min(f.balance,item.cost)
+    if(personal>0)f=addTransaction(f,week,-personal,item.category,item.name)
+    const shortfall=item.cost-personal
+    if(shortfall>0){
+      const supportCategory=item.category==='trial'?'academy-support':'club-support'
+      f=addTransaction(f,week,shortfall,supportCategory,item.category==='trial'?'Academy travel bursary':'Youth travel bursary')
+      f=addTransaction(f,week,-shortfall,item.category,item.name)
+    }
   }
   if(item.bootsRepair){
     f={...f,bootsCondition:itemId==='boots-replace'?100:clamp(f.bootsCondition+item.bootsRepair,0,100)}
@@ -154,10 +170,21 @@ export function buyYouthExpense(world:YouthWorld,week:number,itemId:string):{wor
   return {world:{...world,finances:f},ok:true,energyGain:item.energyGain}
 }
 
-export function workYouthJob(world:YouthWorld,week:number,age:number,jobId:string,energy:number):{world:YouthWorld;ok:boolean;reason?:string;energyCost?:number}{
+export function payYouthExpense(world:YouthWorld,week:number,itemId:string,_context?:'school'|'sunday'|'showcase'|'academy'){
+  return buyYouthExpense(world,week,itemId)
+}
+
+export function availableYouthJobs(age:number){return YOUTH_ODD_JOBS.filter(j=>age>=j.minAge)}
+
+export function workYouthJob(world:YouthWorld,week:number,age:number,jobId:string,energy:number):{world:YouthWorld;ok:boolean;reason?:string;energyCost?:number}
+export function workYouthJob(world:YouthWorld,week:number,jobId:string,age:number,energy:number,hasSaturdayFootball:boolean):{world:YouthWorld;ok:boolean;reason?:string;energyCost?:number}
+export function workYouthJob(world:YouthWorld,week:number,a:number|string,b:number|string,energy:number,hasSaturdayFootball=false):{world:YouthWorld;ok:boolean;reason?:string;energyCost?:number}{
+  const age=typeof a==='number'?a:b as number
+  const jobId=typeof a==='string'?a:b as string
   const job=YOUTH_ODD_JOBS.find(j=>j.id===jobId)
   if(!job)return {world,ok:false,reason:'Unknown job.'}
   if(age<job.minAge)return {world,ok:false,reason:'You are too young for this job.'}
+  if(hasSaturdayFootball&&job.availableDay==='saturday')return {world,ok:false,reason:'You are committed to football on Saturday.'}
   if(energy-job.energyCost<30)return {world,ok:false,reason:'Too fatigued. The game will not let an odd job ruin match readiness.'}
   const already=world.finances.transactions.some(t=>t.week===week&&t.category==='odd-job')
   if(already)return {world,ok:false,reason:'You already worked an odd job this week.'}
@@ -182,14 +209,39 @@ export function weeklyFinancePlan(world:YouthWorld,week:number,age:number,hasSch
   }
 }
 
+export function transportCostFor(world:YouthWorld,baseCost:number,context:'school'|'sunday'|'showcase'|'academy'):number{
+  if(context==='school')return 0
+  if(context==='sunday'){
+    const club=sundayClub(world)
+    if(club?.transportSupport==='full')return 0
+    if(club?.transportSupport==='partial')return Math.ceil(baseCost*.5)
+  }
+  return baseCost
+}
+
+export function applySundayClubSupport(world:YouthWorld,week:number):YouthWorld{
+  const club=sundayClub(world)
+  if(!club)return world
+  const passes=club.transportSupport==='full'?4:club.transportSupport==='partial'?2:0
+  if(passes===0)return world
+  const finances={...world.finances,transportPasses:world.finances.transportPasses+passes}
+  const withNote=addTransaction(finances,week,0,'club-support',`${club.name}: ${club.transportSupport} travel support`)
+  return {...world,finances:withNote}
+}
+
 export function financeSummary(world:YouthWorld){
   const f=world.finances
   return {
     balance:f.balance,
     familySupport:f.familySupportLevel,
+    monthlyAllowance:f.familyAllowancePerMonth,
     bootsCondition:f.bootsCondition,
+    transportPasses:f.transportPasses,
+    recoveryCredits:f.recoveryCredits,
     totalEarned:f.totalEarned,
+    totalIncome:f.totalEarned,
     totalSpent:f.totalSpent,
     lastTransactions:f.transactions.slice(-5),
+    recent:f.transactions.slice(-8),
   }
 }
