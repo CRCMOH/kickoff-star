@@ -22,6 +22,8 @@ interface CelebrationProps {
   minute: number
   avatarId?: number
   onDone: () => void
+  playerRating?: number
+  ratingDelta?: number
 }
 
 const DURATION_MS = 3900
@@ -33,7 +35,7 @@ const KIND_LABEL: Record<CelebrationKind, string> = {
   concede: 'CONCEDED',
 }
 
-export default function GoalCelebration({ kind, scorerName, homeShort, awayShort, homeScore, awayScore, minute, avatarId, onDone }: CelebrationProps) {
+export default function GoalCelebration({ kind, scorerName, homeShort, awayShort, homeScore, awayScore, minute, avatarId, onDone, playerRating, ratingDelta }: CelebrationProps) {
   const [phase, setPhase] = useState<'flight' | 'impact' | 'hold' | 'out'>('flight')
 
   useEffect(() => {
@@ -95,6 +97,7 @@ export default function GoalCelebration({ kind, scorerName, homeShort, awayShort
         )}
         <div className="text-ks-muted text-[11px] uppercase tracking-[0.2em]">{minute}' · KICKOFF STAR</div>
 
+        {kind==='player-goal' && playerRating !== undefined && <div className="goal-rating"><span>PLAYER RATING</span><b>{playerRating.toFixed(1)}</b>{ratingDelta !== undefined && ratingDelta>0 && <i>+{ratingDelta.toFixed(1)}</i>}</div>}
         <div className="flex items-center gap-4 mt-2 border-t border-white/10 pt-4">
           <span className="font-display text-ks-ink text-base tracking-wide">{homeShort}</span>
           <span className="font-display text-3xl tracking-widest" style={{ color: accent }}>{homeScore}–{awayScore}</span>
