@@ -1,7 +1,9 @@
-import type { YouthFinanceCategory, YouthFinanceState, YouthFinanceTransaction, YouthWorld } from '../types/youthWorld'
+import type { FinanceTransaction, YouthFinanceState, YouthWorld } from '../types/youthWorld'
 
 function clamp(v:number,lo:number,hi:number){return Math.max(lo,Math.min(hi,v))}
-function txId(world:YouthWorld,week:number,label:string){return `fin-${week}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${world.finance.transactions.length+1}`}
+function txId(world:YouthWorld,week:number,label:string){
+  return `fin-${week}-${label.toLowerCase().replace(/[^a-z0-9]+/g,'-')}-${world.finances.transactions.length+1}`
+}
 
 export interface FinanceActionResult {
   world: YouthWorld
@@ -10,46 +12,37 @@ export interface FinanceActionResult {
   amount?: number
 }
 
-function post(world:YouthWorld,week:number,amount:number,category:YouthFinanceCategory,label:string):YouthWorld{
-  const t:YouthFinanceTransaction={id:txId(world,week,label),week,amount,category,label}
-  const income=amount>0?amount:0
-  const spent=amount<0?-amount:0
+type FinanceCategory=FinanceTransaction['category']
+
+function post(world:YouthWorld,week:number,amount:number,category:FinanceCategory,description:string):YouthWorld{
+  const t:FinanceTransaction={id:txId(world,week,description),week,amount,category,description}
   return {
     ...world,
-    finance:{
-      ...world.finance,
-      balance:Math.max(0,world.finance.balance+amount),
-      transactions:[...world.finance.transactions,t].slice(-120),
-      totalIncome:world.finance.totalIncome+income,
-      totalSpent:world.finance.totalSpent+spent,
+    finances:{
+      ...world.finances,
+      balance:Math.max(0,world.finances.balance+amount),
+      transactions:[...world.finances.transactions,t].slice(-120),
+      totalEarned:world.finances.totalEarned+(amount>0?amount:0),
+      totalSpent:world.finances.totalSpent+(amount<0?-amount:0),
     },
   }
 }
 
-export function ensureYouthFinance(world:YouthWorld):YouthWorld{
-  if(world.finance)return world
-  const finance:YouthFinanceState={
-    balance:25,familyAllowancePerMonth:18,lastAllowanceWeek:0,
-    transportPasses:0,recoveryCredits:0,transactions:[],totalIncome:0,totalSpent:0,
-  }
-  return {...world,finance}
-}
-
 export function processMonthlyAllowance(world:YouthWorld,week:number,age:number,parentBond=0):YouthWorld{
-  const due=week-world.finance.lastAllowanceWeek>=4
-  if(!due)return world
-  const ageBase=10+Math.max(0,age-13)*8
+  if(week-world.finances.lastAllowanceWeek<4)return world
+  const base=10+Math.max(0,age-13)*8
+  const supportMod=world.finances.familySupportLevel==='limited'?.72:world.finances.familySupportLevel==='strong'?1.28:1
   const bondMod=1+clamp(parentBond/333,-.3,.3)
-  const amount=Math.round(ageBase*bondMod)
+  const amount=Math.max(4,Math.round(base*supportMod*bondMod))
   let next=post(world,week,amount,'allowance','Family allowance')
-  next={...next,finance:{...next.finance,familyAllowancePerMonth:amount,lastAllowanceWeek:week}}
+  next={...next,finances:{...next.finances,familyAllowancePerMonth:amount,lastAllowanceWeek:week}}
   return next
 }
 
 export interface YouthExpense {
   id:string
   label:string
-  category:YouthFinanceCategory
+  category:FinanceCategory
   cost:number
   mandatory:boolean
   description:string
@@ -57,24 +50,21 @@ export interface YouthExpense {
 }
 
 export const YOUTH_EXPENSES:YouthExpense[]=[
-  {id:'bus-local',label:'Local transport',category:'transport',cost:4,mandatory:false,description:'Bus/taxi contribution for a local optional session.',effect:'logistics'},
+  {id:'bus-local',label:'Local transport',category:'transport',cost:4,mandatory:false,description:'Bus/taxi contribution for an optional local session.',effect:'logistics'},
   {id:'showcase-travel',label:'Showcase travel contribution',category:'showcase',cost:12,mandatory:true,description:'Travel contribution for an invitation-only showcase.',effect:'logistics'},
   {id:'academy-travel',label:'Academy trial travel',category:'trial',cost:16,mandatory:true,description:'Travel contribution for an academy assessment.',effect:'logistics'},
-  {id:'recovery-basic',label:'Recovery session',category:'recovery',cost:10,mandatory:false,description:'Stretching, ice and supervised recovery. Adds one recovery credit.',effect:'recovery'},
-  {id:'boots-basic',label:'Replacement boots',category:'equipment',cost:35,mandatory:false,description:'Reliable boots. Equipment purchase does not directly add attributes.',effect:'equipment'},
-  {id:'meal-matchday',label:'Matchday meal',category:'food',cost:6,mandatory:false,description:'A proper pre/post-match meal. No permanent stat boost.',effect:'none'},
+  {id:'recovery-basic',label:'Recovery session',category:'recovery',cost:10,mandatory:false,description:'Stretching, ice and supervised recovery.',effect:'recovery'},
+  {id:'boots-basic',label:'Replacement boots',category:'equipment',cost:35,mandatory:false,description:'Reliable replacement boots; no direct attribute boost.',effect:'equipment'},
+  {id:'meal-matchday',label:'Matchday meal',category:'food',cost:6,mandatory:false,description:'A proper pre/post-match meal; no permanent stat boost.',effect:'none'},
 ]
 
 export function youthExpense(id:string){return YOUTH_EXPENSES.find(x=>x.id===id)}
 
 function clubSupport(world:YouthWorld){
-  const club=world.sundayClubs.find(c=>c.id===world.pathway.sundayClubId)
-  return club?.transportSupport??'none'
+  return world.sundayClubs.find(c=>c.id===world.pathway.sundayClubId)?.transportSupport??'none'
 }
 
 export function transportCostFor(world:YouthWorld,baseCost:number,context:'school'|'sunday'|'showcase'|'academy'):number{
-  // Mandatory school travel is school-funded. Representative/national duty is
-  // handled by competition organizers elsewhere and never blocks selection.
   if(context==='school')return 0
   if(context==='sunday'){
     const support=clubSupport(world)
@@ -91,25 +81,20 @@ export function payYouthExpense(world:YouthWorld,week:number,expenseId:string,co
   if(expense.category==='transport'&&context)cost=transportCostFor(world,cost,context)
 
   if(cost===0){
-    const label=context==='school'?'School-covered transport':'Club-covered transport'
-    return {world:post(world,week,0,'club-support',label),ok:true,amount:0}
+    return {world:post(world,week,0,'club-support',context==='school'?'School-covered transport':'Club-covered transport'),ok:true,amount:0}
   }
 
-  if(world.finance.balance<cost){
-    if(expense.mandatory){
-      // Critical design rule: money creates context, not dead careers. Family,
-      // school or a bursary covers the shortfall for earned showcase/trial duty.
-      const shortfall=cost-world.finance.balance
-      let next=post(world,week,shortfall,'club-support',expense.category==='trial'?'Academy travel bursary':'Youth travel support')
-      next=post(next,week,-cost,expense.category,expense.label)
-      if(expense.effect==='recovery')next={...next,finance:{...next.finance,recoveryCredits:next.finance.recoveryCredits+1}}
-      return {world:next,ok:true,amount:cost,reason:'Support covered the shortfall.'}
-    }
-    return {world,ok:false,reason:'Not enough money.',amount:cost}
+  if(world.finances.balance<cost){
+    if(!expense.mandatory)return {world,ok:false,reason:'Not enough money.',amount:cost}
+    const shortfall=cost-world.finances.balance
+    let next=post(world,week,shortfall,'academy-support',expense.category==='trial'?'Academy travel bursary':'Youth opportunity travel support')
+    next=post(next,week,-cost,expense.category,expense.label)
+    return {world:next,ok:true,amount:cost,reason:'Support covered the shortfall.'}
   }
 
   let next=post(world,week,-cost,expense.category,expense.label)
-  if(expense.effect==='recovery')next={...next,finance:{...next.finance,recoveryCredits:next.finance.recoveryCredits+1}}
+  if(expense.effect==='recovery')next={...next,finances:{...next.finances,recoveryCredits:next.finances.recoveryCredits+1}}
+  if(expense.effect==='equipment')next={...next,finances:{...next.finances,bootsCondition:100}}
   return {world:next,ok:true,amount:cost}
 }
 
@@ -137,44 +122,44 @@ export function workYouthJob(world:YouthWorld,week:number,jobId:string,age:numbe
   if(!job||age<job.minAge)return {world,ok:false,reason:'Job unavailable.'}
   if(job.availability==='saturday'&&hasSaturdayFootball)return {world,ok:false,reason:'You are committed to football on Saturday.'}
   if(currentEnergy-job.energyCost<25)return {world,ok:false,reason:'You are too tired to safely take this job.'}
-  const already=world.finance.transactions.some(t=>t.week===week&&t.category==='odd-job')
-  if(already)return {world,ok:false,reason:'You already worked an odd job this week.'}
+  if(world.finances.transactions.some(t=>t.week===week&&t.category==='odd-job'))return {world,ok:false,reason:'You already worked an odd job this week.'}
   return {world:post(world,week,job.pay,'odd-job',job.label),ok:true,amount:job.pay,energyCost:job.energyCost}
 }
 
 export function applySundayClubSupport(world:YouthWorld,week:number):YouthWorld{
   const club=world.sundayClubs.find(c=>c.id===world.pathway.sundayClubId)
   if(!club)return world
-  let next=world
-  if(club.transportSupport==='full'){
-    next={...next,finance:{...next.finance,transportPasses:next.finance.transportPasses+4}}
-    next=post(next,week,0,'club-support',`${club.name}: monthly travel covered`)
-  }else if(club.transportSupport==='partial'){
-    next={...next,finance:{...next.finance,transportPasses:next.finance.transportPasses+2}}
-    next=post(next,week,0,'club-support',`${club.name}: partial travel support`)
-  }
+  if(club.transportSupport==='none')return world
+  const passes=club.transportSupport==='full'?4:2
+  let next={...world,finances:{...world.finances,transportPasses:world.finances.transportPasses+passes,transportPass:club.transportSupport==='full'}}
+  next=post(next,week,0,'club-support',`${club.name}: ${club.transportSupport} travel support`)
   return next
 }
 
+export function ageBoots(world:YouthWorld,weeks=1):YouthWorld{
+  return {...world,finances:{...world.finances,bootsCondition:clamp(world.finances.bootsCondition-weeks*2,0,100)}}
+}
+
 export function consumeTransportPass(world:YouthWorld):YouthWorld{
-  if(world.finance.transportPasses<=0)return world
-  return {...world,finance:{...world.finance,transportPasses:world.finance.transportPasses-1}}
+  if(world.finances.transportPasses<=0)return world
+  return {...world,finances:{...world.finances,transportPasses:world.finances.transportPasses-1}}
 }
 
 export function consumeRecoveryCredit(world:YouthWorld):YouthWorld{
-  if(world.finance.recoveryCredits<=0)return world
-  return {...world,finance:{...world.finance,recoveryCredits:world.finance.recoveryCredits-1}}
+  if(world.finances.recoveryCredits<=0)return world
+  return {...world,finances:{...world.finances,recoveryCredits:world.finances.recoveryCredits-1}}
 }
 
 export function financeSummary(world:YouthWorld){
-  const recent=world.finance.transactions.slice(-8)
   return {
-    balance:world.finance.balance,
-    monthlyAllowance:world.finance.familyAllowancePerMonth,
-    totalIncome:world.finance.totalIncome,
-    totalSpent:world.finance.totalSpent,
-    transportPasses:world.finance.transportPasses,
-    recoveryCredits:world.finance.recoveryCredits,
-    recent,
+    balance:world.finances.balance,
+    familySupportLevel:world.finances.familySupportLevel,
+    monthlyAllowance:world.finances.familyAllowancePerMonth,
+    totalIncome:world.finances.totalEarned,
+    totalSpent:world.finances.totalSpent,
+    transportPasses:world.finances.transportPasses,
+    recoveryCredits:world.finances.recoveryCredits,
+    bootsCondition:world.finances.bootsCondition,
+    recent:world.finances.transactions.slice(-8),
   }
 }
