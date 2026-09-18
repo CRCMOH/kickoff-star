@@ -42,14 +42,19 @@ export default function App() {
       const current = screenRef.current
       if (current === 'menu') return
       if (current === 'career' || current === 'settings' || current === 'credits' || current === 'help' || current === 'load' || current === 'create') {
-        replace('menu')
+        window.history.replaceState({ screen: 'menu' }, '')
+        setScreen('menu')
         return
       }
       window.history.back()
     }
-    window.addEventListener('kickoffstar:native-back', onNativeBack)
     window.addEventListener('popstate', onPopState)
-    return () => { window.removeEventListener('popstate', onPopState); window.removeEventListener('kickoffstar:native-back', onNativeBack); removeMusicLifecycle() }
+    window.addEventListener('kickoffstar:native-back', onNativeBack)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('kickoffstar:native-back', onNativeBack)
+      removeMusicLifecycle()
+    }
   }, [])
 
   const navigate = (next: Screen) => {
