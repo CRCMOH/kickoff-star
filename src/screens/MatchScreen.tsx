@@ -65,7 +65,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const [state, setState] = useState<MatchState>(() => initMatch(player, playerTeam, opponent, playerIsHome, player.squad))
   const [moment, setMoment] = useState<KeyMoment | null>(null)
   const [bundle, setBundle] = useState<MatchDecisionBundle | null>(null)
-  const [revealed, setRevealed] = useState<{ text: string; success: boolean; grade: ExecutionGrade | null } | null>(null)
+  const [revealed, setRevealed] = useState<{ text: string; success: boolean; grade: ExecutionGrade | null; action?: PitchAction } | null>(null)
   const [executing, setExecuting] = useState<{ optIndex: number } | null>(null)
   const [muted, setMutedUi] = useState(isMuted())
   const [speed, setSpeed] = useState<1 | 2 | 3>(1)
@@ -255,7 +255,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     setState(next)
     setDisplayMinute(next.minute)
     const lastEvent = next.events[next.events.length - 1]
-    setRevealed({ text: lastEvent?.text ?? '', success, grade })
+    setRevealed({ text: lastEvent?.text ?? '', success, grade, action: tag==='save'?'save':tag==='tackle'||tag==='interception'?'tackle':tag==='header'?'cross':moment.isDefensive?'tackle':tag==='keyPass'?'cross':'shot' })
     setMoment(null)
     setBundle(null)
     setExecuting(null)
@@ -446,8 +446,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
                 </button>
               </div>
             ) : revealed ? (
-              <div className="flex flex-col gap-3">
-                <div className={`rounded-xl border px-4 py-3 ${revealed.success ? 'border-green-500/50 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
+              <div className="flex flex-col gap-3 result-stage">
+                <div className={"result-impact "+(revealed.success?'result-success':'result-fail')}>
+                  <div className="result-icon">{revealed.action==='save'?'🧤':revealed.action==='tackle'?'◆':revealed.action==='cross'?'↗':revealed.action==='shot'?'⚽':'◆'}</div>
+                  <div className="result-word">{revealed.success ? (revealed.grade==='perfect'?'PERFECT':revealed.action==='save'?'SAVED':revealed.action==='tackle'?'WON':revealed.action==='cross'?'CREATED':'EXECUTED') : 'DENIED'}</div>
+                </div>
+                <div className={`rounded-xl border px-4 py-3 result-copy ${revealed.success ? 'border-green-500/50 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
                   {revealed.grade && (
                     <div className={`font-display tracking-widest text-[10px] uppercase mb-1.5 ${GRADE_COLOR[revealed.grade]}`}>
                       {GRADE_LABEL[revealed.grade]}
