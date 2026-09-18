@@ -44,8 +44,8 @@ type Mode =
   | { kind: 'rest' }
   | { kind: 'matchday'; opponent: Team; isHome: boolean; competitionId: string; competitionLabel: string; isKnockout: boolean }
   | { kind: 'match'; opponent: Team; isHome: boolean; competitionId: string; competitionLabel: string; isKnockout: boolean }
-  | { kind: 'shootout'; opponent: Team; isHome: boolean; competitionId: string; isKnockout: boolean; matchResult: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } } }
-  | { kind: 'summary'; rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; opponent: Team; playerGoalsScored: number; opponentGoalsScored: number; playerWasHome: boolean; squad?: import('../engine/squad').SquadPlayer[]; competitionId: string; isKnockout: boolean; shootoutWon?: boolean; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }
+  | { kind: 'shootout'; opponent: Team; isHome: boolean; competitionId: string; isKnockout: boolean; matchResult: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } } }
+  | { kind: 'summary'; rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; opponent: Team; playerGoalsScored: number; opponentGoalsScored: number; playerWasHome: boolean; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; competitionId: string; isKnockout: boolean; shootoutWon?: boolean; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }
   | { kind: 'impact'; before: ImpactSnapshot; after: ImpactSnapshot; matchXp: number; tier: import('../engine/xp').CompetitionTier; playerName: string; rating: number; goals: number; assists: number; won: boolean; drew: boolean }
   | { kind: 'allocate-match'; matchXp: number; tier: import('../engine/xp').CompetitionTier }
   | { kind: 'allocate-training'; xp: number; attrs: import('../engine/xp').AttributeKey[] }
@@ -362,7 +362,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           applyMatchResult(
             mode.rating, mode.goals, mode.assists, mode.finalMatchStamina, mode.injury,
             mode.opponent.id, mode.playerGoalsScored, mode.opponentGoalsScored, mode.playerWasHome,
-            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats
+            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats, mode.motm?.playerWon
           )
           // Must run AFTER the result lands — career counters are what most
           // achievements read, and they only exist once applyMatchResult has run.
