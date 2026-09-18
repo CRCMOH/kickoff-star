@@ -321,6 +321,13 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
       </div>
 
+      {nextEvent && !nextEvent.resolved && (
+        <section className={`week-headliner ${nextEvent.type === 'match' ? 'match' : ''}`}>
+          <div><span>NEXT UP · ${nextEvent.day.toUpperCase()}</span><h3>{nextEvent.title}</h3><p>{nextEvent.type === 'match' ? 'MATCHDAY · Your next competitive test' : nextEvent.type.replace(/-/g,' ').toUpperCase()}</p></div>
+          <div className="week-headliner-arrow">→</div>
+        </section>
+      )}
+
       <div className="home-section-label"><span>SCHEDULE</span><i/></div>
       <Panel title={<span className="flex items-center gap-1"><Icon src={iconWeek} />week overview</span>}>
         <div className="grid grid-cols-7 gap-1">
