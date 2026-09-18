@@ -221,7 +221,7 @@ export function generateSundayApproaches(world: YouthWorld, week: number): Youth
 export function respondToSundayApproach(world: YouthWorld, approachId: string, accept: boolean): YouthWorld {
   const hit = world.pathway.pendingSundayApproaches.find(a => a.id === approachId)
   if (!hit || hit.status !== 'pending') return world
-  const offers = world.pathway.pendingSundayApproaches.map(a => a.id === approachId ? {...a,status:accept?'accepted':'declined' as const} : a)
+  const offers: SundayApproach[] = world.pathway.pendingSundayApproaches.map(a => a.id === approachId ? { ...a, status: accept ? 'accepted' as const : 'declined' as const } : a)
   const club = world.sundayClubs.find(c => c.id === hit.clubId)
   return {
     ...world,
