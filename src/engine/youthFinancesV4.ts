@@ -64,14 +64,20 @@ function addTransaction(finance:YouthFinanceState,week:number,amount:number,cate
  * pocket-money balance cannot cover compulsory transport, family/club support
  * covers the shortfall and the ledger explains it.
  */
+function recordCoveredCost(finance:YouthFinanceState,week:number,cost:number,category:'transport'|'food',description:string,supporter:string):YouthFinanceState{
+  if(cost<=0)return finance
+  let next=addTransaction(finance,week,cost,supporter==='academy'?'academy-support':'club-support',`${supporter} covered: ${description}`)
+  next=addTransaction(next,week,-cost,category,description)
+  return next
+}
+
 export function chargeEssential(finance:YouthFinanceState,week:number,cost:number,category:'transport'|'food',description:string):YouthFinanceState{
   if(cost<=0)return finance
   const personal=Math.min(finance.balance,cost)
   let next=personal>0?addTransaction(finance,week,-personal,category,description):finance
   const shortfall=cost-personal
   if(shortfall>0){
-    next=addTransaction(next,week,shortfall,'club-support',`Support covered essential cost: ${description}`)
-    next=addTransaction(next,week,-shortfall,category,description)
+    next=recordCoveredCost(next,week,shortfall,category,description,'family / club support')
   }
   return next
 }
@@ -102,14 +108,14 @@ export function applyMatchdayFinances(world:YouthWorld,ctx:MatchCostContext):You
     // School provides team transport for away tournament trips, player covers only local connection.
     const personalTravel=ctx.away?2:3
     f=chargeEssential(f,ctx.week,personalTravel,'transport','Travel to school football.')
-    if(ctx.away)f=addTransaction(f,ctx.week,travelBase-personalTravel,'club-support','School covered team transport.')
+    if(ctx.away)f=recordCoveredCost(f,ctx.week,travelBase-personalTravel,'transport','School team transport.','school')
   }else if(ctx.type==='sunday'){
     const club=sundayClub(world)
     let playerShare=travelBase
     if(club?.transportSupport==='partial')playerShare=Math.ceil(travelBase*.5)
     if(club?.transportSupport==='full')playerShare=0
     if(playerShare>0)f=chargeEssential(f,ctx.week,playerShare,'transport','Travel to Sunday League football.')
-    if(playerShare<travelBase)f=addTransaction(f,ctx.week,travelBase-playerShare,'club-support',`${club?.name??'Club'} travel support.`)
+    if(playerShare<travelBase)f=recordCoveredCost(f,ctx.week,travelBase-playerShare,'transport','Sunday League travel.',club?.name??'club')
     // No youth wage at 14-15. Older community players may receive a small match allowance.
     if(ctx.age>=16){
       const allowance=ctx.age>=17?8:5
@@ -117,12 +123,13 @@ export function applyMatchdayFinances(world:YouthWorld,ctx:MatchCostContext):You
     }
   }else if(ctx.type==='representative'){
     // Representative duty is fully funded.
-    f=addTransaction(f,ctx.week,travelBase+5,'club-support','Regional programme covered travel and match meal.')
+    f=recordCoveredCost(f,ctx.week,travelBase,'transport','Representative travel.','regional programme')
+    f=recordCoveredCost(f,ctx.week,5,'food','Representative match meal.','regional programme')
   }else if(ctx.type==='showcase'){
     f=chargeEssential(f,ctx.week,Math.max(2,travelBase-2),'transport','Travel to youth showcase.')
   }else if(ctx.type==='academy-trial'){
     // Inviting academy covers the expensive part; player never misses a trial because of money.
-    f=addTransaction(f,ctx.week,travelBase,'academy-support','Inviting academy covered trial travel.')
+    f=recordCoveredCost(f,ctx.week,travelBase,'transport','Academy trial travel.','academy')
   }
 
   // Boots wear from actual football, not menus.
