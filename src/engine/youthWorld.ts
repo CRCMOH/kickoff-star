@@ -1,7 +1,7 @@
 import type { Position } from '../types/attributes'
 import type {
-  SundayLeagueClub, YouthCalendarBlock, YouthCompetition, YouthNpcPlayer,
-  YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthWorld,
+  AcademyClub, SundayLeagueClub, YouthCalendarBlock, YouthCompetition, YouthNpcPlayer,
+  YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthScoutingProfile, YouthWorld,
 } from '../types/youthWorld'
 
 function hashSeed(input: string): number {
@@ -104,6 +104,43 @@ function generateSchools(r: () => number): YouthSchool[] {
   return schools
 }
 
+function generateAcademyClubs(r: () => number): AcademyClub[] {
+  const roots = ['North City','Metro Athletic','United Academy','Sporting Institute','Central FC','Coastal Academy','Highveld United','Capital City','Township Stars','Lakeside FC','Royal Youth','Pioneer Academy']
+  const positions: Position[] = ['GK','CB','FB','CM','WM','WG','ST']
+  return roots.map((name, i) => {
+    const positionNeeds: Partial<Record<Position, number>> = {}
+    for (const p of positions) positionNeeds[p] = Math.round(35 + r() * 60)
+    return {
+      id: `academy-${i+1}`,
+      name,
+      region: DISTRICTS[i % DISTRICTS.length].name,
+      prestige: Math.round(55 + r() * 40),
+      coaching: Math.round(60 + r() * 35),
+      facilities: Math.round(58 + r() * 38),
+      positionNeeds,
+    }
+  })
+}
+
+function initialScouting(academies: AcademyClub[]): YouthScoutingProfile {
+  const academyInterest: YouthScoutingProfile['academyInterest'] = {}
+  for (const club of academies) {
+    academyInterest[club.id] = {
+      clubId: club.id, awareness: 0, interest: 0, lastSeenWeek: null,
+      matchesSeen: 0, status: 'unknown',
+    }
+  }
+  return {
+    localVisibility: 0,
+    schoolReputation: 0,
+    grassrootsReputation: 0,
+    regionalReputation: 0,
+    academyExposure: 0,
+    academyInterest,
+    knownScoutVisits: [],
+  }
+}
+
 function generateSundayClubs(r: () => number): SundayLeagueClub[] {
   const roots = ['City Stars','Young Lions','Athletic Juniors','United Youth','Community FC','Dynamos','Rovers','Sporting','Warriors','Future Stars','Township United','Olympians']
   return Array.from({ length: 16 }, (_, i) => ({
@@ -160,10 +197,13 @@ export function createYouthWorld(seed: string, selectedSchoolId: string | null =
   const schools = generateSchools(r)
   const schoolSquads: Record<string, YouthSchoolSquads> = {}
   for (const school of schools) schoolSquads[school.id] = makeSquads(r, school)
+  const academyClubs = generateAcademyClubs(r)
   return {
     version:1, seed, seasonYear, currentWeek:1, selectedSchoolId,
     districts:DISTRICTS, schools, schoolSquads,
     sundayClubs:generateSundayClubs(r),
+    academyClubs,
+    scouting:initialScouting(academyClubs),
     competitions:YOUTH_COMPETITIONS,
     calendar:YOUTH_CALENDAR,
     pathway:initialPathway(),
