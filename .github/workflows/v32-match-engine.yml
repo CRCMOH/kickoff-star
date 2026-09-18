@@ -48,6 +48,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - run: npm ci
       - name: Type-check transplanted V3.2 engine
         run: npx tsc --noEmit
