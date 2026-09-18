@@ -1,7 +1,7 @@
 import type { Position } from '../types/attributes'
 import type {
   AcademyClub, SundayLeagueClub, YouthCalendarBlock, YouthCompetition, YouthNpcPlayer,
-  YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthScoutingProfile, YouthWorld,
+  YouthPathwayState, YouthSchool, YouthSchoolSquads, YouthScoutingProfile, YouthWorld, YouthFinanceState,
 } from '../types/youthWorld'
 
 function hashSeed(input: string): number {
@@ -122,6 +122,25 @@ function generateAcademyClubs(r: () => number): AcademyClub[] {
   })
 }
 
+function initialFinances(seed:string): YouthFinanceState {
+  const r=seeded(seed+'|finance')
+  const familySupportLevel = r() < .2 ? 'limited' : r() > .86 ? 'strong' : 'normal'
+  const balance = familySupportLevel === 'limited' ? 18 : familySupportLevel === 'strong' ? 42 : 28
+  return {
+    balance,
+    familySupportLevel,
+    transportPass:false,
+    bootsCondition:82,
+    weeklyPersonalBudget:familySupportLevel === 'limited' ? 5 : familySupportLevel === 'strong' ? 10 : 7,
+    totalEarned:balance,
+    totalSpent:0,
+    transactions:[{
+      id:'opening-balance',week:1,amount:balance,category:'allowance',
+      description:'Starting pocket money / family support.',
+    }],
+  }
+}
+
 function initialScouting(academies: AcademyClub[]): YouthScoutingProfile {
   const academyInterest: YouthScoutingProfile['academyInterest'] = {}
   for (const club of academies) {
@@ -204,6 +223,8 @@ export function createYouthWorld(seed: string, selectedSchoolId: string | null =
     sundayClubs:generateSundayClubs(r),
     academyClubs,
     scouting:initialScouting(academyClubs),
+    competitionWorld:{ interSchools:null,reserveLeague:null,regionalSchools:null,minorSchoolCup:null,sundayLeague:null,nationalChampionship:null },
+    finances:initialFinances(seed),
     competitions:YOUTH_COMPETITIONS,
     calendar:YOUTH_CALENDAR,
     pathway:initialPathway(),
