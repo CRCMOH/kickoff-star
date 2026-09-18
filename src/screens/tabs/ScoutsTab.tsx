@@ -18,7 +18,8 @@ export default function ScoutsTab({ player, onOpenOffers }: { player: Player; on
   const isAcademy = player.careerClock.phase === 'academy'
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="scouting-centre flex flex-col gap-2.5">
+      <section className="scout-hero"><div className="scout-radar"/><small>RECRUITMENT NETWORK</small><h2>SCOUTING CENTRE</h2><p>{watchers.length ? `${watchers.length} club${watchers.length===1?'':'s'} tracking your progress` : 'Your performances build your market'}</p><div className="scout-rep"><span>REPUTATION</span><b>{Math.round(player.reputation ?? 5)}</b><i>{reputationLabel(player.reputation ?? 5)}</i></div></section>
       {offers.length > 0 && (
         <button
           onClick={onOpenOffers}
@@ -42,13 +43,14 @@ export default function ScoutsTab({ player, onOpenOffers }: { player: Player; on
         </EmptyNote>
       </Panel>
 
+      <div className="home-section-label"><span>CLUB INTEREST</span><i/></div>
       <Panel title={`clubs watching — ${watchers.length}`}>
         {watchers.length === 0 ? (
           <EmptyNote>No clubs watching you yet. Strong match ratings are what gets a scout in the stands.</EmptyNote>
         ) : (
           <div className="flex flex-col gap-2.5">
             {watchers.map((w) => (
-              <div key={w.clubId ?? w.clubName} className="flex flex-col gap-1">
+              <div key={w.clubId ?? w.clubName} className="scout-club flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] text-ks-ink truncate">{w.clubName}</span>
                   <span className={`text-[9px] uppercase tracking-wider ${TIER_STYLE[w.tier] ?? 'text-ks-muted'}`}>
@@ -72,6 +74,7 @@ export default function ScoutsTab({ player, onOpenOffers }: { player: Player; on
         )}
       </Panel>
 
+      <div className="home-section-label"><span>PATHWAY</span><i/></div>
       <Panel title="➡️ what happens next">
         <EmptyNote>
           {isAcademy

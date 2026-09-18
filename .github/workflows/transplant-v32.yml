@@ -1,0 +1,29 @@
+name: V3.2 Apply Transplant
+on:
+  push:
+    branches: [v3.2-match-engine-redesign]
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v3.2-match-engine-redesign
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: node scripts/transplantMatchV32.mjs
+      - run: npx tsc --noEmit
+      - run: npx tsx scripts/auditMatchEngineV2.ts
+      - run: npx tsx scripts/auditLiveBridgeV2.ts
+      - name: Save validated transplant
+        run: |
+          git config user.name github-actions
+          git config user.email actions@github.com
+          git add src/engine/match.ts
+          git commit -m "Transplant V3.2 xG resolver into playable matches"
+          git push

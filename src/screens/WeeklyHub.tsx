@@ -17,17 +17,19 @@ import ArcVerdictCard from '../components/ArcVerdictCard'
 import SeasonReviewCard from '../components/SeasonReviewCard'
 import HeadlineToast from '../components/HeadlineToast'
 import GazetteScreen from './GazetteScreen'
+import CaptaincyStoryCard from '../components/CaptaincyStoryCard'
 
 // Phase 10: WeeklyHub is now a shell that hosts six real, routed tabs.
 // Tab state is owned by Career so it survives event resolution (training,
 // matches, decisions) and returns the player to where they were.
 
 export default function WeeklyHub({
-  tab, onTabChange, onOpenOffers, league, academyLeague, playerTeam, playerDivision,
+  tab, onTabChange, onOpenOffers, onExitToMenu, league, academyLeague, playerTeam, playerDivision,
 }: {
   tab: HubTab
   onTabChange: (tab: HubTab) => void
   onOpenOffers: () => void
+  onExitToMenu: () => void
   league: LeagueWorld | null
   academyLeague: AcademyWorld | null
   playerTeam: Team
@@ -46,6 +48,7 @@ export default function WeeklyHub({
   const pendingHeadlines = useCareerStore((s) => s.pendingHeadlines)
   const clearHeadline = useCareerStore((s) => s.clearHeadline)
   const clearPendingAchievements = useCareerStore((s) => s.clearPendingAchievements)
+  const clearCaptaincyStory = useCareerStore((s) => s.clearCaptaincyStory)
 
   if (!player || !calendar) {
     return <div className="min-h-screen bg-ks-black flex items-center justify-center text-ks-muted">no active career</div>
@@ -61,7 +64,7 @@ export default function WeeklyHub({
       {/* tab header — gives every destination a sense of place */}
       <div className="sticky top-0 z-20 bg-ks-black/95 backdrop-blur border-b border-ks-border/50">
         <div className="max-w-md mx-auto w-full px-3 py-2">
-          <span className="font-display tracking-widest text-[10px] text-ks-gold uppercase">{activeLabel}</span>
+          <div className="flex items-center justify-between gap-3"><span className="font-display tracking-widest text-[10px] text-ks-gold uppercase">{activeLabel}</span><button type="button" onClick={onExitToMenu} className="career-menu-button" aria-label="Return to Kickoff Star main menu">☰ <span>MENU</span></button></div>
         </div>
       </div>
 
@@ -107,10 +110,13 @@ export default function WeeklyHub({
       {pendingSeasonReview && (
         <SeasonReviewCard review={pendingSeasonReview} onDismiss={clearSeasonReview} />
       )}
-      {!pendingSeasonReview && pendingArcVerdicts.length > 0 && (
+      {!pendingSeasonReview && player.captaincy?.pendingStory && (
+        <CaptaincyStoryCard story={player.captaincy.pendingStory} onDismiss={clearCaptaincyStory} />
+      )}
+      {!pendingSeasonReview && !player.captaincy?.pendingStory && pendingArcVerdicts.length > 0 && (
         <ArcVerdictCard queue={pendingArcVerdicts} onDismiss={() => clearArcVerdicts()} />
       )}
-      {pendingAchievements.length > 0 && (
+      {!pendingSeasonReview && !player.captaincy?.pendingStory && pendingArcVerdicts.length === 0 && pendingAchievements.length > 0 && (
         <AchievementCeremony queue={pendingAchievements} onDismiss={clearPendingAchievements} />
       )}
 

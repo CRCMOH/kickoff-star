@@ -1402,6 +1402,66 @@ const m17 = scenario('moment-instinctive-poacher', 'attack', ['clear'], 'x', [
   ]),
 ])
 
+/* V3.2 creation expansion — assist-first attacking passages.
+   These deliberately make the final action a pass/cross/cutback rather than
+   another disguised shooting opportunity. Position-aware routing in match.ts
+   can weight this pool heavily for midfielders, wide players and full-backs. */
+const creationSlipPass = scenario('creation-slip-pass', 'attack', ['good','clear'], 'x', [
+  beat('x','A runner darts between centre-back and full-back and you have a split-second window.',[
+    opt('thread the through ball','split the line',0.68,['vision','passing'],2,{kind:'assist'},'Perfectly threaded — your teammate takes it in stride and finishes!',{kind:'chance-missed'},'The gap closes and the pass is intercepted.',undefined,'keyPass'),
+    opt('delay then disguise it','wait for the lane',0.60,['composure','vision'],2,{kind:'assist'},'You freeze the defence, disguise the pass and the finish is clinical.',{kind:'chance-missed'},'You wait a fraction too long and the run is tracked.',undefined,'keyPass'),
+  ]),
+])
+const creationCutback = scenario('creation-cutback', 'attack', ['good','clear'], 'x', [
+  beat('x','You reach the byline with two teammates arriving around the penalty spot.',[
+    opt('cut it back low','pick the late runner',0.72,['passing','vision'],2,{kind:'assist'},'Pulled back perfectly — swept into the corner!',{kind:'chance-missed'},'A defender gets a toe to the cutback.',undefined,'keyPass'),
+    opt('drill it across goal','make the striker attack it',0.62,['passing','composure'],2,{kind:'assist'},'Driven across the six-yard box and turned home!',{kind:'chance-missed'},'The ball flashes through everyone.',undefined,'keyPass'),
+  ]),
+])
+const creationOverlap = scenario('creation-overlap-cross', 'attack', ['half','good'], 'x', [
+  beat('x','Your overlap gives you a yard of space outside the box and runners are attacking the area.',[
+    opt('cross early','bend it behind the defence',0.60,['passing','vision'],2,{kind:'assist'},'A beautiful early cross drops onto the striker\'s run — goal!',{kind:'chance-missed'},'Too close to the keeper, who claims it.',undefined,'keyPass'),
+    opt('drive to the byline','improve the angle',0.66,['pace','dribbling'],1,{kind:'continue',beatId:'delivery'},'You burst beyond the full-back and look up.',{kind:'chance-missed'},'The full-back recovers and blocks your route.'),
+  ]),
+  beat('delivery','You have time for one delivery before the defence resets.',[
+    opt('stand it to the back post','find the far-side runner',0.64,['passing','vision'],2,{kind:'assist'},'Hung up beautifully — headed home at the back post!',{kind:'chance-missed'},'The cross sails just beyond the runner.',undefined,'keyPass'),
+    opt('low ball across six yards','attack the corridor',0.70,['passing','composure'],2,{kind:'assist'},'Right through the danger zone — tapped in!',{kind:'chance-missed'},'A centre-back stretches to clear.',undefined,'keyPass'),
+  ]),
+])
+const creationWallPass = scenario('creation-wall-pass', 'attack', ['half','good'], 'x', [
+  beat('x','You receive between the lines with a teammate making a sharp run beyond you.',[
+    opt('one-touch return','play the give-and-go',0.72,['passing','vision'],2,{kind:'assist'},'One touch splits them open — your teammate finishes the move!',{kind:'chance-missed'},'The return pass is slightly underhit.',undefined,'keyPass'),
+    opt('turn and release the runner','draw a defender first',0.64,['dribbling','vision'],2,{kind:'assist'},'You draw the defender and release the runner at exactly the right moment — goal!',{kind:'chance-missed'},'The defender reads your intention and cuts it out.',undefined,'keyPass'),
+  ]),
+])
+const creationSwitch = scenario('creation-switch-and-cross', 'attack', ['half','good'], 'x', [
+  beat('x','The defence has collapsed to your side and the opposite flank is completely free.',[
+    opt('switch it first time','attack the weak side',0.76,['passing','vision'],1,{kind:'continue',beatId:'finish'},'The switch lands perfectly and the defence has to sprint across.',{kind:'chance-missed'},'The switch hangs too long and is intercepted.',undefined,'keyPass'),
+  ]),
+  beat('finish','Your teammate attacks the space and you continue forward for the return phase.',[
+    opt('slide the final pass','find the inside run',0.68,['vision','passing'],2,{kind:'assist'},'The return opens the defence and your final pass is converted!',{kind:'chance-missed'},'The final ball is cut out.',undefined,'keyPass'),
+  ]),
+])
+const creationCounter = scenario('creation-counter-release', 'attack', ['good','clear'], 'x', [
+  beat('x','You win space on the counter with a teammate sprinting beyond the last defender.',[
+    opt('release him early','use the open grass',0.70,['vision','passing'],2,{kind:'assist'},'Released at exactly the right time — one touch, finish, goal!',{kind:'chance-missed'},'The pass sends him too wide and the chance dies.',undefined,'keyPass'),
+    opt('carry then slip it','commit the defender first',0.60,['dribbling','vision'],2,{kind:'assist'},'You commit the defender and slip your teammate through for the finish!',{kind:'chance-missed'},'The defender times his challenge and stops the break.',undefined,'keyPass'),
+  ]),
+])
+const creationCrossfield = scenario('creation-crossfield-delivery', 'attack', ['good'], 'x', [
+  beat('x','You have possession in the half-space while three teammates attack the back line.',[
+    opt('clip it behind the full-back','find the blind-side run',0.65,['passing','vision'],2,{kind:'assist'},'Clipped into the blind side — controlled and finished!',{kind:'chance-missed'},'A fraction too much on it and it runs through.',undefined,'keyPass'),
+    opt('reverse pass inside','catch them looking outward',0.62,['vision','composure'],2,{kind:'assist'},'A gorgeous reverse pass opens the box — finished first time!',{kind:'chance-missed'},'The centre-back anticipates it.',undefined,'keyPass'),
+  ]),
+])
+const creationSetPiece = scenario('creation-set-piece-delivery', 'attack', ['good','clear'], 'x', [
+  beat('x','A wide free kick gives you the chance to deliver into a packed penalty area.',[
+    opt('whip it across the keeper','invite the first touch',0.61,['passing','vision'],2,{kind:'assist'},'Whipped into the perfect corridor — glanced home!',{kind:'chance-missed'},'The keeper punches through the crowd.',undefined,'keyPass'),
+    opt('float it to the far post','target the aerial mismatch',0.66,['passing','composure'],2,{kind:'assist'},'Dropped onto the far-post runner — powered home!',{kind:'chance-missed'},'The header is won by the defence.',undefined,'keyPass'),
+  ]),
+])
+const CREATION_MOMENTS: MatchScenario[] = [creationSlipPass,creationCutback,creationOverlap,creationWallPass,creationSwitch,creationCounter,creationCrossfield,creationSetPiece]
+
 export const SINGLE_MOMENTS: MatchScenario[] = [
   cornerAttack1, cornerAttack2, freeKickDirect1, freeKickDirect2, penaltyMoment1, penaltyMoment2,
   m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17,
@@ -1410,16 +1470,26 @@ export const SINGLE_MOMENTS: MatchScenario[] = [
   gd1, gd2, gd3, gd4, gd5, gd6, gd7, gd8, gd9, gk5,
 ]
 
+export type AttackMomentRole = 'finishing' | 'creation' | 'progression'
+
+export function scenariosForAttackRole(tier: ChanceTier, role: AttackMomentRole): MatchScenario[] {
+  const base = [...SCENARIOS, ...SINGLE_MOMENTS].filter((s) => s.category === 'attack' && s.tiers.includes(tier))
+  const creation = CREATION_MOMENTS.filter((s) => s.tiers.includes(tier))
+  if (role === 'creation') return creation.length ? [...creation, ...base.filter(s => /cross|pass|overlap|give-and-go|square|flick|midfield|byline/.test(s.id))] : base
+  if (role === 'finishing') return base.filter(s => !/deep-cross|overlap|midfield-dribble|give-and-go|square-ball|flick-on/.test(s.id))
+  return [...base.filter(s => /dribble|quick-break|overlap|give-and-go|midfield|long-range/.test(s.id)), ...creation.slice(0,3)]
+}
+
 export function scenariosFor(category: ScenarioCategory, tier: ChanceTier): MatchScenario[] {
   // P41: single moments were being authored into a pool nothing ever drew
   // from — SCENARIOS and SINGLE_MOMENTS are combined here so both the
   // multi-beat storylines and the one-decision moments are live content,
   // not just data sitting unused.
-  return [...SCENARIOS, ...SINGLE_MOMENTS].filter((s) => s.category === category && s.tiers.includes(tier))
+  return [...SCENARIOS, ...SINGLE_MOMENTS, ...CREATION_MOMENTS].filter((s) => s.category === category && s.tiers.includes(tier))
 }
 
 export function scenarioById(id: string): MatchScenario | undefined {
-  return SCENARIOS.find((s) => s.id === id) ?? SINGLE_MOMENTS.find((s) => s.id === id)
+  return SCENARIOS.find((s) => s.id === id) ?? SINGLE_MOMENTS.find((s) => s.id === id) ?? CREATION_MOMENTS.find((s) => s.id === id)
 }
 
 /** Structural sanity: every 'continue' target must exist within the same scenario. */

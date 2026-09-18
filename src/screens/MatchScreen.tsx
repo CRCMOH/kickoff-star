@@ -5,7 +5,7 @@ import type { MatchState, KeyMoment, ChanceTier } from '../engine/match'
 import { initMatch, advanceToKeyMoment, resolvePlayerMoment, resolveScenarioBeat, resolveInjuryDecision } from '../engine/match'
 import { momentToDecision, miniGameKindForMoment, inferStatTag, type MatchDecisionBundle } from '../engine/matchDecisions'
 import { TeamCrest } from '../components/ui'
-import FormationPitch from '../components/FormationPitch'
+import LiveMatchPitch, { type PitchAction } from '../components/LiveMatchPitch'
 import {
   executionSpecFor, adjustChance, autoResolveGrade, GRADE_LABEL, GRADE_COLOR,
   type ExecutionGrade, type ExecutionSpec,
@@ -46,6 +46,7 @@ import { rand } from '../engine/rng'
 import { sfx, isMuted, toggleMuted } from '../engine/audio'
 import { syncMusicMute } from '../engine/music'
 import { archetypeMomentBonus } from '../engine/archetypes'
+import { captainMomentFor, applyCaptainMoment, type CaptainMoment } from '../engine/captainMomentsV32'
 
 interface MatchScreenProps {
   player: Player
@@ -54,7 +55,7 @@ interface MatchScreenProps {
   playerIsHome: boolean
   autoResolve: boolean
   onToggleAutoResolve: () => void
-  onComplete: (result: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }) => void
+  onComplete: (result: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }) => void
 }
 
 const SPEEDS = [1, 2, 3] as const
@@ -64,20 +65,24 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const [state, setState] = useState<MatchState>(() => initMatch(player, playerTeam, opponent, playerIsHome, player.squad))
   const [moment, setMoment] = useState<KeyMoment | null>(null)
   const [bundle, setBundle] = useState<MatchDecisionBundle | null>(null)
-  const [revealed, setRevealed] = useState<{ text: string; success: boolean; grade: ExecutionGrade | null } | null>(null)
+  const [revealed, setRevealed] = useState<{ text: string; success: boolean; grade: ExecutionGrade | null; action?: PitchAction } | null>(null)
   const [executing, setExecuting] = useState<{ optIndex: number } | null>(null)
   const [muted, setMutedUi] = useState(isMuted())
   const [speed, setSpeed] = useState<1 | 2 | 3>(1)
   const [displayMinute, setDisplayMinute] = useState(0)
-  const [celebration, setCelebration] = useState<{ kind: CelebrationKind; minute: number } | null>(null)
+  const [celebration, setCelebration] = useState<{ kind: CelebrationKind; minute: number; ratingDelta?: number } | null>(null)
   const [halfTimeShown, setHalfTimeShown] = useState(false)
   const halfTimeSeen = useRef(false)
   const priorPlayerGoals = useRef(0)
   const priorPlayerAssists = useRef(0)
+  const priorGoalRating = useRef(6.0)
   const goalsShown = useRef(0)
   const displayScoreRef = useRef({ home: 0, away: 0 })
   const matchStatsRef = useRef({ tackle: 0, interception: 0, header: 0, keyPass: 0, save: 0 })
   const [displayScore, setDisplayScore] = useState({ home: 0, away: 0 })
+  const [pitchAction, setPitchAction] = useState<PitchAction>('idle')
+  const [captainMoment, setCaptainMoment] = useState<CaptainMoment | null>(null)
+  const captainMomentUsed = useRef(false)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const stateRef = useRef(state)
@@ -87,6 +92,10 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     const result = advanceToKeyMoment(stateRef.current, player)
     stateRef.current = result.state
     setState(result.state)
+    if (!result.keyMoment && player.captaincy?.role === 'captain' && !captainMomentUsed.current && result.state.onPitch && !result.state.finished) {
+      const leadership = captainMomentFor(result.state)
+      if (leadership) { setCaptainMoment(leadership); return }
+    }
     if (result.keyMoment) {
       setMoment(result.keyMoment)
       setBundle(momentToDecision(player, result.keyMoment, `${result.state.minute}' · ${result.state.homeTeam.short} ${displayScore.home}-${displayScore.away} ${result.state.awayTeam.short}`))
@@ -121,7 +130,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const matchOver = state.finished && caughtUp && !moment && !revealed
 
   useEffect(() => {
-    const paused = showMoment || revealed !== null || matchOver || celebration !== null || halfTimeShown
+    const paused = showMoment || captainMoment !== null || revealed !== null || matchOver || celebration !== null || halfTimeShown
     if (paused) return
     if (caughtUp && !state.finished && !moment) {
       runSim()
@@ -133,7 +142,16 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     }, BASE_TICK_MS / speed)
     return () => window.clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caughtUp, showMoment, revealed, matchOver, celebration, halfTimeShown, speed, state.minute, state.finished, moment])
+  }, [caughtUp, showMoment, captainMoment, revealed, matchOver, celebration, halfTimeShown, speed, state.minute, state.finished, moment])
+
+  const lastVisibleEvent = visibleEvents[visibleEvents.length - 1]
+  useEffect(() => {
+    if (!lastVisibleEvent) return
+    const t=lastVisibleEvent.text.toLowerCase()
+    const action:PitchAction=lastVisibleEvent.kind==='goal'?'goal':t.includes('save')?'save':t.includes('shot')||t.includes('effort')?'shot':t.includes('cross')?'cross':t.includes('tackle')||t.includes('challenge')?'tackle':lastVisibleEvent.kind==='chance'?'attack':'idle'
+    setPitchAction(action)
+    if(action!=='idle'){const timer=window.setTimeout(()=>setPitchAction('idle'),1100);return()=>window.clearTimeout(timer)}
+  }, [lastVisibleEvent])
 
   const revealedGoalEvents = visibleEvents.filter((e) => e.kind === 'goal')
   const revealedGoals = revealedGoalEvents.length
@@ -164,7 +182,11 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     goalsShown.current = revealedGoals
     displayScoreRef.current = { home, away }
     setDisplayScore({ home, away })
-    setCelebration({ kind: lastKind, minute: state.minute })
+    // Only claim a rating gain on a PLAYER goal. Team/opponent goals must not
+    // inherit rating movement from unrelated decisions between celebrations.
+    const ratingDelta=lastKind==='player-goal' ? Math.max(0,state.playerRating-priorGoalRating.current) : undefined
+    if(lastKind==='player-goal') priorGoalRating.current=state.playerRating
+    setCelebration({ kind: lastKind, minute: state.minute, ratingDelta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedGoals, state.homeScore, state.awayScore, state.playerGoals, state.playerAssists, state.minute, playerIsHome])
 
@@ -177,7 +199,17 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight
   }, [visibleCount])
 
-  const handleChoose = (optIndex: number) => {
+  const handleCaptainChoice = (optIndex: number) => {
+    if (!captainMoment) return
+    const next = applyCaptainMoment(stateRef.current, captainMoment, optIndex)
+    captainMomentUsed.current = true
+    stateRef.current = next
+    setState(next)
+    setCaptainMoment(null)
+    setRevealed({ text: next.events[next.events.length - 1]?.text ?? '', success: optIndex === 0, grade: null })
+  }
+
+    const handleChoose = (optIndex: number) => {
     if (!moment || !bundle) return
     if (moment.isInjuryDecision) {
       const next = resolveInjuryDecision(state, optIndex === 0, player)
@@ -228,7 +260,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     setState(next)
     setDisplayMinute(next.minute)
     const lastEvent = next.events[next.events.length - 1]
-    setRevealed({ text: lastEvent?.text ?? '', success, grade })
+    setRevealed({ text: lastEvent?.text ?? '', success, grade, action: tag==='save'?'save':tag==='tackle'||tag==='interception'?'tackle':tag==='header'?'cross':moment.isDefensive?'tackle':tag==='keyPass'?'cross':'shot' })
     setMoment(null)
     setBundle(null)
     setExecuting(null)
@@ -245,6 +277,17 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
 
   return (
     <div className="relative h-[100dvh] w-full bg-ks-black flex flex-col overflow-hidden">
+      {captainMoment && caughtUp && (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center px-5">
+          <div className="w-full max-w-md rounded-2xl border border-ks-gold/40 bg-[#0f0f0d] p-5 shadow-2xl">
+            <div className="text-[10px] uppercase tracking-[0.28em] text-ks-gold font-display mb-2">© Captain's Moment</div>
+            <div className="text-ks-ink text-base font-display mb-5">{captainMoment.situation}</div>
+            <div className="flex flex-col gap-2">
+              {captainMoment.options.map((o,i)=><button key={i} onClick={()=>handleCaptainChoice(i)} className="w-full text-left rounded-xl border border-ks-border bg-black/30 px-4 py-3 text-sm text-ks-ink active:border-ks-gold">{o.label}</button>)}
+            </div>
+          </div>
+        </div>
+      )}
       {celebration && (
         <GoalCelebration
           kind={celebration.kind}
@@ -255,6 +298,8 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
           awayScore={state.awayScore}
           minute={celebration.minute}
           avatarId={celebration.kind === 'player-goal' || celebration.kind === 'player-assist' ? player.avatarId : undefined}
+          playerRating={state.playerRating}
+          ratingDelta={celebration.ratingDelta}
           onDone={() => setCelebration(null)}
         />
       )}
@@ -318,7 +363,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
             <span className={`font-display tracking-wide text-xs ${!playerIsHome ? 'text-ks-black' : 'text-ks-ink'}`}>{state.awayTeam.short}</span>
           </div>
         </div>
-        <div className="h-1 rounded-full bg-[#2a2a27] overflow-hidden mb-3 relative">
+        <div className="grid grid-cols-3 gap-1.5 mb-2">
+          <div className="broadcast-stat"><span>RATING</span><b>{state.playerRating.toFixed(1)}</b></div>
+          <div className="broadcast-stat"><span>STAMINA</span><b>{Math.round(state.matchStamina)}%</b></div>
+          <div className="broadcast-stat"><span>ROLE</span><b>{player.captaincy?.role==='captain'?'© CAP':player.position}</b></div>
+        </div>
+                <div className="h-1 rounded-full bg-[#2a2a27] overflow-hidden mb-3 relative">
           <div className="absolute inset-y-0 left-1/2 w-px bg-ks-border" />
           <div
             className="h-full bg-ks-gold rounded-full transition-all"
@@ -331,12 +381,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       </div>
 
       <div className="relative z-10 px-5 max-w-md mx-auto w-full mb-2">
-        <FormationPitch
-          momentum={state.momentum}
-          homeColor={state.homeTeam.primaryColor}
-          awayColor={state.awayTeam.primaryColor}
-          playerIsHome={playerIsHome}
-        />
+        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} playerPosition={player.position} minute={displayMinute} action={pitchAction} focusPlayer={showMoment || executing !== null} />
       </div>
 
       <div ref={feedRef} className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 max-w-md mx-auto w-full" style={{ maxHeight: '30vh' }}>
@@ -390,15 +435,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
               </div>
             ) : showMoment && bundle && moment ? (
               <div className="flex flex-col gap-2.5">
-                <div className="font-display tracking-[0.3em] text-[10px] text-ks-gold uppercase text-center animate-pulse">
-                  ⏸ your moment — clock stopped
-                </div>
-                <div className="rounded-xl border border-ks-gold/40 bg-ks-gold/5 px-4 py-3 mb-1 shadow-[0_0_30px_rgba(212,175,55,0.12)]">
-                  <p className="text-ks-ink text-sm leading-relaxed">{moment.situation}</p>
-                </div>
+                <div className="moment-kicker"><span>{clockLabel}</span><b>{moment.isDefensive ? 'DEFENSIVE MOMENT' : moment.tier === 'clear' ? 'CLEAR CHANCE' : moment.tier === 'good' ? 'ATTACKING MOMENT' : 'KEY MOMENT'}</b><span>{player.position}</span></div>
+                <div className={"moment-danger "+(moment.tier==='clear'?'danger-clear':moment.tier==='good'?'danger-good':'danger-half')}><span></span><span></span><span></span></div>
+                <div className="moment-scene"><div className="moment-scene-glow"/><div className="text-[9px] uppercase tracking-[.24em] text-ks-gold mb-2">The game slows down</div><p className="text-white text-[15px] font-medium leading-relaxed relative z-10">{moment.situation}</p></div>
                 {bundle.decision.options.map((opt, i) => (
                   <button key={opt.id} onClick={() => handleChoose(i)}
-                    className="text-left rounded-xl border border-ks-border bg-[#0f0f0d] px-4 py-3 hover:border-ks-gold hover:bg-ks-gold/5 transition-colors">
+                    className="moment-choice text-left" style={{animationDelay:`${120+i*90}ms`}}>
                     <div className="font-display tracking-wide text-ks-gold text-sm uppercase">{opt.label}</div>
                     {opt.hint && <div className="text-[11px] text-ks-muted mt-0.5">{opt.hint}</div>}
                   </button>
@@ -411,8 +453,12 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
                 </button>
               </div>
             ) : revealed ? (
-              <div className="flex flex-col gap-3">
-                <div className={`rounded-xl border px-4 py-3 ${revealed.success ? 'border-green-500/50 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
+              <div className="flex flex-col gap-3 result-stage">
+                <div className={"result-impact "+(revealed.success?'result-success':'result-fail')}>
+                  <div className="result-icon">{revealed.action==='save'?'🧤':revealed.action==='tackle'?'◆':revealed.action==='cross'?'↗':revealed.action==='shot'?'⚽':'◆'}</div>
+                  <div className="result-word">{revealed.success ? (revealed.grade==='perfect'?'PERFECT':revealed.action==='save'?'SAVED':revealed.action==='tackle'?'WON':revealed.action==='cross'?'CREATED':'EXECUTED') : 'DENIED'}</div>
+                </div>
+                <div className={`rounded-xl border px-4 py-3 result-copy ${revealed.success ? 'border-green-500/50 bg-green-500/5' : 'border-orange-500/40 bg-orange-500/5'}`}>
                   {revealed.grade && (
                     <div className={`font-display tracking-widest text-[10px] uppercase mb-1.5 ${GRADE_COLOR[revealed.grade]}`}>
                       {GRADE_LABEL[revealed.grade]}
@@ -436,6 +482,26 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
 
       <div className="relative z-10 px-5 pb-8 max-w-md mx-auto w-full" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }}>
         {matchOver ? (
+          <>
+          <div className="fulltime-stage">
+            <div className="ft-label">FULL TIME</div>
+            <div className="ft-scoreline">
+              <div><TeamCrest primary={state.homeTeam.primaryColor} secondary={state.homeTeam.secondaryColor} short={state.homeTeam.short} size="sm" /><span>{state.homeTeam.short}</span></div>
+              <b><span>{state.homeScore}</span><i>—</i><span>{state.awayScore}</span></b>
+              <div><TeamCrest primary={state.awayTeam.primaryColor} secondary={state.awayTeam.secondaryColor} short={state.awayTeam.short} size="sm" /><span>{state.awayTeam.short}</span></div>
+            </div>
+            <div className="ft-player-line">
+              <div><small>RATING</small><strong>{state.playerRating.toFixed(1)}</strong></div>
+              <div><small>GOALS</small><strong>{state.playerGoals}</strong></div>
+              <div><small>ASSISTS</small><strong>{state.playerAssists}</strong></div>
+            </div>
+          </div>
+          {state.motm && (
+            <div className={"motm-reveal "+(state.motm.playerWon?'motm-you':'')}>
+              <div className="motm-star">★</div>
+              <div><small>PLAYER OF THE MATCH</small><strong>{state.motm.winner.name}</strong><span>{state.motm.winner.position} · {state.motm.winner.rating.toFixed(1)}</span></div>
+            </div>
+          )}
           <button
             onClick={() => {
               const won = state.playerIsHome ? state.homeScore > state.awayScore : state.awayScore > state.homeScore
@@ -445,13 +511,14 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
               onComplete({
                 rating: Math.round(state.playerRating * 10) / 10, goals: state.playerGoals, assists: state.playerAssists,
                 won, drew, finalMatchStamina: state.matchStamina, injury: state.injury, wasSubbed: state.substituted, redCarded: state.redCarded,
-                playerScore, opponentScore, squad: state.squad, matchStats: matchStatsRef.current,
+                playerScore, opponentScore, motm: state.motm ? { playerWon: state.motm.playerWon, winnerName: state.motm.winner.name, winnerRating: state.motm.winner.rating, winnerPosition: state.motm.winner.position } : undefined, squad: state.squad, matchStats: matchStatsRef.current,
               })
             }}
             className="w-full bg-ks-gold text-ks-black font-display tracking-wide rounded-xl py-3.5 text-sm shadow-[0_0_25px_rgba(212,175,55,0.3)]"
           >
             match summary →
           </button>
+          </>
         ) : !showMoment && !revealed ? (
           <button onClick={skipAhead} className="w-full text-center text-[11px] text-ks-muted border border-ks-border rounded-xl py-2.5">
             skip ahead ⏩

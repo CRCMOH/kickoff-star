@@ -10,8 +10,13 @@ import { injuryRisk, rollInjury } from './injuries'
 import { createCommentator, surnameOf, fill, type Commentator, type CommentaryContext } from './commentary'
 import { ratingNudgeFor, type ExecutionGrade } from './execution'
 import { pickGoalscorer, pickAssister, applyTeammateGoal, type SquadPlayer } from './squad'
-import { scenariosFor, scenarioById, type ScenarioCategory } from './matchScenarios'
+import { scenariosFor, scenariosForAttackRole, scenarioById, type ScenarioCategory } from './matchScenarios'
 import { debugScenarioOverride } from './devTools'
+import { resolveLegacyDriveShot, scoreSnapshot } from './matchResolutionV2'
+import { emptyMatchStats, simulateBackgroundStats, mergeMatchStats, type PlayerMatchStats } from './matchStats'
+import { createMatchEnvironment } from './matchModel'
+import { calculatePlayerRating, type RatingBreakdown } from './ratingSystemV32'
+import { simulateMotmField, selectManOfTheMatch, type MotmResult } from './motmV32'
 
 // ============================================================================
 // FOOTBALL ENGINE — Sections 1-4 (Possession, Chance/Decision, Goals, Ratings)
@@ -62,6 +67,16 @@ export interface MatchState {
   playerRating: number
   playerGoals: number
   playerAssists: number
+  /** Full position-aware match statistics. Event stats are authoritative; ordinary off-ball actions are filled at FT. */
+  playerStats: PlayerMatchStats
+  /** Quality samples from the decisions actually surfaced to the player. */
+  decisionQualityTotal: number
+  executionQualityTotal: number
+  ratedMoments: number
+  /** Transparent full-time rating ledger; populated when the match finishes. */
+  ratingBreakdown?: RatingBreakdown
+  /** Comparative player-of-the-match result, generated at full time. */
+  motm?: MotmResult
   events: MatchEvent[]
   finished: boolean
   // Phase 12. Non-serialised: MatchState is transient (never written to a save slot),
@@ -118,7 +133,7 @@ export function initMatch(player: Player, playerTeam: Team, opponent: Team, play
   const entryMinute = role === 'starting-xi' || !role ? 0
     : role === 'bench' ? 55 + Math.floor(rand() * 16) // 55-70
     : 70 + Math.floor(rand() * 16) // reserves: 70-85, a cameo
-  const base: MatchState = {
+  const base: MatchState & { _playerPosition?: import('../types/attributes').Position } = {
     homeTeam: playerIsHome ? playerTeam : opponent,
     awayTeam: playerIsHome ? opponent : playerTeam,
     playerIsHome,
@@ -141,6 +156,10 @@ export function initMatch(player: Player, playerTeam: Team, opponent: Team, play
     playerRating: 6.0, // neutral baseline (Section 4)
     playerGoals: 0,
     playerAssists: 0,
+    playerStats: emptyMatchStats(),
+    decisionQualityTotal: 0,
+    executionQualityTotal: 0,
+    ratedMoments: 0,
     events: [],
     finished: false,
     commentator: commentator,
@@ -149,6 +168,7 @@ export function initMatch(player: Player, playerTeam: Team, opponent: Team, play
     activeScenario: null,
     yellowCards: 0,
     redCarded: false,
+    _playerPosition: player.position,
   }
   // P33: standingMatchEffects existed but was NEVER CALLED — the three meters
   // were decorative. A dressing room that wants you to do well makes you play
@@ -370,7 +390,7 @@ export function advanceToKeyMoment(state: MatchState, player: Player): AdvanceRe
         const forced = buildKeyMoment(s, 'half', player.position === 'GK' || ['CB', 'FB'].includes(player.position), player)
         return { state: s, keyMoment: forced }
       }
-      s = finishMatch(s)
+      s = finishMatchForAudit(s)
       return { state: s, keyMoment: null }
     }
 
@@ -577,7 +597,21 @@ const SCENARIO_CHANCE = 0.4
 function enterMomentOrScenario(s: MatchState, tier: ChanceTier, isDefensive: boolean, player: Player): { state: MatchState; keyMoment: KeyMoment } {
   const isGK = player.position === 'GK'
   const category: ScenarioCategory = isGK && isDefensive ? 'gk-defend' : isGK && !isDefensive ? 'gk-distribution' : isDefensive ? 'defend' : 'attack'
-  const eligible = scenariosFor(category, tier)
+  // V3.2: being involved in an attack no longer means being selected as the finisher.
+  // Position shapes the player's football role before a scenario is drawn.
+  const attackRole = (() => {
+    const r = rand()
+    switch (player.position) {
+      case 'ST': return r < .62 ? 'finishing' : r < .84 ? 'creation' : 'progression'
+      case 'WG': return r < .38 ? 'finishing' : r < .72 ? 'creation' : 'progression'
+      case 'WM': return r < .18 ? 'finishing' : r < .65 ? 'creation' : 'progression'
+      case 'CM': return r < .12 ? 'finishing' : r < .60 ? 'creation' : 'progression'
+      case 'FB': return r < .07 ? 'finishing' : r < .62 ? 'creation' : 'progression'
+      case 'CB': return r < .06 ? 'finishing' : r < .28 ? 'creation' : 'progression'
+      default: return 'progression'
+    }
+  })()
+  const eligible = category === 'attack' ? scenariosForAttackRole(tier, attackRole) : scenariosFor(category, tier)
 
   // P45 — content-creation override. If the page was loaded with
   // ?debugScenario=<id>, the next eligible chance for THAT scenario's own
@@ -603,7 +637,10 @@ function enterMomentOrScenario(s: MatchState, tier: ChanceTier, isDefensive: boo
     }
   }
 
-  if (eligible.length > 0 && rand() < SCENARIO_CHANCE) {
+  // Attack moments now always use a role-aware authored passage when one exists.
+  // Defensive/GK content keeps the existing pacing mix.
+  const scenarioChance = category === 'attack' ? 1 : SCENARIO_CHANCE
+  if (eligible.length > 0 && rand() < scenarioChance) {
     const scen = eligible[Math.floor(rand() * eligible.length)]
     const entryBeat = scen.beats[scen.entryBeatId]
     const next: MatchState = { ...s, activeScenario: { scenarioId: scen.id, beatId: scen.entryBeatId, tier } }
@@ -719,47 +756,28 @@ function buildKeyMoment(s: MatchState, tier: ChanceTier, isDefensive: boolean, p
 // this is what makes it "individually affect match sim" rather than a
 // faceless team-level event.
 function autoResolveTeammateChance(s: MatchState, tier: ChanceTier): MatchState {
-  const pt = playerTeamOf(s)
-  const opp = opponentOf(s)
-  const homeBoost = s.playerIsHome ? 0.06 : 0
-  const tierMod = tier === 'clear' ? 0.6 : tier === 'good' ? 0.4 : 0.22
-  const chance = clamp(tierMod + homeBoost + (pt.ratings.attack - opp.ratings.defense) / 160, 0.08, 0.85)
-  if (rand() < chance) {
+  const shot = resolveLegacyDriveShot(s.homeTeam, s.awayTeam, scoreSnapshot(s.homeScore, s.awayScore, s.minute, s.playerIsHome), true, tier, rand(), rand())
+  if (shot.goal) {
     let squad = s.squad
     let scorer: SquadPlayer | null = null
     let assister: SquadPlayer | null = null
     if (squad) {
       scorer = pickGoalscorer(squad)
-      if (scorer) {
-        assister = pickAssister(squad, scorer.id)
-        squad = applyTeammateGoal(squad, scorer.id, assister?.id ?? null)
-      }
+      if (scorer) { assister = pickAssister(squad, scorer.id); squad = applyTeammateGoal(squad, scorer.id, assister?.id ?? null) }
     }
     const scoredState = { ...nextScore(s, true), squad }
     const ctx = { ...ctxOf(scoredState), scorer: scorer ? surnameOf(scorer.name) : undefined, assister: assister ? surnameOf(assister.name) : undefined }
     return applyGoal({ ...s, squad }, true, s.commentator.line('goal-teammate', ctx))
   }
   const missed = { ...s, momentum: clamp(s.momentum + 1, -10, 10) }
-  return {
-    ...missed,
-    events: [...missed.events, { minute: s.minute, text: s.commentator.line('chance-wasted-teammate', ctxOf(missed)), kind: 'chance' as const }],
-  }
+  return { ...missed, events: [...missed.events, { minute: s.minute, text: s.commentator.line('chance-wasted-teammate', ctxOf(missed)), kind: 'chance' as const }] }
 }
 
 function autoResolveOpponentChance(s: MatchState, tier: ChanceTier): MatchState {
-  const pt = playerTeamOf(s)
-  const opp = opponentOf(s)
-  const awayPenalty = s.playerIsHome ? 0.06 : 0
-  const tierMod = tier === 'clear' ? 0.6 : tier === 'good' ? 0.4 : 0.22
-  const chance = clamp(tierMod - awayPenalty + (opp.ratings.attack - pt.ratings.defense) / 160, 0.06, 0.82)
-  if (rand() < chance) {
-    return applyGoal(s, false, s.commentator.line('goal-opponent', ctxOf(nextScore(s, false))))
-  }
+  const shot = resolveLegacyDriveShot(s.homeTeam, s.awayTeam, scoreSnapshot(s.homeScore, s.awayScore, s.minute, s.playerIsHome), false, tier, rand(), rand())
+  if (shot.goal) return applyGoal(s, false, s.commentator.line('goal-opponent', ctxOf(nextScore(s, false))))
   const survived = { ...s, momentum: clamp(s.momentum - 1, -10, 10) }
-  return {
-    ...survived,
-    events: [...survived.events, { minute: s.minute, text: s.commentator.line('chance-survived', ctxOf(survived)), kind: 'chance' as const }],
-  }
+  return { ...survived, events: [...survived.events, { minute: s.minute, text: s.commentator.line('chance-survived', ctxOf(survived)), kind: 'chance' as const }] }
 }
 
 /**
@@ -794,15 +812,22 @@ export function resolvePlayerMoment(
   s: MatchState, moment: KeyMoment, optionQuality: number, success: boolean, chosenReward: number, maxReward: number,
   isGkMoment = false, executionGrade: ExecutionGrade | null = null
 ): MatchState {
-  let next = { ...s, events: [...s.events] }
+  let next = { ...s, events: [...s.events], playerStats: { ...s.playerStats } }
+  next.decisionQualityTotal += optionQuality
+  next.executionQualityTotal += executionGrade === 'perfect' ? 1 : executionGrade === 'good' ? .82 : executionGrade === 'ok' ? .62 : executionGrade === 'miss' ? .28 : (success ? .72 : .42)
+  next.ratedMoments += 1
 
   if (moment.isDefensive) {
     // success = prevented the goal
     if (success) {
       const kind = isGkMoment ? 'save-made' : 'defended'
       next.events.push({ minute: s.minute, text: next.commentator.line(kind, ctxOf(next)), kind: 'chance' })
+      if (isGkMoment) { next.playerStats.shotsFaced += 1; next.playerStats.saves += 1; if (moment.tier === 'clear') next.playerStats.highDifficultySaves += 1 }
+      else { next.playerStats.tacklesAttempted += 1; next.playerStats.tacklesWon += 1; next.playerStats.duelsAttempted += 1; next.playerStats.duelsWon += 1 }
       next.momentum = clamp(next.momentum + 2, -10, 10)
     } else {
+      if (isGkMoment) { next.playerStats.shotsFaced += 1; next.playerStats.goalsConceded += 1 }
+      else { next.playerStats.tacklesAttempted += 1; next.playerStats.duelsAttempted += 1 }
       next = applyGoal(next, false, next.commentator.line('beaten', ctxOf(nextScore(next, false))))
     }
   } else if (moment.isDistribution) {
@@ -812,9 +837,11 @@ export function resolvePlayerMoment(
     // possession, but a bad enough one in a bad enough moment can gift the
     // opponent a goal outright, the way a real sliced clearance sometimes does.
     if (success) {
+      next.playerStats.distributionAttempted += 1; next.playerStats.distributionCompleted += 1
       next.events.push({ minute: s.minute, text: next.commentator.line('distribution-good', ctxOf(next)), kind: 'chance' })
       next.momentum = clamp(next.momentum + 1, -10, 10)
     } else {
+      next.playerStats.distributionAttempted += 1
       const concedesDirectly = moment.tier === 'clear' && rand() < 0.22
       if (concedesDirectly) {
         next = applyGoal(next, false, next.commentator.line('distribution-poor', ctxOf(nextScore(next, false))))
@@ -829,13 +856,16 @@ export function resolvePlayerMoment(
       if (isGoal) {
         next = applyGoal(next, true, next.commentator.line('goal-player', ctxOf(nextScore(next, true))))
         next.playerGoals += 1
+        next.playerStats.goals += 1; next.playerStats.shots += 1; next.playerStats.shotsOnTarget += 1
       } else {
         // One line for the assist, not two — the old code pushed an assist line AND a
         // separate goal line, which read as two different events for one moment.
         next.playerAssists += 1
+        next.playerStats.assists += 1; next.playerStats.keyPasses += 1; next.playerStats.chancesCreated += 1
         next = applyGoal(next, true, next.commentator.line('assist', ctxOf(nextScore(next, true))))
       }
     } else {
+      next.playerStats.shots += 1
       next.events.push({ minute: s.minute, text: next.commentator.line('chance-missed', ctxOf(next)), kind: 'chance' })
       next.momentum = clamp(next.momentum + 1, -10, 10)
     }
@@ -1015,15 +1045,37 @@ function updateRating(current: number, _optionQuality: number, success: boolean,
   return clamp(current + delta * tierWeight, 1, 10)
 }
 
-function finishMatch(s: MatchState): MatchState {
+export function finishMatchForAudit(s: MatchState): MatchState {
   const won = s.playerIsHome ? s.homeScore > s.awayScore : s.awayScore > s.homeScore
   const drew = s.homeScore === s.awayScore
-  // small team-result nudge to rating (Section 4 passive drift)
   const resultNudge = won ? 0.3 : drew ? 0 : -0.2
-  return {
-    ...s,
-    finished: true,
-    playerRating: clamp(s.playerRating + resultNudge, 1, 10),
-    events: [...s.events, { minute: s.minute, text: s.commentator.line('fulltime', ctxOf(s)), kind: 'fulltime' as const }],
-  }
+  const rawRating = clamp(s.playerRating + resultNudge, 1, 10)
+  const playerGoalsFor = s.playerIsHome ? s.homeScore : s.awayScore
+  const conceded = s.playerIsHome ? s.awayScore : s.homeScore
+  const env = createMatchEnvironment(s.homeTeam, s.awayTeam)
+  const possession = s.playerIsHome ? env.homePossession : env.awayPossession
+  const minutes = Math.max(0, Math.min(s.minute, s.subMinute ?? s.minute) - s.entryMinute)
+  const decisionQuality = s.ratedMoments ? s.decisionQualityTotal / s.ratedMoments : .5
+  const executionQuality = s.ratedMoments ? s.executionQualityTotal / s.ratedMoments : .5
+  const background = simulateBackgroundStats({
+    position: (s as MatchState & { _playerPosition?: import('../types/attributes').Position })._playerPosition ?? 'CM',
+    minutes, teamPossession: possession, teamGoals: playerGoalsFor, goalsConceded: conceded,
+    rating: rawRating, decisionQuality, executionQuality,
+    seed: Math.round((s.minute + 1) * 1009 + s.homeScore * 97 + s.awayScore * 193 + s.playerMoments * 389),
+  })
+  const stats = mergeMatchStats(background, { ...s.playerStats, goalsConceded: conceded })
+  const position = (s as MatchState & { _playerPosition?: import('../types/attributes').Position })._playerPosition ?? 'CM'
+  const breakdown = calculatePlayerRating({
+    position, stats, decisionQuality, executionQuality, ratedMoments: s.ratedMoments,
+    minutes, yellowCards: s.yellowCards, redCarded: s.redCarded,
+  })
+  const finalRating = breakdown.total
+  const playerId='career-player'
+  const field=simulateMotmField({
+    homeScore:s.homeScore, awayScore:s.awayScore, playerIsHome:s.playerIsHome,
+    player:{id:playerId,name:s.playerSurname,position,rating:finalRating,stats},
+  })
+  const motm=selectManOfTheMatch(field,playerId) ?? undefined
+  return { ...s, finished: true, playerStats: stats, playerRating: finalRating, ratingBreakdown: breakdown, motm,
+    events: [...s.events, { minute: s.minute, text: s.commentator.line('fulltime', ctxOf(s)), kind: 'fulltime' as const }] }
 }

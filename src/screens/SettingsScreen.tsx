@@ -3,14 +3,21 @@ import { useEffect, useState } from 'react'
 interface Props { onBack: () => void }
 
 const REDUCED_MOTION_KEY = 'kickoff-star-reduced-motion'
+const LOW_POWER_KEY = 'kickoff-star-low-power'
 
 export default function SettingsScreen({ onBack }: Props) {
   const [reducedMotion, setReducedMotion] = useState(() => localStorage.getItem(REDUCED_MOTION_KEY) === '1')
+  const [lowPower, setLowPower] = useState(() => localStorage.getItem(LOW_POWER_KEY) === '1')
 
   useEffect(() => {
     document.documentElement.classList.toggle('reduce-motion', reducedMotion)
     localStorage.setItem(REDUCED_MOTION_KEY, reducedMotion ? '1' : '0')
   }, [reducedMotion])
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('low-power', lowPower)
+    localStorage.setItem(LOW_POWER_KEY, lowPower ? '1' : '0')
+  }, [lowPower])
 
   return (
     <main className="min-h-screen bg-ks-black text-ks-ink px-5 py-6">
@@ -44,6 +51,15 @@ export default function SettingsScreen({ onBack }: Props) {
               className={`min-w-16 min-h-11 rounded-full border px-2 font-bold ${reducedMotion ? 'bg-ks-gold text-ks-black border-ks-gold' : 'border-ks-border text-ks-muted'}`}
             >
               {reducedMotion ? 'ON' : 'OFF'}
+            </button>
+          </div>
+          <div className="border-t border-ks-border mt-5 pt-5 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="font-bold">Performance mode</h2>
+              <p className="text-sm text-ks-muted mt-1">Cuts expensive glow, blur and decorative effects while keeping the football animations and gameplay intact.</p>
+            </div>
+            <button type="button" role="switch" aria-checked={lowPower} onClick={() => setLowPower(v => !v)} className={`min-w-16 min-h-11 rounded-full border px-2 font-bold ${lowPower ? 'bg-ks-gold text-ks-black border-ks-gold' : 'border-ks-border text-ks-muted'}`}>
+              {lowPower ? 'ON' : 'OFF'}
             </button>
           </div>
         </section>

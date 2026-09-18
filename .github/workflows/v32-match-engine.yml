@@ -1,0 +1,88 @@
+name: V3.2 Match Engine Validation
+
+on:
+  push:
+    branches: [v3.2-match-engine-redesign]
+    paths:
+      - 'src/engine/match.ts'
+      - 'src/engine/matchModel.ts'
+      - 'src/engine/matchSimulationV2.ts'
+      - 'src/engine/matchStats.ts'
+      - 'src/engine/liveMatchV2.ts'
+      - 'src/engine/ratingSystemV32.ts'
+      - 'src/engine/motmV32.ts'
+      - 'src/engine/captaincy.ts'
+      - 'src/engine/captainMomentsV32.ts'
+      - 'src/screens/MatchScreen.tsx'
+      - 'src/index.css'
+      - 'src/components/GoalCelebration.tsx'
+      - 'src/components/LiveMatchPitch.tsx'
+      - 'src/store/careerStore.ts'
+      - 'src/screens/tabs/PlayerTab.tsx'
+      - 'src/screens/WeeklyHub.tsx'
+      - 'src/screens/Career.tsx'
+      - 'src/App.tsx'
+      - 'src/engine/music.ts'
+      - 'android/app/src/main/java/com/vraxis/kickoffstar/MainActivity.java'
+      - 'android/app/src/main/AndroidManifest.xml'
+      - 'android/app/src/main/res/values/styles.xml'
+      - 'src/components/CaptaincyStoryCard.tsx'
+      - 'src/screens/MatchDayScreen.tsx'
+      - 'src/engine/matchResolutionV2.ts'
+      - 'scripts/auditMatchEngineV2.ts'
+      - 'scripts/auditLiveBridgeV2.ts'
+      - 'scripts/auditPositionInfluenceV32.ts'
+      - 'scripts/auditPlayableCareersV32.ts'
+      - 'scripts/auditMotmV32.ts'
+      - 'scripts/auditCaptaincyV32.ts'
+      - '.github/workflows/v32-match-engine.yml'
+  workflow_dispatch:
+
+jobs:
+  realism-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - name: Type-check transplanted V3.2 engine
+        run: npx tsc --noEmit
+      - name: Run 100k-match realism audit
+        run: npx tsx scripts/auditMatchEngineV2.ts
+      - name: Run live resolution bridge regression audit
+        run: npx tsx scripts/auditLiveBridgeV2.ts
+      - name: Run 240k multi-position player influence audit
+        run: npx tsx scripts/auditPositionInfluenceV32.ts
+      - name: Run direct playable career audit
+        run: npx tsx scripts/auditPlayableCareersV32.ts
+      - name: Run cross-position MOTM distribution audit
+        run: npx tsx scripts/auditMotmV32.ts
+      - name: Run captaincy progression audit
+        run: npx tsx scripts/auditCaptaincyV32.ts
+      - name: Build web bundle for Android
+        run: |
+          set +e
+          npm run build 2>&1 | tee /tmp/kickoff-build.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            echo "### Android web bundle failure" >> "$GITHUB_STEP_SUMMARY"
+            echo '\`\`\`text' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 120 /tmp/kickoff-build.log >> "$GITHUB_STEP_SUMMARY"
+            echo '\`\`\`' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+      - name: Compile Android debug shell
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace

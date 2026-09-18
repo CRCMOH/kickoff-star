@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SplashScreen from './screens/SplashScreen'
 import MainMenu from './screens/MainMenu'
 import PlayerCreation from './screens/PlayerCreation'
@@ -14,28 +14,48 @@ import { useCareerStore } from './store/careerStore'
 import { listSaves, type SaveSlotId } from './engine/save'
 import type { School } from './engine/schools'
 import type { SquadRole } from './engine/trials'
+import { installMusicLifecycle, pauseMusic } from './engine/music'
 
 type Screen = 'splash' | 'menu' | 'create' | 'story' | 'school' | 'trials' | 'career' | 'settings' | 'credits' | 'help' | 'load'
 
+// Native-shell validation touch: navigation contract is intentionally centralized here.
 const SCREEN_VALUES: Screen[] = ['splash', 'menu', 'create', 'story', 'school', 'trials', 'career', 'settings', 'credits', 'help', 'load']
 const isScreen = (value: unknown): value is Screen => typeof value === 'string' && SCREEN_VALUES.includes(value as Screen)
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
   const [chosenSchool, setChosenSchool] = useState<School | null>(null)
+  const screenRef = useRef<Screen>(screen)
+  screenRef.current = screen
   const player = useCareerStore((s) => s.player)
   const loadFromSlot = useCareerStore((s) => s.loadFromSlot)
   const setSchool = useCareerStore((s) => s.setSchool)
   const completeTrials = useCareerStore((s) => s.completeTrials)
 
   useEffect(() => {
+    const removeMusicLifecycle = installMusicLifecycle()
     window.history.replaceState({ screen: 'splash' }, '')
     const onPopState = (event: PopStateEvent) => {
       const next = event.state?.screen
       setScreen(isScreen(next) ? next : 'menu')
     }
+    const onNativeBack = () => {
+      const current = screenRef.current
+      if (current === 'menu') return
+      if (current === 'career' || current === 'settings' || current === 'credits' || current === 'help' || current === 'load' || current === 'create') {
+        window.history.replaceState({ screen: 'menu' }, '')
+        setScreen('menu')
+        return
+      }
+      window.history.back()
+    }
     window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
+    window.addEventListener('kickoffstar:native-back', onNativeBack)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+      window.removeEventListener('kickoffstar:native-back', onNativeBack)
+      removeMusicLifecycle()
+    }
   }, [])
 
   const navigate = (next: Screen) => {
@@ -48,9 +68,11 @@ export default function App() {
     setScreen(next)
   }
 
-  const goBackToMenu = () => {
-    if (window.history.length > 1) window.history.back()
-    else replace('menu')
+  const goBackToMenu = () => replace('menu')
+
+  const exitCareerToMenu = () => {
+    pauseMusic()
+    replace('menu')
   }
 
   const enterLoadedCareer = async (slot: SaveSlotId, push = true) => {
@@ -114,5 +136,5 @@ export default function App() {
   if (screen === 'trials' && player && chosenSchool) {
     return <TrialsScreen player={player} school={chosenSchool} onComplete={handleTrialsComplete} />
   }
-  return <Career onExitToMenu={() => replace('menu')} />
+  return <Career onExitToMenu={exitCareerToMenu} />
 }
