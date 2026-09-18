@@ -24,7 +24,7 @@ interface CelebrationProps {
   onDone: () => void
 }
 
-const DURATION_MS = 2000
+const DURATION_MS = 3000
 
 const KIND_LABEL: Record<CelebrationKind, string> = {
   'player-goal': 'GOAL!',
@@ -59,6 +59,8 @@ export default function GoalCelebration({ kind, scorerName, homeShort, awayShort
         opacity: phase === 'out' ? 0 : 1,
       }}
     >
+      {isGood && Array.from({length:18}).map((_,i)=><span key={i} className="fixed left-1/2 top-1/2 w-1.5 h-5 bg-ks-gold z-0" style={{'--dx':`${Math.cos(i/18*Math.PI*2)*(120+i*5)}px`,'--dy':`${Math.sin(i/18*Math.PI*2)*(160+i*4)}px`,animation:`particleFly ${1.1+(i%4)*.15}s ease-out ${.12+(i%5)*.03}s forwards`,transform:`rotate(${i*20}deg)`} as React.CSSProperties}/>)}
+      {isGood && <div className="fixed left-1/2 top-1/2 w-[85vw] h-[85vw] border border-ks-gold/30 rounded-full" style={{animation:'goalRay 1.2s ease-out forwards'}} />}
       {/* flash frame — a single bright pulse right on impact */}
       {phase === 'flash' && (
         <div className="fixed inset-0 bg-white" style={{ animation: 'goalflash 0.35s ease-out forwards' }} />
@@ -82,7 +84,7 @@ export default function GoalCelebration({ kind, scorerName, homeShort, awayShort
             contained label like everything else on screen. */}
         <div
           className={`font-display font-black tracking-[0.1em] uppercase leading-none w-full text-center px-2 ${kind === 'player-goal' ? 'text-8xl' : 'text-6xl'}`}
-          style={{ color: accent, textShadow: `0 0 40px ${accent}88`, whiteSpace: 'nowrap' }}
+          style={{ color: accent, textShadow: `0 0 40px ${accent}88`, whiteSpace: 'nowrap', animation: kind === 'player-goal' && phase === 'hold' ? 'goalImpact .7s cubic-bezier(.16,1,.3,1)' : undefined }}
         >
           {KIND_LABEL[kind]}
         </div>
