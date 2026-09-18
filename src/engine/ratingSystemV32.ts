@@ -85,7 +85,7 @@ export function calculatePlayerRating(args:{
 
   if(position==='GK'&&stats.saves>=7&&stats.goalsConceded===0) exceptional+=.45
   if((position==='CB'||position==='FB')&&stats.goalsConceded===0&&(stats.tacklesWon+stats.interceptions+stats.blocks+stats.headersWon)>=8){
-    exceptional+=.30
+    exceptional+=.55
   }
   exceptional=Math.min(.65,exceptional)*scale
 
