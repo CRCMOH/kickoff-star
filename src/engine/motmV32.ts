@@ -24,7 +24,11 @@ export function simulateMotmField(args:{homeScore:number;awayScore:number;player
 
  // First create credible baseline performances for both XIs.
  for(let side=0;side<2;side++)for(let i=0;i<11;i++){
-  const home=side===0,won=home?args.homeScore>args.awayScore:args.awayScore>args.homeScore,drew=args.homeScore===args.awayScore
+  const home=side===0
+  // The controlled player already occupies one XI slot. Do not create a
+  // phantom 12th player on their side.
+  if(home===args.playerIsHome && positions[i]===args.player.position && !sidePlayers[side].some(p=>p.position===args.player.position)) continue
+  const won=home?args.homeScore>args.awayScore:args.awayScore>args.homeScore,drew=args.homeScore===args.awayScore
   const pos=positions[i],st=empty(),conceded=home?args.awayScore:args.homeScore
   let rating=6.0+(won?.24:drew?.06:-.12)+(rng()-.5)*1.25
   if(pos==='GK'){
@@ -51,7 +55,10 @@ export function simulateMotmField(args:{homeScore:number;awayScore:number;player
  // an assister. This creates braces/hat-tricks/multi-assist games naturally
  // and makes the comparison field reflect the scoreline rather than generic 6s.
  for(let side=0;side<2;side++){
-  const goals=side===0?args.homeScore:args.awayScore
+  const teamGoals=side===0?args.homeScore:args.awayScore
+  // Player goals are already represented by the controlled player's stats;
+  // allocating them again to an NPC would invent an extra scorer.
+  const goals=Math.max(0,teamGoals-((side===0)===args.playerIsHome?args.player.stats.goals:0))
   const attackers=sidePlayers[side].filter(c=>['ST','WG','WM','CM'].includes(c.position))
   for(let g=0;g<goals;g++){
    const weights=attackers.map(c=>c.position==='ST'?4:c.position==='WG'?3:c.position==='WM'?2:1.5)
@@ -74,5 +81,6 @@ export function simulateMotmField(args:{homeScore:number;awayScore:number;player
   if((c.position==='CB'||c.position==='FB')&&(c.stats.tacklesWon+c.stats.interceptions+c.stats.blocks)>=7&&rng()<.22)c.rating+=.28
   c.rating=Math.max(4.8,Math.min(9.6,Math.round(c.rating*10)/10))
  }
+ if(out.length!==22) throw new Error(`MOTM field invariant failed: expected 22 players, got ${out.length}`)
  return out
 }
