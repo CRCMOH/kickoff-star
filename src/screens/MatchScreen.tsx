@@ -46,6 +46,7 @@ import { rand } from '../engine/rng'
 import { sfx, isMuted, toggleMuted } from '../engine/audio'
 import { syncMusicMute } from '../engine/music'
 import { archetypeMomentBonus } from '../engine/archetypes'
+import { captainMomentFor, applyCaptainMoment, type CaptainMoment } from '../engine/captainMomentsV32'
 
 interface MatchScreenProps {
   player: Player
@@ -78,6 +79,8 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const displayScoreRef = useRef({ home: 0, away: 0 })
   const matchStatsRef = useRef({ tackle: 0, interception: 0, header: 0, keyPass: 0, save: 0 })
   const [displayScore, setDisplayScore] = useState({ home: 0, away: 0 })
+  const [captainMoment, setCaptainMoment] = useState<CaptainMoment | null>(null)
+  const captainMomentUsed = useRef(false)
   const feedRef = useRef<HTMLDivElement>(null)
 
   const stateRef = useRef(state)
@@ -87,6 +90,10 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     const result = advanceToKeyMoment(stateRef.current, player)
     stateRef.current = result.state
     setState(result.state)
+    if (!result.keyMoment && player.captaincy?.role === 'captain' && !captainMomentUsed.current && result.state.onPitch && !result.state.finished) {
+      const leadership = captainMomentFor(result.state)
+      if (leadership) { setCaptainMoment(leadership); return }
+    }
     if (result.keyMoment) {
       setMoment(result.keyMoment)
       setBundle(momentToDecision(player, result.keyMoment, `${result.state.minute}' · ${result.state.homeTeam.short} ${displayScore.home}-${displayScore.away} ${result.state.awayTeam.short}`))
@@ -121,7 +128,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const matchOver = state.finished && caughtUp && !moment && !revealed
 
   useEffect(() => {
-    const paused = showMoment || revealed !== null || matchOver || celebration !== null || halfTimeShown
+    const paused = showMoment || captainMoment !== null || revealed !== null || matchOver || celebration !== null || halfTimeShown
     if (paused) return
     if (caughtUp && !state.finished && !moment) {
       runSim()
@@ -133,7 +140,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     }, BASE_TICK_MS / speed)
     return () => window.clearInterval(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caughtUp, showMoment, revealed, matchOver, celebration, halfTimeShown, speed, state.minute, state.finished, moment])
+  }, [caughtUp, showMoment, captainMoment, revealed, matchOver, celebration, halfTimeShown, speed, state.minute, state.finished, moment])
 
   const revealedGoalEvents = visibleEvents.filter((e) => e.kind === 'goal')
   const revealedGoals = revealedGoalEvents.length
@@ -177,7 +184,17 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight
   }, [visibleCount])
 
-  const handleChoose = (optIndex: number) => {
+  const handleCaptainChoice = (optIndex: number) => {
+    if (!captainMoment) return
+    const next = applyCaptainMoment(stateRef.current, captainMoment, optIndex)
+    captainMomentUsed.current = true
+    stateRef.current = next
+    setState(next)
+    setCaptainMoment(null)
+    setRevealed({ text: next.events[next.events.length - 1]?.text ?? '', success: optIndex === 0, grade: null })
+  }
+
+    const handleChoose = (optIndex: number) => {
     if (!moment || !bundle) return
     if (moment.isInjuryDecision) {
       const next = resolveInjuryDecision(state, optIndex === 0, player)
@@ -245,6 +262,17 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
 
   return (
     <div className="relative h-[100dvh] w-full bg-ks-black flex flex-col overflow-hidden">
+      {captainMoment && caughtUp && (
+        <div className="fixed inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center px-5">
+          <div className="w-full max-w-md rounded-2xl border border-ks-gold/40 bg-[#0f0f0d] p-5 shadow-2xl">
+            <div className="text-[10px] uppercase tracking-[0.28em] text-ks-gold font-display mb-2">© Captain's Moment</div>
+            <div className="text-ks-ink text-base font-display mb-5">{captainMoment.situation}</div>
+            <div className="flex flex-col gap-2">
+              {captainMoment.options.map((o,i)=><button key={i} onClick={()=>handleCaptainChoice(i)} className="w-full text-left rounded-xl border border-ks-border bg-black/30 px-4 py-3 text-sm text-ks-ink active:border-ks-gold">{o.label}</button>)}
+            </div>
+          </div>
+        </div>
+      )}
       {celebration && (
         <GoalCelebration
           kind={celebration.kind}
