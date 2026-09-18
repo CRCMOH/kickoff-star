@@ -24,18 +24,20 @@ import type { TrainingIntensity } from './energy'
 //      checkpointed after every completed drill so a reload resumes instead
 //      of restarting.
 //  v4: separates school football from the Sunday League fallback route.
-export const SAVE_SCHEMA_VERSION = 4
+//  v5: complete representative pathway + National Schools Championship.
+export const SAVE_SCHEMA_VERSION = 5
 
 export type SaveSlotId = 0 | 1 | 2
 
 export interface CupWorlds {
   schoolCup: CupWorld | null
+  nationalChampionship: CupWorld | null
   sundayCup: CupWorld | null
   academyLeagueCup: CupWorld | null
   academyKnockoutCup: CupWorld | null
 }
 
-export const EMPTY_CUPS: CupWorlds = { schoolCup: null, sundayCup: null, academyLeagueCup: null, academyKnockoutCup: null }
+export const EMPTY_CUPS: CupWorlds = { schoolCup: null, nationalChampionship: null, sundayCup: null, academyLeagueCup: null, academyKnockoutCup: null }
 
 export interface PendingTrainingSnapshot {
   session: TrainingSession
@@ -78,6 +80,7 @@ function migrateSave(raw: SaveGame & { schemaVersion?: number }): SaveGame {
   if (raw.schemaVersion < 4) {
     return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION }
   }
+  if (raw.schemaVersion < 5) return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION, cups: { ...EMPTY_CUPS, ...(raw.cups ?? {}) } }
   return raw
 }
 

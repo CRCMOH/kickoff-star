@@ -35,6 +35,7 @@ import StreetGameScreen from './StreetGameScreen'
 import StreetInvite from './StreetInvite'
 import RestDayScreen from './RestDayScreen'
 import MatchDayScreen from './MatchDayScreen'
+import AcademyTrialScreen from './AcademyTrialScreen'
 import type { HubTab } from '../components/navItems'
 import type { RatingBreakdown } from '../engine/ratingSystemV32'
 import type { PlayerMatchStats } from '../engine/matchStats'
@@ -54,6 +55,7 @@ type Mode =
   | { kind: 'offers' }
   | { kind: 'agent' }
   | { kind: 'negotiation' }
+  | { kind:'academy-trial'; offerId:string; clubName:string }
   | { kind: 'street-invite'; variant: 'street' | 'small-sided' }
   | { kind: 'street-game'; variant: 'street' | 'small-sided' }
 
@@ -75,6 +77,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   const applyMatchResult = useCareerStore((s) => s.applyMatchResult)
   const spendAttributeXp = useCareerStore((s) => s.spendAttributeXp)
   const respondToOffer = useCareerStore((s) => s.respondToOffer)
+  const resolveAcademyTrial=useCareerStore(s=>s.resolveAcademyTrial)
   const beginNegotiation = useCareerStore((s) => s.beginNegotiation)
   const applyStreetGameResult = useCareerStore((s) => s.applyStreetGameResult)
   const ensureLeagueWorld = useCareerStore((s) => s.ensureLeagueWorld)
@@ -137,7 +140,10 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   // On international duty you walk out for your NATION, not your club.
   const nationTeam = international ? internationalTeamById(international).get(international.nationTeamId) : undefined
   const inIntlMode = (mode.kind === 'matchday' || mode.kind === 'match' || mode.kind === 'summary') && mode.competitionId === 'international'
-  const playerTeam = inIntlMode && nationTeam ? nationTeam : clubTeam
+  const modeCompetitionId=mode.kind==='matchday'||mode.kind==='match'||mode.kind==='summary'||mode.kind==='shootout'?mode.competitionId:null
+  const modeCup=modeCompetitionId?(cups as unknown as Record<string,import('../engine/cup').CupWorld|null>)[modeCompetitionId]:null
+  const cupPlayerTeam=modeCup?.teams.find(t=>t.id===modeCup.playerTeamId)
+  const playerTeam = inIntlMode && nationTeam ? nationTeam : cupPlayerTeam??clubTeam
   const pending = nextUnresolvedEvent(calendar)
 
   const handleContinue = () => {
@@ -171,11 +177,14 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: nationIsHome, competitionId: 'international', competitionLabel: international.stage === 'finals' ? 'International Finals' : 'International Qualifier', isKnockout: international.stage === 'finals' })
         return
       }
+      if(pending.title==='Sunday community fixture'){const opponent=generateTeam(Math.max(2,Math.min(6,clubTeam.prestige+(rand()<.5?0:1))));setMode({kind:'matchday',opponent,isHome:rand()<.5,competitionId:'sundayCommunity',competitionLabel:'Community Sunday Football',isKnockout:false});return}
 
       const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)
       if (!comp) { resolveCurrentEvent(); return }
 
       if (comp.competitionId === 'sundayLeague' || comp.competitionId === 'schoolLeague') {
+        const schoolSquad=player.pathway?.schoolSquad
+        if(!isInAcademy&&comp.competitionId==='schoolLeague'&&(schoolSquad==='reserve'||schoolSquad==='development')){const development=schoolSquad==='development';const opponent=generateTeam(Math.max(1,Math.min(5,playerTeam.prestige+(rand()<.5?-1:0))));setMode({kind:'matchday',opponent,isHome:rand()<.5,competitionId:development?'schoolDevelopmentLeague':'schoolReserveLeague',competitionLabel:development?'School Development Fixture':'School Reserve League',isKnockout:false});return}
         const fixture = playerDivision.fixtures
           .filter((f) => !f.played && f.week <= comp.round && (f.homeTeamId === activeWorld.playerTeamId || f.awayTeamId === activeWorld.playerTeamId))
           .sort((a, b) => a.week - b.week)[0]
@@ -197,6 +206,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: rand() < 0.5, competitionId: 'schoolFriendlies', competitionLabel: 'School Friendly', isKnockout: false })
         return
       }
+      if(comp.competitionId==='youthShowcase'){if(!player.pathway?.showcaseInvited){setMode({kind:'training'});return}const opponent=generateTeam(Math.max(5,Math.min(9,playerTeam.prestige+3)));setMode({kind:'matchday',opponent,isHome:true,competitionId:'youthShowcase',competitionLabel:'National Youth Showcase',isKnockout:false});return}
 
       // A cup competition. If the player is eliminated (or the cup's done),
       // Saturday becomes extra training — never a dead tap.
@@ -388,7 +398,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           // more development" rule wasn't actually reaching academy cups.
           const tier: import('../engine/xp').CompetitionTier =
             mode.competitionId === 'international' ? 'international'
-            : mode.competitionId === 'schoolCup' || mode.competitionId === 'sundayCup' || mode.competitionId === 'academyLeagueCup' || mode.competitionId === 'academyKnockoutCup' ? 'cup'
+            : mode.competitionId === 'schoolCup' || mode.competitionId === 'nationalChampionship' || mode.competitionId === 'sundayCup' || mode.competitionId === 'academyLeagueCup' || mode.competitionId === 'academyKnockoutCup' ? 'cup'
             : freshPlayer?.careerClock.phase === 'academy' ? 'academy' : 'grassroots'
           const matchXp = matchXpEarned(tier, mode.rating, mode.goals, mode.assists)
           setMode({ kind: 'impact', before, after, matchXp, tier, playerName: player.name, rating: mode.rating, goals: mode.goals, assists: mode.assists, won: mode.won, drew: mode.drew })
@@ -449,6 +459,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'negotiation') {
     return <NegotiationScreen player={player} onClose={() => setMode({ kind: 'hub' })} />
   }
+  if(mode.kind==='academy-trial')return <AcademyTrialScreen player={player} clubName={mode.clubName} onComplete={(passed,score)=>{resolveAcademyTrial(mode.offerId,passed,score);if(!passed){setMode({kind:'hub'});return}const fresh=useCareerStore.getState().player;if(!fresh?.agentId){setMode({kind:'agent'});return}beginNegotiation(mode.offerId);setMode({kind:'negotiation'})}}/>
 
   if (mode.kind === 'offers') {
     return (
@@ -461,6 +472,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           // representation first, then talks that run over several weeks.
           // P33: both academy AND professional deals go through the pipeline.
           if (offer?.kind === 'academy' || offer?.kind === 'professional') {
+            if(offer.kind==='academy'&&!(player.pathway?.academyTrialStatus==='passed'&&player.pathway.academyTrialClubId===offer.clubId)){setMode({kind:'academy-trial',offerId:offer.id,clubName:offer.clubName});return}
             if (!player.agentId) { setMode({ kind: 'agent' }); return }
             beginNegotiation(id)
             setMode({ kind: 'negotiation' })

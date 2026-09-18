@@ -38,6 +38,7 @@ export interface Player {
   /** The active grassroots route. Selected players represent their school;
       Sunday football is the fallback route after release/elimination. */
   grassrootsPath?: 'school' | 'sunday'
+  pathway?: import('../engine/pathway').YouthPathwayState
 
   // Phase 32 — standing with the three groups (coach reads off coachTrust)
   standing?: import('../engine/standing').Standing

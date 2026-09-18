@@ -6,6 +6,7 @@ import { competitionDefinition } from '../../engine/competitionCareer'
 import { sortStandings } from '../../engine/league'
 import { Panel, EmptyNote } from '../../components/ui'
 import { useCareerStore } from '../../store/careerStore'
+import { initYouthPathway,pathwayNextStep } from '../../engine/pathway'
 
 function competitionStatus(cup: CupWorld): string {
   if (cup.playerWonCup) return 'Champions'
@@ -24,6 +25,7 @@ export default function CompetitionHub({ player, division, playerTeamId, cups }:
   const activeCups = cups ? Object.values(cups).filter((c): c is CupWorld => !!c) : []
   const current = player.competitionCareer?.current ?? {}
   const history = player.competitionCareer?.history ?? []
+  const pathway=player.pathway??initYouthPathway(player)
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -32,6 +34,7 @@ export default function CompetitionHub({ player, division, playerTeamId, cups }:
         <div className="font-display text-lg text-ks-ink mt-1">Every match has a consequence.</div>
         <p className="text-[10px] text-ks-muted mt-1">Track your position, cup path, discipline and performance on each stage.</p>
       </div>
+      {player.careerClock.phase!=='academy'&&<div className="pathway-map"><div className="pathway-map-head"><span>{pathway.ageGroup} PLAYER PATHWAY</span><b>{pathwayNextStep(player)}</b></div><div className="pathway-track"><PathStep label="School" state="complete"/><PathStep label="Regional XI" state={pathway.regionalSelection==='selected'?'complete':pathway.regionalSelection==='cut'?'missed':pathway.regionalSelection==='not-started'?'locked':'active'}/><PathStep label="National" state={pathway.nationalSelection==='selected'?'complete':pathway.nationalSelection==='cut'?'missed':pathway.nationalSelection==='not-started'?'locked':'active'}/><PathStep label="International" state={pathway.nationalSelection==='selected'?'active':'locked'}/></div><div className="pathway-side-route"><span>Sunday route</span><b>{pathway.sundayStatus.replace('-',' ')}</b><i>{pathway.sundayInterest}% interest</i></div></div>}
 
       <CompetitionCard name={leagueDef.name} format="League" prestige={leagueDef.prestige} status={position > 0 ? `${position}${position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'} of ${sorted.length}` : 'Not placed'} stats={current[leagueKey]} />
       {activeCups.map((cup) => {
@@ -62,6 +65,7 @@ export default function CompetitionHub({ player, division, playerTeamId, cups }:
     </div>
   )
 }
+function PathStep({label,state}:{label:string;state:'complete'|'active'|'missed'|'locked'}){return <div className={`pathway-step ${state}`}><i>{state==='complete'?'✓':state==='missed'?'×':state==='active'?'●':'○'}</i><span>{label}</span></div>}
 
 function CompetitionCard({ name, format, prestige, status, stats }: { name: string; format: string; prestige: number; status: string; stats?: { appearances: number; goals: number; assists: number; averageRating: number; yellowCards: number; redCards: number } }) {
   return (

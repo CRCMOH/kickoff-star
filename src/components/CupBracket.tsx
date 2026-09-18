@@ -1,4 +1,5 @@
 import type { CupWorld } from '../engine/cup'
+import { sortStandings } from '../engine/league'
 
 // P36 — the visual bracket the reference screenshots showed. The knockout DATA
 // has existed since P19/P20 (knockoutRounds is already an array of rounds of
@@ -43,6 +44,7 @@ export default function CupBracket({ world, onClose }: { world: CupWorld; onClos
         </button>
       </div>
 
+      <div className="cup-stage-hero"><div className="cup-orbit"><i/><i/><i/><b>★</b></div><small>{world.competitionId==='nationalChampionship'?'8 REGIONS · ONE NATIONAL CHAMPION':world.competitionId==='schoolCup'?'24 SCHOOLS · REGIONAL STAGE':'KNOCKOUT FOOTBALL'}</small><h1>{world.label}</h1><p>{world.stage==='group'?'Every point moves the live group table.':world.stage==='knockout'?'One match. One route forward.':'Tournament complete.'}</p></div>
       {world.playerWonCup && (
         <div className="mx-4 mt-4 rounded-xl border border-ks-gold bg-ks-gold/10 px-4 py-3 text-center">
           <div className="text-2xl mb-1">🏆</div>
@@ -51,8 +53,9 @@ export default function CupBracket({ world, onClose }: { world: CupWorld; onClos
       )}
 
       <div className="px-3 py-4 flex flex-col gap-4">
+        {world.groups.length>0&&<div className="cup-groups-grid">{world.groups.map((g,gi)=>{const table=sortStandings(world.groupStandings[g.groupId]??[]);return <div className="cup-group-card" key={g.groupId} style={{animationDelay:`${gi*90}ms`}}><div className="cup-group-title"><span>GROUP {String.fromCharCode(65+gi)}</span><b>TOP {world.qualifiersPerGroup??1} ADVANCE</b></div>{table.map((s,i)=><div className={`cup-group-row ${s.teamId===world.playerTeamId?'you':''}`} key={s.teamId}><i>{i+1}</i><span>{s.teamName}</span><small>{s.played}P</small><b>{s.points}</b></div>)}</div>})}</div>}
         {rounds.length === 0 && (
-          <p className="text-[11px] text-ks-muted text-center py-8">The draw hasn't been made yet.</p>
+          <p className="text-[11px] text-ks-muted text-center py-4">The knockout draw appears when the group stage ends.</p>
         )}
         {rounds.map((roundFixtures, roundIndex) => {
           const isCurrentRound = roundIndex === world.currentKnockoutRound - 1

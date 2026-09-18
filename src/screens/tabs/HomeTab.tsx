@@ -26,6 +26,7 @@ import { itemById } from '../../engine/economy'
 import { isLive, STAGE_LABEL } from '../../engine/negotiation'
 import { decideSelection, selectionAdvice } from '../../engine/selection'
 import { useCareerStore } from '../../store/careerStore'
+import { monthForWeek,pathwayNextStep } from '../../engine/pathway'
 
 // color + emoji pairing for the confidence pill, matching the existing
 // trustEmoji/trustLabel pattern in coachTrust.ts rather than inventing a new
@@ -62,6 +63,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const negotiationBeat = useCareerStore((s) => s.negotiationBeat)
   const clearNegotiationBeat = useCareerStore((s) => s.clearNegotiationBeat)
   const selectionNote = useCareerStore((s) => s.selectionNote)
+  const acceptSundayRegistration=useCareerStore(s=>s.acceptSundayRegistration)
   const eventsByDay = Object.fromEntries(calendar.currentWeek.events.map((e) => [e.day, e]))
   const ovr = toOvr(computeCurrentAbility(player))
   const isAcademy = player.careerClock.phase === 'academy'
@@ -84,11 +86,12 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   }
 
   const nextEvent = DAYS.map((day) => eventsByDay[day]).find((e) => e && !e.resolved) ?? calendar.currentWeek.events.find((e) => !e.resolved) ?? calendar.currentWeek.events[0]
+  const seasonMoment=calendar.currentWeek.weekNumber<=2?'Pre-season friendlies':calendar.currentWeek.weekNumber<=20?'Local School League':calendar.currentWeek.weekNumber<=28?'Regional Schools Cup':calendar.currentWeek.weekNumber<=30?'Regional XI selection':calendar.currentWeek.weekNumber<=35?'National Schools Championship':calendar.currentWeek.weekNumber<=37?'National selection & showcase':'International window & season review'
   return (
     <div className="career-home flex flex-col gap-2.5 stagger-children">
       <section className="career-hero">
         <div className="career-hero-glow"/>
-        <div className="career-hero-top"><span>KICKOFF STAR · CAREER</span><b>WEEK {calendar.currentWeek.weekNumber}</b></div>
+        <div className="career-hero-top"><span>KICKOFF STAR · {monthForWeek(calendar.currentWeek.weekNumber).toUpperCase()}</span><b>WEEK {calendar.currentWeek.weekNumber}</b></div>
         <div className="career-player">
           <Avatar id={player.avatarId ?? 0} size={62} className="career-avatar" />
           <div className="min-w-0"><small>{player.careerClock.phase.toUpperCase()} · {player.position}</small><h1>{player.name}</h1><p>{getNation(player.nationality).flag} AGE {player.careerClock.ageYears} · {player.squadRole === 'starting-xi' ? 'STARTING XI' : (player.squadRole ?? 'SQUAD').toUpperCase()}</p></div>
@@ -101,6 +104,9 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
           <div><span>NEXT</span><b>{nextEvent?.type?.replace(/-/g,' ') ?? 'OPEN'}</b></div>
         </div>
       </section>
+      {player.careerClock.phase!=='academy'&&<button onClick={()=>onGoTo('fixtures')} className="pathway-headliner text-left"><div><span>{player.pathway?.ageGroup??'YOUTH'} PATHWAY</span><h3>{pathwayNextStep(player)}</h3><p>School → Regional XI → National schools → International</p></div><b>→</b></button>}
+      <div className="season-calendar-card"><div className="season-calendar-head"><span>SEASON CALENDAR</span><b>{monthForWeek(calendar.currentWeek.weekNumber)} · {seasonMoment}</b></div><div className="season-months">{['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'].map((m,i)=>{const active=monthForWeek(calendar.currentWeek.weekNumber).slice(0,3).toUpperCase()===m;return <i key={m} className={active?'active':i<Math.floor((calendar.currentWeek.weekNumber-1)/4)?'done':''}>{m}</i>})}</div></div>
+      {player.pathway?.sundayStatus==='squad-offer'&&<div className="sunday-offer-card"><div><span>COMMUNITY CLUB OFFER</span><b>Play Sunday football alongside school</b><p>More exposure and matches, but less recovery time.</p></div><button onClick={acceptSundayRegistration}>accept place</button></div>}
       <button onClick={onOpenInbox} className={`rounded-lg border px-3 py-2.5 flex items-center gap-3 text-left ${unreadInbox > 0 ? 'border-ks-gold/60 bg-ks-gold/10' : 'border-ks-border bg-[#0f0f0d]'}`}>
         <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm ${unreadInbox > 0 ? 'border-ks-gold text-ks-gold' : 'border-ks-border text-ks-muted'}`}>✉</div>
         <div className="flex-1 min-w-0">

@@ -22,6 +22,8 @@ export interface StoryMoment {
   week: number
   season: number
   read: boolean
+  metrics?: { label:string; value:number; suffix?:string; tone?:'good'|'neutral'|'bad' }[]
+  ceremony?: 'selection'|'draw'|'trophy'|'callup'
 }
 
 export function createStoryMoment(input: Omit<StoryMoment, 'id' | 'read'>): StoryMoment {
