@@ -37,6 +37,7 @@ import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, apply
 import { evaluateCaptaincy, recordCaptainAppearance, clearCaptaincyStory } from '../engine/captaincy'
 import { createYouthWorld } from '../engine/youthWorld'
 import { applyTrialOutcome } from '../engine/youthPathways'
+import { initializeCompetitionWorld } from '../engine/youthCompetitionsV4'
 import type { YouthWorld } from '../types/youthWorld'
 
 interface CareerStore {
@@ -207,7 +208,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const save = await readSave(slot)
     if (!save) return
     const migratedPlayer = migratePlayer(save.player)
-    const youthWorld = save.youthWorld ?? createYouthWorld(migratedPlayer.id, migratedPlayer.schoolId)
+    const youthWorld = save.youthWorld ?? initializeCompetitionWorld(createYouthWorld(migratedPlayer.id, migratedPlayer.schoolId))
     setState({ player: migratedPlayer, calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, youthWorld, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
   },
 
@@ -253,7 +254,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       clubGlory: {},
       nationalGlory: {},
     }
-    const youthWorld = createYouthWorld(player.id, player.schoolId)
+    const youthWorld = initializeCompetitionWorld(createYouthWorld(player.id, player.schoolId))
     setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, youthWorld, activeSlot: slot, pendingTraining: null })
     await writeSave({ schemaVersion: 4, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null, youthWorld })
   },
