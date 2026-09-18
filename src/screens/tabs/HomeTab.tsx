@@ -8,14 +8,13 @@ import type { AcademyWorld } from '../../engine/academy'
 import { academyDivisionLabel } from '../../engine/academy'
 import { computeCurrentAbility, toOvr } from '../../engine/rating'
 import { trustLabel, trustEmoji } from '../../engine/coachTrust'
-import { Panel, Bar, OvrRing, StatRow, Section, RadarChart, Icon } from '../../components/ui'
+import { Panel, Bar, StatRow, Section, Icon } from '../../components/ui'
 import iconEnergy from '../../assets/icons/energy.png'
 import iconConfidence from '../../assets/icons/confidence.png'
 import iconWeek from '../../assets/icons/week.png'
 import iconTeamSelection from '../../assets/icons/team_selection.png'
 import iconGazette from '../../assets/icons/gazette.png'
-import iconShape from '../../assets/icons/shape.png'
-import iconCareer from '../../assets/icons/career.png'
+ import iconCareer from '../../assets/icons/career.png'
 import iconCoachTrust from '../../assets/icons/coach_trust.png'
 import { EnergyMeter } from '../../components/EnergySheet'
 import { bandSpec } from '../../engine/energy'
@@ -23,7 +22,7 @@ import type { HubTab } from '../../components/navItems'
 import Avatar from '../../components/Avatar'
 import { getNation } from '../../engine/nations'
 import { arcProgressText, weeksLeft } from '../../engine/storylines'
-import { formatMoney, itemById } from '../../engine/economy'
+import { itemById } from '../../engine/economy'
 import { isLive, STAGE_LABEL } from '../../engine/negotiation'
 import { decideSelection, selectionAdvice } from '../../engine/selection'
 import { useCareerStore } from '../../store/careerStore'
@@ -64,20 +63,6 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const selectionNote = useCareerStore((s) => s.selectionNote)
   const eventsByDay = Object.fromEntries(calendar.currentWeek.events.map((e) => [e.day, e]))
   const ovr = toOvr(computeCurrentAbility(player))
-  // compact 3-point version of PlayerTab's "shape" radar — a teaser, not a
-  // replacement for the full attribute breakdown, so group counts stay small
-  // enough to read at a glance without opening the Player tab.
-  const isGk = player.attributes.kind === 'goalkeeper'
-  const attrValues = player.attributes.values as Record<string, number>
-  const shapeGroups: { label: string; attrs: string[] }[] = [
-    { label: 'technical', attrs: isGk ? ['reflexes', 'handling', 'distribution'] : ['passing', 'shooting', 'dribbling', 'tackling'] },
-    { label: 'physical', attrs: ['pace', 'strength', 'stamina', 'agility'] },
-    { label: 'mental', attrs: isGk ? ['gkPositioning', 'concentration'] : ['vision', 'composure', 'positioning', 'concentration'] },
-  ]
-  const shapePoints = shapeGroups.map((g) => ({
-    label: g.label,
-    value: g.attrs.reduce((sum, a) => sum + (attrValues[a] ?? 0), 0) / g.attrs.length,
-  }))
   const isAcademy = player.careerClock.phase === 'academy'
   const world = isAcademy ? academyLeague : league
 
@@ -106,7 +91,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
         <div className="career-hero-strip">
           <div><span>ENERGY</span><b>{Math.round(player.fitness.stamina)}%</b></div>
-          <div><span>FORM</span><b>{form.avg?.toFixed(1) ?? '—'}</b></div>
+          <div><span>FORM</span><b>{player.matchRatings?.length ? (player.matchRatings.slice(-6).reduce((a,b)=>a+b,0)/player.matchRatings.slice(-6).length).toFixed(1) : '—'}</b></div>
           <div><span>LEAGUE</span><b>{leaguePos ?? '—'}</b></div>
           <div><span>NEXT</span><b>{nextEvent?.type?.replace(/-/g,' ') ?? 'OPEN'}</b></div>
         </div>
