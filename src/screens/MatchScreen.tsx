@@ -185,13 +185,14 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     let away = displayScoreRef.current.away
     let lastKind: CelebrationKind = 'concede'
     for (const ev of newGoals) {
-      const homeMentioned = ev.text.includes(state.homeTeam.short)
-      const awayMentioned = ev.text.includes(state.awayTeam.short)
-      const homeScored = homeMentioned && !awayMentioned ? true
-        : awayMentioned && !homeMentioned ? false
-        : home < state.homeScore
-      if (homeScored) home++
-      else away++
+      // New match events carry their authoritative post-goal score. Keep the
+      // fallback only for transient states created by an older hot-reloaded
+      // build; never infer a side from commentary text.
+      const homeScored = ev.scoringSide
+        ? ev.scoringSide === 'home'
+        : ev.homeScore !== undefined ? ev.homeScore > home : false
+      home = ev.homeScore ?? (home + (homeScored ? 1 : 0))
+      away = ev.awayScore ?? (away + (homeScored ? 0 : 1))
       const playerSideScored = playerIsHome ? homeScored : !homeScored
       ;(playerSideScored ? sfx.goal : sfx.concede)()
       lastKind = state.playerGoals > priorPlayerGoals.current
@@ -317,8 +318,8 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
           scorerName={celebration.kind === 'player-goal' || celebration.kind === 'player-assist' ? player.name : undefined}
           homeShort={state.homeTeam.short}
           awayShort={state.awayTeam.short}
-          homeScore={state.homeScore}
-          awayScore={state.awayScore}
+          homeScore={displayScore.home}
+          awayScore={displayScore.away}
           minute={celebration.minute}
           avatarId={celebration.kind === 'player-goal' || celebration.kind === 'player-assist' ? player.avatarId : undefined}
           playerRating={state.playerRating}

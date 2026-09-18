@@ -101,6 +101,11 @@ export interface MatchEvent {
   minute: number
   text: string
   kind: 'info' | 'goal' | 'chance' | 'halftime' | 'fulltime'
+  /** Authoritative score immediately after this event. Goal presentation must
+   * never try to infer the scoring side from translated/commentary text. */
+  homeScore?: number
+  awayScore?: number
+  scoringSide?: 'home' | 'away'
 }
 
 // A key moment surfaced to the player (rendered via DecisionCard by the screen layer).
@@ -800,12 +805,21 @@ function nextScore(s: MatchState, byPlayerTeam: boolean): MatchState {
 
 function applyGoal(s: MatchState, byPlayerTeam: boolean, text: string): MatchState {
   const scoredHome = (byPlayerTeam && s.playerIsHome) || (!byPlayerTeam && !s.playerIsHome)
+  const homeScore = s.homeScore + (scoredHome ? 1 : 0)
+  const awayScore = s.awayScore + (scoredHome ? 0 : 1)
   return {
     ...s,
-    homeScore: s.homeScore + (scoredHome ? 1 : 0),
-    awayScore: s.awayScore + (scoredHome ? 0 : 1),
+    homeScore,
+    awayScore,
     momentum: clamp(s.momentum + (byPlayerTeam ? 4 : -4), -10, 10),
-    events: [...s.events, { minute: s.minute, text, kind: 'goal' as const }],
+    events: [...s.events, {
+      minute: s.minute,
+      text,
+      kind: 'goal' as const,
+      homeScore,
+      awayScore,
+      scoringSide: scoredHome ? 'home' as const : 'away' as const,
+    }],
   }
 }
 
