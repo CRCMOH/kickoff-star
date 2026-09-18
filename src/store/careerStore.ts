@@ -34,6 +34,7 @@ import { generateSquad } from '../engine/squad'
 import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycle'
 import { generateGazetteIssue } from '../engine/gazette'
 import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, applyAcademyPromotion, type AcademyWorld } from '../engine/academy'
+import { evaluateCaptaincy, recordCaptainAppearance } from '../engine/captaincy'
 
 interface CareerStore {
   player: Player | null
@@ -146,6 +147,7 @@ function migratePlayer(player: Player): Player {
     recentInjuryCount: player.recentInjuryCount ?? 0,
     matchesSinceReturn: player.matchesSinceReturn ?? 3,
     coachTrust: player.coachTrust ?? 0,
+    captaincy: player.captaincy ?? { role: 'none', matchesAsCaptain: 0, matchesAsViceCaptain: 0, appointedWeek: null },
     reputation: player.reputation ?? 5,
     // drop any watcher/offer entries from saves predating clubId/ratings (schema-shape change, not just a missing field)
     scoutWatchers: (player.scoutWatchers ?? []).filter((w) => w && typeof w.clubId === 'string' && w.ratings),
@@ -291,7 +293,12 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   applyDecisionResult: (result, relationshipId) => {
     const { player, calendar } = getState()
     if (!player || !calendar) return
-    const event = nextUnresolvedEvent(calendar)
+    // Captaincy is evaluated from the player's updated post-match standing,
+    // then the appearance is recorded using the role held for this match.
+    const heldCaptaincy = player.captaincy ?? { role: 'none' as const, matchesAsCaptain: 0, matchesAsViceCaptain: 0, appointedWeek: null }
+    const recordedCaptaincy = recordCaptainAppearance(heldCaptaincy)
+    updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
+        const event = nextUnresolvedEvent(calendar)
     const effect = result.effect
 
     let updatedPlayer: Player = {
