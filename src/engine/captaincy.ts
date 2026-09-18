@@ -29,7 +29,7 @@ export function evaluateCaptaincy(player:Player,current?:CaptaincyState):Captain
  let role:CaptaincyRole=prev.role
  // Promotion requires sustained status. Demotion has hysteresis so one poor
  // week cannot constantly take the armband away.
- if(role==='none'&&score>=42)role='vice-captain'
+ if(role==='none'&&score>=42&&(player.seasonAppearances??0)>=8)role='vice-captain'
  else if(role==='vice-captain'&&score>=60&&(player.seasonAppearances??0)>=10)role='captain'
  else if(role==='captain'&&score<34)role='vice-captain'
  else if(role==='vice-captain'&&score<22)role='none'
