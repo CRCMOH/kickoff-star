@@ -13,6 +13,7 @@ on:
       - 'scripts/auditMatchEngineV2.ts'
       - 'scripts/auditLiveBridgeV2.ts'
       - 'scripts/auditPositionInfluenceV32.ts'
+      - 'scripts/auditPlayableCareersV32.ts'
       - '.github/workflows/v32-match-engine.yml'
   workflow_dispatch:
 
