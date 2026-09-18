@@ -25,5 +25,5 @@ export function captainMomentFor(state:MatchState):CaptainMoment|null{
 
 export function applyCaptainMoment(state:MatchState,moment:CaptainMoment,optionIndex:number):MatchState{
  const choice=moment.options[Math.max(0,Math.min(moment.options.length-1,optionIndex))]
- return {...state,momentum:Math.max(-10,Math.min(10,state.momentum+choice.momentum)),decisionQualityTotal:state.decisionQualityTotal+choice.ratingQuality,ratedMoments:state.ratedMoments+1,events:[...state.events,{minute:state.minute,text:`Captain: ${choice.label}.`,kind:'info'}]}
+ return {...state,momentum:Math.max(-10,Math.min(10,state.momentum+choice.momentum*(state.playerIsHome?1:-1))),decisionQualityTotal:state.decisionQualityTotal+choice.ratingQuality,ratedMoments:state.ratedMoments+1,events:[...state.events,{minute:state.minute,text:`Captain: ${choice.label}.`,kind:'info'}]}
 }
