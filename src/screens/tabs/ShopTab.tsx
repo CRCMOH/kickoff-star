@@ -46,7 +46,7 @@ function ItemCard({ item, player, onBuy }: { item: ShopItem; player: Player; onB
       <div className="flex items-start gap-2 mb-1">
         <span className="text-[11px] text-ks-ink flex-1 leading-snug">{item.name}</span>
         {held > 0 && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">x{held}</span>}
-        {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.weeksRemaining}w left</span>}
+        {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.condition ?? Math.round((owned.weeksRemaining / Math.max(1, item.durationWeeks ?? owned.weeksRemaining)) * 100)}% · {owned.weeksRemaining}w</span>}
       </div>
       <p className="text-[10px] text-ks-muted leading-relaxed mb-2">{item.description}</p>
       <button
@@ -109,7 +109,7 @@ export default function ShopTab({ player }: { player: Player }) {
         <div className="relative z-10 flex items-end justify-between">
           <div>
             <div className="font-display tracking-[0.25em] text-[9px] text-ks-muted uppercase mb-0.5">your money</div>
-            <div className="font-display text-3xl text-ks-gold tabular-nums leading-none">£<AnimatedNumber from={displayFrom} to={currentMoney} duration={700} /></div>
+            <div className="font-display text-3xl text-ks-gold tabular-nums leading-none">R<AnimatedNumber from={displayFrom} to={currentMoney} duration={700} /></div>
           </div>
           <div className="text-right">
             <div className="text-[9px] text-ks-muted uppercase tracking-wider">allowance</div>
@@ -327,11 +327,11 @@ export default function ShopTab({ player }: { player: Player }) {
             <button
               onClick={async () => {
                 const reward = await watchRewardedAd('cash')
-                if (reward) { grantCashFromAd(10); say('earned £10') }
+                if (reward) { grantCashFromAd(10); say('earned R10') }
               }}
               className="w-full mt-2 rounded-lg border border-ks-border bg-[#0f0f0d] py-2 font-display tracking-widest text-[10px] uppercase text-ks-muted"
             >
-              watch ad for £10 · {remainingToday('cash')} left today
+              watch ad for R10 · {remainingToday('cash')} left today
             </button>
           )}
         </Panel>

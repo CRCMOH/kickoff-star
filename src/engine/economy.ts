@@ -193,6 +193,8 @@ export function itemById(id: string): ShopItem | undefined {
 export interface OwnedEquipment {
   itemId: string
   weeksRemaining: number
+  /** V4: physical condition is visible separately from the old expiry timer. */
+  condition?: number
 }
 
 /** Consumables the player is carrying, as itemId -> count. */
@@ -239,9 +241,12 @@ export function ageEquipment(equipment: OwnedEquipment[] | undefined): { equipme
   const expired: string[] = []
   const next: OwnedEquipment[] = []
   for (const owned of equipment ?? []) {
+    const item = itemById(owned.itemId)
     const weeksRemaining = owned.weeksRemaining - 1
-    if (weeksRemaining <= 0) expired.push(owned.itemId)
-    else next.push({ ...owned, weeksRemaining })
+    const weeklyWear = 100 / Math.max(1, item?.durationWeeks ?? owned.weeksRemaining)
+    const condition = Math.max(0, Math.round((owned.condition ?? Math.min(100, owned.weeksRemaining * weeklyWear)) - weeklyWear))
+    if (weeksRemaining <= 0 || condition <= 0) expired.push(owned.itemId)
+    else next.push({ ...owned, weeksRemaining, condition })
   }
   return { equipment: next, expired }
 }
@@ -301,13 +306,13 @@ export interface WeeklyReward {
 // (which is what they're for: keeping energy manageable, per Joel's ask) with
 // cash as a garnish.
 export const REWARD_CYCLE: WeeklyReward[] = [
-  { day: 1, money: 2, label: '£2' },
+  { day: 1, money: 2, label: 'R2' },
   { day: 2, itemId: 'energy-drink', count: 1, label: '1 Energy Drink' },
-  { day: 3, money: 3, label: '£3' },
+  { day: 3, money: 3, label: 'R3' },
   { day: 4, itemId: 'energy-drink', count: 1, label: '1 Energy Drink' },
-  { day: 5, money: 5, label: '£5' },
+  { day: 5, money: 5, label: 'R5' },
   { day: 6, itemId: 'recovery-shake', count: 1, label: '1 Recovery Shake' },
-  { day: 7, money: 8, itemId: 'energy-drink', count: 2, label: '£8 + 2 Energy Drinks' },
+  { day: 7, money: 8, itemId: 'energy-drink', count: 2, label: 'R8 + 2 Energy Drinks' },
 ]
 
 export function rewardForStreak(streak: number): WeeklyReward {
@@ -365,7 +370,7 @@ export function randomJob(player: Player): OddJob {
 }
 
 export function formatMoney(amount: number): string {
-  return `£${Math.round(amount)}`
+  return `R${Math.round(amount)}`
 }
 
 
