@@ -101,6 +101,20 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         )
       })()}
 
+      {player.captaincy && player.captaincy.role !== 'none' && (
+        <Panel title="© leadership">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-display text-ks-gold tracking-wide">{player.captaincy.role === 'captain' ? 'Club Captain' : 'Vice-Captain'}</span>
+            <span className="text-[10px] text-ks-muted">appointed week {player.captaincy.appointedWeek ?? '—'}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <StatRow label="matches as captain" value={player.captaincy.matchesAsCaptain} />
+            <StatRow label="matches as vice-captain" value={player.captaincy.matchesAsViceCaptain} />
+          </div>
+          <p className="text-[10px] text-ks-muted leading-relaxed mt-2">Leadership is earned through trust, consistency, standing and time in the side.</p>
+        </Panel>
+      )}
+
       {/* P60 — reference: a radar/hexagon chart showing the player's
           attribute "shape" at a glance, alongside (not replacing) the bars. */}
       <Panel title={<span className="flex items-center gap-1"><Icon src={iconShape} />shape</span>}>
@@ -175,6 +189,8 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
           <StatRow label="wins" value={c?.wins ?? 0} />
           <StatRow label="clean sheets" value={c?.cleanSheets ?? 0} />
           <StatRow label="best rating" value={c?.bestRating ? c.bestRating.toFixed(1) : '—'} />
+          <StatRow label="player of the match" value={c?.motmAwards ?? 0} />
+          <StatRow label="matches as captain" value={player.captaincy?.matchesAsCaptain ?? 0} />
         </div>
         {/* P63 — "how many of my goals came in the league vs a cup run vs
             for my country." */}
