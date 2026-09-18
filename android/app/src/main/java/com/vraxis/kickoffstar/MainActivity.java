@@ -12,8 +12,9 @@ public class MainActivity extends BridgeActivity {
     super.onCreate(savedInstanceState);
     backCallback = new OnBackPressedCallback(true) {
       @Override public void handleOnBackPressed() {
-        if (bridge != null && bridge.getWebView() != null && bridge.getWebView().canGoBack()) {
-          bridge.getWebView().goBack();
+        if (bridge != null && bridge.getWebView() != null) {
+          bridge.getWebView().evaluateJavascript(
+            "window.dispatchEvent(new Event('kickoffstar:native-back'))", null);
         } else {
           setEnabled(false);
           getOnBackPressedDispatcher().onBackPressed();
