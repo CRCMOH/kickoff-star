@@ -1,118 +1,113 @@
 import assert from 'node:assert/strict'
 import { createYouthWorld } from '../src/engine/youthWorld'
-import { applyTrialOutcome, respondToSundayApproach } from '../src/engine/youthPathways'
+import { applyTrialOutcome } from '../src/engine/youthPathways'
 import {
-  advanceYouthCompetition,
-  competitionSummary,
-  currentYouthFixture,
-  initializeYouthCompetition,
-  recordYouthCompetitionResult,
-  simulateYouthCompetitionRound,
-  youthTable,
+  initializeCompetitionWorld, simulateLeagueRound, simulateGroupRound,
+  simulateKnockoutRound, teamStanding, groupStanding,
 } from '../src/engine/youthCompetitionsV4'
 import {
-  applySundayClubSupport,
-  availableYouthJobs,
-  financeSummary,
-  payYouthExpense,
-  processMonthlyAllowance,
-  transportCostFor,
-  workYouthJob,
-} from '../src/engine/youthFinanceV4'
+  applyMatchdayFinances, applyMonthlyAllowance, buyYouthExpense, financeSummary,
+  weeklyFinancePlan, workYouthJob,
+} from '../src/engine/youthFinancesV4'
 
-let world=createYouthWorld('layer56-audit','greenwood')
+let world=initializeCompetitionWorld(createYouthWorld('layers56-audit','greenwood'))
 world=applyTrialOutcome(world,.66).world
 
-// Inter-schools league: six teams, five rounds, deterministic standings, champion.
-world=initializeYouthCompetition(world,'inter-schools')
-let league=world.competitionRuntime['inter-schools']
-assert.equal(league.stage,'league')
-assert.equal(league.teams.length,6)
-assert.equal(Math.max(...league.fixtures.map(f=>f.round)),5)
-for(let round=1;round<=5;round++)world=simulateYouthCompetitionRound(world,'inter-schools',round)
-world=advanceYouthCompetition(world,'inter-schools')
-league=world.competitionRuntime['inter-schools']
-assert.equal(league.stage,'complete')
-assert.equal(youthTable(world,'inter-schools').length,6)
-assert(league.championTeamId)
+const inter=world.competitionWorld.interSchools!
+assert.equal(inter.teams.length,6)
+assert.equal(inter.fixtures.length,15)
+assert(inter.teams.some(t=>t.id==='greenwood'))
 
-// Regional: 24 schools -> 4x6 -> top 2 -> QF -> SF -> Final.
-world=initializeYouthCompetition(world,'regional-schools')
-let regional=world.competitionRuntime['regional-schools']
-assert.equal(regional.groups.length,4)
-assert(regional.groups.every(g=>g.teamIds.length===6))
-for(let round=1;round<=5;round++)world=simulateYouthCompetitionRound(world,'regional-schools',round)
-world=advanceYouthCompetition(world,'regional-schools')
-regional=world.competitionRuntime['regional-schools']
-assert.equal(regional.stage,'knockout')
-assert.equal(regional.qualifiedTeamIds.length,8)
-for(let round=1;round<=3;round++){
-  world=simulateYouthCompetitionRound(world,'regional-schools',round)
-  world=advanceYouthCompetition(world,'regional-schools')
-}
-regional=world.competitionRuntime['regional-schools']
+let interRun=inter
+let guard=0
+while(!interRun.complete&&guard++<10) interRun=simulateLeagueRound(interRun,'inter-audit')
+assert(interRun.complete)
+assert.equal(interRun.standings.reduce((n,s)=>n+s.played,0),30)
+assert(interRun.standings.reduce((n,s)=>n+s.points,0)>=25)
+assert(teamStanding(interRun,'greenwood'))
+
+let regional=world.competitionWorld.regionalSchools!
+assert.equal(regional.teams.length,24)
+assert.equal(Object.keys(regional.groups).length,4)
+for(const ids of Object.values(regional.groups))assert.equal(ids.length,6)
+guard=0
+while(regional.stage!=='complete'&&guard++<20) regional=simulateGroupRound(regional,'regional-audit')
 assert.equal(regional.stage,'complete')
-assert(regional.championTeamId)
-assert.equal(competitionSummary(world,'regional-schools')?.remaining,0)
+assert(regional.championId)
+assert.equal(regional.eliminatedTeamIds.length,23)
+assert(groupStanding(world.competitionWorld.regionalSchools!,'greenwood'))
 
-// Player fixture can be recorded manually without double simulation.
-world=initializeYouthCompetition(world,'minor-school-cups')
-const minor=world.competitionRuntime['minor-school-cups']
-const playerTeam=world.selectedSchoolId!
-const fx=currentYouthFixture(world,'minor-school-cups',playerTeam)
-assert(fx)
-world=recordYouthCompetitionResult(world,'minor-school-cups',fx!.id,2,1)
-assert(world.competitionRuntime['minor-school-cups'].fixtures.find(f=>f.id===fx!.id)?.played)
+let national=world.competitionWorld.nationalChampionship!
+guard=0
+while(national.stage!=='complete'&&guard++<15) national=simulateGroupRound(national,'national-audit')
+assert.equal(national.stage,'complete')
+assert(national.championId)
+assert.equal(national.teams.length,8)
 
-// Sunday League world works only once club route exists.
-const approachWorld={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs[0].id,route:'school-and-sunday' as const}}
-world=initializeYouthCompetition(approachWorld,'sunday-league')
-assert.equal(world.competitionRuntime['sunday-league'].teams.length,12)
-assert.equal(Math.max(...world.competitionRuntime['sunday-league'].fixtures.map(f=>f.round)),11)
+let minor=world.competitionWorld.minorSchoolCup!
+guard=0
+while(minor.stage!=='complete'&&guard++<8) minor=simulateKnockoutRound(minor,'minor-audit')
+assert.equal(minor.stage,'complete')
+assert(minor.championId)
+assert.equal(minor.eliminatedTeamIds.length,7)
 
-// Finance: allowance arrives monthly; optional purchases cannot overdraw.
-const startBalance=world.finance.balance
-world=processMonthlyAllowance(world,4,14,0)
-assert(world.finance.balance>startBalance)
-const poor={...world,finance:{...world.finance,balance:1}}
-const optional=payYouthExpense(poor,5,'recovery-basic')
-assert.equal(optional.ok,false)
-assert.equal(optional.world.finance.balance,1)
+world={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs[0].id,route:'school-and-sunday'}}
+world=initializeCompetitionWorld(world)
+let sunday=world.competitionWorld.sundayLeague!
+assert.equal(sunday.teams.length,12)
+guard=0
+while(!sunday.complete&&guard++<20) sunday=simulateLeagueRound(sunday,'sunday-audit')
+assert(sunday.complete)
+assert.equal(sunday.fixtures.length,66)
 
-// Mandatory earned opportunity can never become a dead career because of money.
-const mandatory=payYouthExpense(poor,5,'academy-travel','academy')
-assert.equal(mandatory.ok,true)
-assert.equal(mandatory.world.finance.balance,0)
-assert(mandatory.world.finance.transactions.some(t=>t.label.includes('bursary')))
+const starting=world.finances.balance
+world=applyMatchdayFinances(world,{week:8,age:14,type:'school',away:true})
+assert(world.finances.balance<=starting)
+const afterSchool=world.finances.balance
+world=applyMatchdayFinances(world,{week:9,age:14,type:'representative',away:true})
+assert.equal(world.finances.balance,afterSchool,'fully funded representative duty must not create or remove pocket money')
 
-// Sunday League support changes transport cost and creates passes.
-let fullSupport={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs.find(c=>c.transportSupport==='full')?.id??world.sundayClubs[0].id}}
-if(world.sundayClubs.some(c=>c.transportSupport==='full')){
-  assert.equal(transportCostFor(fullSupport,8,'sunday'),0)
+while(world.finances.balance>=7){
+  const bought=buyYouthExpense(world,10,'recovery-basic')
+  if(!bought.ok)break
+  world=bought.world
 }
-fullSupport=applySundayClubSupport(fullSupport,8)
-assert(fullSupport.finance.transportPasses>=0)
+const lowBalance=world.finances.balance
+world=applyMatchdayFinances(world,{week:11,age:14,type:'school',away:false})
+assert(world.finances.balance>=0)
+assert(world.finances.transactions.some(t=>t.week===11&&t.category==='club-support')||lowBalance>=3)
 
-// Odd jobs: age gate, one/week, energy protection, no football conflict.
-assert(availableYouthJobs(14).length>0)
-const job=availableYouthJobs(14)[0]
-const worked=workYouthJob(world,9,job.id,14,90,false)
-assert.equal(worked.ok,true)
-assert((worked.energyCost??0)>0)
-const repeat=workYouthJob(worked.world,9,job.id,14,90,false)
+const beforeAllowance=world.finances.balance
+const w4=applyMonthlyAllowance(world,4,14)
+assert.equal(w4.finances.balance,beforeAllowance)
+const w5=applyMonthlyAllowance(world,5,14)
+assert(w5.finances.balance>beforeAllowance)
+
+const tiredJob=workYouthJob(w5,6,14,'carwash',35)
+assert.equal(tiredJob.ok,false)
+const job=workYouthJob(w5,6,14,'carwash',80)
+assert(job.ok)
+const repeat=workYouthJob(job.world,6,14,'carwash',80)
 assert.equal(repeat.ok,false)
-const exhausted=workYouthJob(world,10,job.id,14,30,false)
-assert.equal(exhausted.ok,false)
+const tooYoung=workYouthJob(job.world,7,14,'junior-ref',90)
+assert.equal(tooYoung.ok,false)
 
-const fin=financeSummary(worked.world)
-assert(fin.totalIncome>=job.pay)
-assert(fin.balance>=0)
+const club=job.world.sundayClubs.find(c=>c.id===job.world.pathway.sundayClubId)
+const plan=weeklyFinancePlan(job.world,8,14,true,true)
+assert(plan.expectedEssentialCosts>=3)
+assert.equal(plan.clubSupport,club?.transportSupport??'none')
+
+const summary=financeSummary(job.world)
+assert(summary.bootsCondition<=82)
+assert(summary.totalEarned>=summary.balance)
+assert(summary.lastTransactions.length<=5)
 
 console.log('V4 layers 5-6 audit passed')
 console.log({
-  interSchoolsChampion:league.championTeamId,
-  regionalChampion:regional.championTeamId,
-  regionalQualified:regional.qualifiedTeamIds.length,
-  sundayTeams:world.competitionRuntime['sunday-league'].teams.length,
-  finance:fin,
+  interSchoolsChampion:interRun.standings[0].teamId,
+  regionalChampion:regional.championId,
+  nationalChampion:national.championId,
+  minorCupChampion:minor.championId,
+  sundayLeagueChampion:sunday.standings[0].teamId,
+  finance:summary,
 })
