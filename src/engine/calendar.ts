@@ -5,7 +5,8 @@ import { buildSeasonSchedule, allMatchWeeks, competitionRoundForWeek, type Compe
 const DAY_ORDER: DayOfWeek[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 
 // Season length. Bumped from 34 (Phase 8's 9-fixture season) to fit the full
-// multi-competition calendar: 22-round Sunday League + School Cup (group+KO)
+// multi-competition calendar: 22 reserved league slots + cup football. School
+// leagues use 18 fixtures; any spare slots naturally become training weeks.
 // + Sunday Cup (KO) + 2 school friendlies, per the locked 30+ matches/season spec.
 export const SEASON_WEEKS = 44
 
@@ -40,7 +41,7 @@ export function markResolved(state: CalendarState, eventId: string): CalendarSta
 // from the old hardcoded set (9 rounds spread across 34 weeks) — this is
 // the plumbing for later phases, not a rules change on its own.
 export const COMPETITION_SPECS: CompetitionRoundSpec[] = [
-  { id: 'sundayLeague', rounds: 22 }, // shared slot: Sunday League (grassroots) AND Academy league (mutually exclusive phases)
+  { id: 'schoolLeague', rounds: 22 }, // shared league slot; remapped to Sunday/academy league for those routes
   { id: 'schoolCup', rounds: 5 }, // 3 group rounds (field 16, groups of 4) + 2 knockout rounds (semi, final) — grassroots only
   { id: 'sundayCup', rounds: 4 }, // pure knockout, field 16 -> 4 rounds — grassroots only
   { id: 'schoolFriendlies', rounds: 2 }, // fixed, 2/year per spec — grassroots only
@@ -73,20 +74,25 @@ export function competitionForWeek(weekNumber: number) {
 // dormant for the current phase is NOT a matchday for the player — it renders
 // as extra training instead (fixes the Phase 25 audit's "20 dead matchdays").
 export type CareerPhase = 'grassroots-trials' | 'grassroots-season' | 'academy'
-const GRASSROOTS_ACTIVE = new Set(['sundayLeague', 'schoolCup', 'sundayCup', 'schoolFriendlies'])
+export type GrassrootsPath = 'school' | 'sunday'
+const SCHOOL_ACTIVE = new Set(['schoolLeague', 'schoolCup', 'schoolFriendlies'])
+const SUNDAY_ACTIVE = new Set(['sundayLeague', 'sundayCup'])
 const ACADEMY_ACTIVE = new Set(['sundayLeague', 'academyLeagueCup', 'academyKnockoutCup'])
 
-export function isCompetitionActive(competitionId: string, phase: CareerPhase): boolean {
-  const set = phase === 'academy' ? ACADEMY_ACTIVE : GRASSROOTS_ACTIVE
+export function isCompetitionActive(competitionId: string, phase: CareerPhase, grassrootsPath: GrassrootsPath = 'school'): boolean {
+  const set = phase === 'academy' ? ACADEMY_ACTIVE : grassrootsPath === 'sunday' ? SUNDAY_ACTIVE : SCHOOL_ACTIVE
   return set.has(competitionId)
 }
 
 // The competition producing the player's Saturday match this week, or null
 // (dormant competition or no fixture week at all).
-export function activeCompetitionForWeek(weekNumber: number, phase: CareerPhase): { competitionId: string; round: number } | null {
+export function activeCompetitionForWeek(weekNumber: number, phase: CareerPhase, grassrootsPath: GrassrootsPath = 'school'): { competitionId: string; round: number } | null {
   const comp = competitionForWeek(weekNumber)
   if (!comp) return null
-  return isCompetitionActive(comp.competitionId, phase) ? comp : null
+  const routed = comp.competitionId === 'schoolLeague' && (phase === 'academy' || grassrootsPath === 'sunday')
+    ? { ...comp, competitionId: 'sundayLeague' }
+    : comp
+  return isCompetitionActive(routed.competitionId, phase, grassrootsPath) ? routed : null
 }
 
 // Midweek international windows (Wednesdays, like real life) so international
@@ -103,7 +109,7 @@ export function internationalRoundForWeek(weekNumber: number): { stage: 'qualifi
   return null
 }
 
-export function generateWeek(weekNumber: number, seasonYear: number, phase: CareerPhase = 'grassroots-season', hasInternationalDuty = false): CalendarWeek {
+export function generateWeek(weekNumber: number, seasonYear: number, phase: CareerPhase = 'grassroots-season', hasInternationalDuty = false, grassrootsPath: GrassrootsPath = 'school'): CalendarWeek {
   // International duty takes over the Wednesday slot on window weeks —
   // midweek internationals, so club Saturdays are untouched.
   const internationalWeek = hasInternationalDuty && internationalRoundForWeek(weekNumber) !== null
@@ -135,7 +141,7 @@ export function generateWeek(weekNumber: number, seasonYear: number, phase: Care
       events.push({ id: id(), day: 'thu', type: 'street', title: 'small-sided session', resolved: false })
     }
   }
-  if (activeCompetitionForWeek(weekNumber, phase) !== null) {
+  if (activeCompetitionForWeek(weekNumber, phase, grassrootsPath) !== null) {
     events.push({ id: id(), day: 'sat', type: 'match', title: 'matchday', resolved: false })
   } else {
     events.push({ id: id(), day: 'sat', type: 'training', title: 'extra training', resolved: false })
@@ -153,7 +159,7 @@ export interface WeekAdvanceResult {
 
 // Advance the week, handling season rollover and age increment.
 // Age ticks each season (player ages ~1 year per season). Age cap = 20 (fail check upstream).
-export function advanceWeek(state: CalendarState, currentAge: number, phase: CareerPhase = 'grassroots-season', hasInternationalDuty = false): WeekAdvanceResult {
+export function advanceWeek(state: CalendarState, currentAge: number, phase: CareerPhase = 'grassroots-season', hasInternationalDuty = false, grassrootsPath: GrassrootsPath = 'school'): WeekAdvanceResult {
   const isSeasonEnd = state.currentWeek.weekNumber >= SEASON_WEEKS
   const nextWeekNum = isSeasonEnd ? 1 : state.currentWeek.weekNumber + 1
   const nextSeason = isSeasonEnd ? state.currentWeek.seasonYear + 1 : state.currentWeek.seasonYear
@@ -161,7 +167,7 @@ export function advanceWeek(state: CalendarState, currentAge: number, phase: Car
 
   return {
     calendar: {
-      currentWeek: generateWeek(nextWeekNum, nextSeason, phase, hasInternationalDuty),
+      currentWeek: generateWeek(nextWeekNum, nextSeason, phase, hasInternationalDuty, grassrootsPath),
       history: [...state.history, state.currentWeek].slice(-6),
     },
     seasonEnded: isSeasonEnd,

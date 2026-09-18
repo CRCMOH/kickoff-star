@@ -169,10 +169,10 @@ async function main() {
         continue
       }
 
-      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, phase)
+      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, phase, player.grassrootsPath)
       if (!comp) { deadMatchdays++; st.resolveCurrentEvent(); continue }
 
-      if (comp.competitionId === 'sundayLeague') {
+      if (comp.competitionId === 'sundayLeague' || comp.competitionId === 'schoolLeague') {
         const division = (world!.divisions as Record<number, import('../src/engine/league').Division>)[world!.playerDivision]
         const fixture = division.fixtures
           .filter((f) => !f.played && f.week <= comp.round && (f.homeTeamId === world!.playerTeamId || f.awayTeamId === world!.playerTeamId))
@@ -181,8 +181,8 @@ async function main() {
         const isHome = fixture.homeTeamId === world!.playerTeamId
         const opp = division.teams.find((t) => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))!
         const m = fakeMatch()
-        st.applyMatchResult(m.rating, m.goals, m.assists, 60, null, opp.id, m.ps, m.os, isHome, undefined, opp.name, 'sundayLeague')
-        tallies['sundayLeague'] = (tallies['sundayLeague'] ?? 0) + 1
+        st.applyMatchResult(m.rating, m.goals, m.assists, 60, null, opp.id, m.ps, m.os, isHome, undefined, opp.name, comp.competitionId)
+        tallies[comp.competitionId] = (tallies[comp.competitionId] ?? 0) + 1
         continue
       }
 
@@ -291,18 +291,18 @@ async function main() {
     // the player (batch-simmed). A mid-window transfer can additionally blank a
     // Saturday or two (new club's fixture already played) — those become extra
     // training, so matches + fallbacks must still account for every round.
-    const leaguePlayed = tallies['sundayLeague'] ?? 0
+    const leaguePlayed = (tallies['schoolLeague'] ?? 0) + (tallies['sundayLeague'] ?? 0)
     const leagueBlanks = tallies['league:trainingFallback'] ?? 0
     if (forceTransfer) {
       assert(leaguePlayed + leagueBlanks >= 22 * perSeason - 3 && leaguePlayed + leagueBlanks <= 22 * perSeason, `league matches+blanks should cover the schedule, got ${leaguePlayed}+${leagueBlanks}`)
     } else {
-      assert(leaguePlayed === 22 * perSeason - 1, `league matches should be ${22 * perSeason - 1}, got ${leaguePlayed}`)
+      assert(leaguePlayed === 18 * perSeason - 1, `school league matches should be ${18 * perSeason - 1}, got ${leaguePlayed}`)
     }
   }
   if (!forceAcademy) {
     assert((tallies['schoolFriendlies'] ?? 0) === 2 * perSeason, `friendlies should be ${2 * perSeason}, got ${tallies['schoolFriendlies']}`)
     const cupMatches = (tallies['schoolCup'] ?? 0) + (tallies['sundayCup'] ?? 0)
-    assert(cupMatches >= 4 * perSeason, `cup matches should be at least ${4 * perSeason} (group floor + KO r1), got ${cupMatches}`)
+    assert(cupMatches >= 3 * perSeason, `cup matches should include at least the ${3 * perSeason} School Cup group games, got ${cupMatches}`)
   } else {
     const academyCupMatches = (tallies['academyLeagueCup'] ?? 0) + (tallies['academyKnockoutCup'] ?? 0)
     assert(academyCupMatches >= 4, `academy cup matches should appear after transition, got ${academyCupMatches}`)
@@ -313,7 +313,7 @@ async function main() {
     assert((tallies['international'] ?? 0) === intlMatches, 'international tally consistent')
   }
   const total = Object.entries(tallies).filter(([k]) => !k.includes(':')).reduce((a, [, v]) => a + v, 0)
-  if (!forceAcademy) assert(total >= 27 * perSeason, `total matches/season should be >= 27, got ${(total / perSeason).toFixed(1)}/season`)
+  if (!forceAcademy) assert(total >= 22 * perSeason, `school pathway should provide at least 22 matches/season, got ${(total / perSeason).toFixed(1)}/season`)
   if (process.env.FORCE_GK === '1') {
     assert((player.career?.cleanSheets ?? 0) > 0, `GK should bank clean sheets over ${total} matches, got ${player.career?.cleanSheets}`)
   } else {
@@ -379,6 +379,7 @@ async function main() {
 
   // Save/load roundtrip through (fake) IndexedDB: everything the store holds
   // must survive persistence, including the new cup/international worlds.
+  await st.saveCurrent()
   const before = { cups: st.cups, international: st.international }
   await st.loadFromSlot(0)
   const after = useCareerStore.getState()

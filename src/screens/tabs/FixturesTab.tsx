@@ -13,9 +13,9 @@ import CupBracket from '../../components/CupBracket'
 // week. P25 fix: rounds map to the LEAGUE's own scheduled weeks — the old code
 // indexed into the union of every competition's weeks, so every label after
 // the first cup week pointed at the wrong Saturday.
-const ROUND_TO_CALENDAR_WEEK = [...(SEASON_SCHEDULE.sundayLeague ?? [])].sort((a, b) => a - b)
 function calendarWeekFor(round: number): number | null {
-  return ROUND_TO_CALENDAR_WEEK[round - 1] ?? null
+  const weeks = [...(SEASON_SCHEDULE.schoolLeague ?? [])].sort((a, b) => a - b)
+  return weeks[round - 1] ?? null
 }
 
 function cupStatusLine(world: CupWorld): { label: string; status: string; next: string | null } {

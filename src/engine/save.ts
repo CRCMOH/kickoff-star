@@ -23,7 +23,8 @@ import type { TrainingIntensity } from './energy'
 //      from the first drill, wiping real progress with no warning. Now
 //      checkpointed after every completed drill so a reload resumes instead
 //      of restarting.
-export const SAVE_SCHEMA_VERSION = 3
+//  v4: separates school football from the Sunday League fallback route.
+export const SAVE_SCHEMA_VERSION = 4
 
 export type SaveSlotId = 0 | 1 | 2
 
@@ -73,6 +74,9 @@ function migrateSave(raw: SaveGame & { schemaVersion?: number }): SaveGame {
   }
   if (raw.schemaVersion < 3) {
     return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION, pendingTraining: null }
+  }
+  if (raw.schemaVersion < 4) {
+    return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION }
   }
   return raw
 }

@@ -5,6 +5,8 @@ import { addStoryMoment, createStoryMoment } from '../src/engine/presentation'
 import { initYouthFinance, postTransaction } from '../src/engine/youthFinances'
 import { emptyMatchStats } from '../src/engine/matchStats'
 import { calculatePlayerRating } from '../src/engine/ratingSystemV32'
+import { activeCompetitionForWeek, SEASON_SCHEDULE } from '../src/engine/calendar'
+import { initLeagueWorld, initSchoolLeagueWorld, migrateToSchoolLeagueWorld, resetSchoolLeagueSeason } from '../src/engine/league'
 
 let failures = 0
 const check = (condition: boolean, message: string) => {
@@ -17,6 +19,7 @@ let career = initCompetitionCareer()
 career = recordCompetitionMatch(career, { competitionId: 'schoolCup', season: 2027, started: true, minutes: 90, rating: 8.4, goals: 2, assists: 1, cleanSheet: false, playerOfMatch: true })
 check(career.current.schoolCup.goals === 2 && career.current.schoolCup.averageRating === 8.4, 'competition-specific stats remain exact')
 check(competitionDefinition('academyLeague').prestige > competitionDefinition('sundayLeague').prestige, 'academy and Sunday league prestige remain distinct')
+check(competitionDefinition('schoolLeague').category === 'school', 'school league has its own competition identity')
 let finances = initYouthFinance('grassroots-season')
 finances = postTransaction(finances, 'grassroots-season', { week: 1, amount: 10, category: 'allowance', description: 'Allowance', coveredBy: 'family' })
 check(finances.currency === 'GBP' && finances.transactions.length === 1 && formatMoney(10) === '£10', 'GBP ledger and visible pound formatting agree')
@@ -48,6 +51,26 @@ check(match.includes('decisionQualityTotal: carded.decisionQualityTotal + decisi
 for (const kind of ['selection', 'squad', 'qualification', 'elimination', 'champion', 'invitation', 'promotion', 'relegation']) {
   check(store.includes(`kind: '${kind}'`), `${kind} reveal is driven by career state`)
 }
+
+console.log('\n[E] school football and Sunday football are separate career paths')
+const schoolWorld = initSchoolLeagueWorld('Greenwood High')
+const schoolDivision = schoolWorld.divisions[schoolWorld.playerDivision]
+const schoolTeam = schoolDivision.teams.find((team) => team.id === schoolWorld.playerTeamId)
+check(schoolWorld.kind === 'school' && schoolTeam?.name === 'Greenwood High', 'selected player represents the chosen school')
+check(schoolDivision.teams.length === 10 && schoolDivision.fixtures.filter((fixture) => fixture.homeTeamId === schoolWorld.playerTeamId || fixture.awayTeamId === schoolWorld.playerTeamId).length === 18, 'local school league is a ten-school home-and-away competition')
+check(schoolDivision.teams.every((team) => /(High|School|Secondary|Academy|College)/.test(team.name)), 'school league contains school opponents, not Sunday clubs')
+check(new Set(Object.values(schoolWorld.divisions).flatMap((division) => division.teams.map((team) => team.name))).size === 30, 'school identities are unique across all districts')
+const leagueWeek = SEASON_SCHEDULE.schoolLeague[0]
+check(activeCompetitionForWeek(leagueWeek, 'grassroots-season', 'school')?.competitionId === 'schoolLeague', 'selected route schedules the school league')
+check(activeCompetitionForWeek(leagueWeek, 'grassroots-season', 'sunday')?.competitionId === 'sundayLeague', 'released route schedules Sunday League instead')
+const legacy = initLeagueWorld('Greenwood High')
+legacy.divisions[legacy.playerDivision].standings[0].points = 7
+const migrated = migrateToSchoolLeagueWorld(legacy, 'Greenwood High')
+check(migrated.kind === 'school' && migrated.divisions[migrated.playerDivision].standings[0].points === 7, 'legacy careers migrate without losing table progress')
+check(migrated.divisions[migrated.playerDivision].teams.find((team) => team.id === migrated.playerTeamId)?.name === 'Greenwood High', 'legacy player team keeps the chosen school identity')
+schoolWorld.divisions[schoolWorld.playerDivision].standings[0].points = 9
+const nextSchoolSeason = resetSchoolLeagueSeason(schoolWorld)
+check(nextSchoolSeason.divisions[nextSchoolSeason.playerDivision].standings.every((standing) => standing.points === 0) && nextSchoolSeason.divisions[nextSchoolSeason.playerDivision].fixtures.length === 90, 'school league resets cleanly for the next 18-match season')
 
 console.log(failures ? `\n❌ V4 INTEGRATION AUDIT: ${failures} FAILURE(S)` : '\n✅ V4 INTEGRATION AUDIT PASSED')
 process.exit(failures ? 1 : 0)

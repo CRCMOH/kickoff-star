@@ -225,7 +225,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
           ))}
         </div>
         <p className="text-[10px] text-ks-muted leading-relaxed mt-2.5">
-          {player.careerClock.phase === 'academy' ? 'Perform in academy competitions, build scout interest and earn a professional contract.' : 'Stand out in school and Sunday football to earn an academy invitation.'}
+          {player.careerClock.phase === 'academy' ? 'Perform in academy competitions, build scout interest and earn a professional contract.' : player.grassrootsPath === 'sunday' ? 'Stand out in Sunday football to reopen the academy pathway.' : 'Represent your school in league and cup football to earn an academy invitation.'}
         </p>
       </Section>
 

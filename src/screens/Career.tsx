@@ -172,10 +172,10 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         return
       }
 
-      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase)
+      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)
       if (!comp) { resolveCurrentEvent(); return }
 
-      if (comp.competitionId === 'sundayLeague') {
+      if (comp.competitionId === 'sundayLeague' || comp.competitionId === 'schoolLeague') {
         const fixture = playerDivision.fixtures
           .filter((f) => !f.played && f.week <= comp.round && (f.homeTeamId === activeWorld.playerTeamId || f.awayTeamId === activeWorld.playerTeamId))
           .sort((a, b) => a.week - b.week)[0]
@@ -185,7 +185,8 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         const isHome = fixture.homeTeamId === activeWorld.playerTeamId
         const opponent = playerDivision.teams.find((t) => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))
         if (!opponent) { resolveCurrentEvent(); return }
-        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: isInAcademy ? 'League' : 'Sunday League', isKnockout: false })
+        const competitionLabel = isInAcademy ? 'League' : comp.competitionId === 'schoolLeague' ? 'Local School League' : 'Sunday League'
+        setMode({ kind: 'matchday', opponent, isHome, competitionId: comp.competitionId, competitionLabel, isKnockout: false })
         return
       }
 

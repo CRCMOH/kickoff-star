@@ -78,7 +78,9 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
     leaguePos = pos > 0 ? ordinal(pos) : '—'
     leagueName = isAcademy
       ? academyDivisionLabel(world.playerDivision as 1 | 2)
-      : divisionLabel(world.playerDivision as 1 | 2 | 3)
+      : 'kind' in world && world.kind === 'school'
+        ? 'Local School League'
+        : divisionLabel(world.playerDivision as 1 | 2 | 3)
   }
 
   const nextEvent = DAYS.map((day) => eventsByDay[day]).find((e) => e && !e.resolved) ?? calendar.currentWeek.events.find((e) => !e.resolved) ?? calendar.currentWeek.events[0]

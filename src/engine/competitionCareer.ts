@@ -30,6 +30,7 @@ export interface CompetitionDefinition {
 }
 
 export const COMPETITION_DEFINITIONS: Record<string, CompetitionDefinition> = {
+  schoolLeague: { id: 'schoolLeague', name: 'Local School League', format: 'league', category: 'school', level: 'local', prestige: 25, eligibility: { minAge: 14, maxAge: 18, schoolRegistered: true, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   sundayLeague: { id: 'sundayLeague', name: 'Sunday League', format: 'league', category: 'sunday', level: 'local', prestige: 20, eligibility: { minAge: 14, maxAge: 18, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   academyLeague: { id: 'academyLeague', name: 'Academy League', format: 'league', category: 'academy', level: 'national', prestige: 60, eligibility: { minAge: 15, maxAge: 19, academyPlayersAllowed: true, requiresInjuryClearance: true }, yellowCardsForBan: 3 },
   schoolFriendlies: { id: 'schoolFriendlies', name: 'School Friendlies', format: 'friendly', category: 'school', level: 'local', prestige: 15, eligibility: { minAge: 14, maxAge: 18, schoolRegistered: true, academyPlayersAllowed: false, requiresInjuryClearance: true }, yellowCardsForBan: 3 },

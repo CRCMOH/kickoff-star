@@ -17,7 +17,7 @@ function competitionStatus(cup: CupWorld): string {
 
 export default function CompetitionHub({ player, division, playerTeamId, cups }: { player: Player; division: Division; playerTeamId: string; cups?: CupWorlds }) {
   const international = useCareerStore((s) => s.international)
-  const leagueKey = player.careerClock.phase === 'academy' ? 'academyLeague' : 'sundayLeague'
+  const leagueKey = player.careerClock.phase === 'academy' ? 'academyLeague' : player.grassrootsPath === 'sunday' ? 'sundayLeague' : 'schoolLeague'
   const leagueDef = competitionDefinition(leagueKey)
   const sorted = sortStandings(division.standings)
   const position = sorted.findIndex((s) => s.teamId === playerTeamId) + 1

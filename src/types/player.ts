@@ -35,6 +35,9 @@ export interface Player {
   // Grassroots trials fields (Football Engine Spec Section: Grassroots opening)
   schoolId: string | null
   trialWeekCompleted: 0 | 1 | 2 | 3
+  /** The active grassroots route. Selected players represent their school;
+      Sunday football is the fallback route after release/elimination. */
+  grassrootsPath?: 'school' | 'sunday'
 
   // Phase 32 — standing with the three groups (coach reads off coachTrust)
   standing?: import('../engine/standing').Standing

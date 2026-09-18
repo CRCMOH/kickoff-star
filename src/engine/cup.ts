@@ -34,6 +34,21 @@ export interface CupWorld {
   teams: Team[]
 }
 
+/** Keep an in-progress cup's displayed identities aligned with its source
+ * league after a save migration. Results and brackets remain untouched. */
+export function syncCupTeamIdentities(world: CupWorld, sourceTeams: Team[]): CupWorld {
+  const byId = new Map(sourceTeams.map((team) => [team.id, team]))
+  const syncStanding = (standing: LeagueStanding): LeagueStanding => {
+    const team = byId.get(standing.teamId)
+    return team ? { ...standing, teamName: team.name, teamShort: team.short } : standing
+  }
+  return {
+    ...world,
+    teams: world.teams.map((team) => byId.get(team.id) ?? team),
+    groupStandings: Object.fromEntries(Object.entries(world.groupStandings).map(([group, standings]) => [group, standings.map(syncStanding)])),
+  }
+}
+
 function standingFor(team: Team): LeagueStanding {
   return { teamId: team.id, teamName: team.name, teamShort: team.short, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 }
 }
