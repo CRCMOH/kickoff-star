@@ -16,6 +16,7 @@ on:
       - 'scripts/auditLiveBridgeV2.ts'
       - 'scripts/auditPositionInfluenceV32.ts'
       - 'scripts/auditPlayableCareersV32.ts'
+      - 'scripts/auditMotmV32.ts'
       - '.github/workflows/v32-match-engine.yml'
   workflow_dispatch:
 
@@ -40,3 +41,5 @@ jobs:
         run: npx tsx scripts/auditPositionInfluenceV32.ts
       - name: Run direct playable career audit
         run: npx tsx scripts/auditPlayableCareersV32.ts
+      - name: Run cross-position MOTM distribution audit
+        run: npx tsx scripts/auditMotmV32.ts
