@@ -385,7 +385,7 @@ export function advanceToKeyMoment(state: MatchState, player: Player): AdvanceRe
         const forced = buildKeyMoment(s, 'half', player.position === 'GK' || ['CB', 'FB'].includes(player.position), player)
         return { state: s, keyMoment: forced }
       }
-      s = finishMatch(s)
+      s = finishMatchForAudit(s)
       return { state: s, keyMoment: null }
     }
 
@@ -1023,7 +1023,7 @@ function updateRating(current: number, _optionQuality: number, success: boolean,
   return clamp(current + delta * tierWeight, 1, 10)
 }
 
-function finishMatch(s: MatchState): MatchState {
+export function finishMatchForAudit(s: MatchState): MatchState {
   const won = s.playerIsHome ? s.homeScore > s.awayScore : s.awayScore > s.homeScore
   const drew = s.homeScore === s.awayScore
   const resultNudge = won ? 0.3 : drew ? 0 : -0.2
