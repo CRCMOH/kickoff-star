@@ -257,7 +257,15 @@ export function recordGroupCompetitionResult(state:GroupCompetitionState,fixture
   let next={...state,fixtures}
   if(fixture.stage==='group'&&fixture.groupId)next={...next,standings:recomputeGroupStandings(next,fixture.groupId,fixture,hg,ag)}
   const live=fixtures.filter(f=>f.round===state.currentRound)
-  if(live.length&&live.every(f=>f.played))next=advanceGroupKnockout(next)
+  if(live.length&&live.every(f=>f.played)){
+    if(state.stage==='groups'){
+      const allGroupFixtures=fixtures.filter(f=>f.stage==='group')
+      if(allGroupFixtures.every(f=>f.played)) next=advanceGroupKnockout(next)
+      else next={...next,currentRound:state.currentRound+1}
+    }else{
+      next=advanceGroupKnockout(next)
+    }
+  }
   return next
 }
 
