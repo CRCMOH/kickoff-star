@@ -86,7 +86,7 @@ export function simulateBackgroundStats(ctx:MatchStatContext): PlayerMatchStats 
   const possessionFactor=.72+poss*.56
   s.touches=jitter(p.touches*m*possessionFactor,rng)
   s.passesAttempted=jitter(p.passes*m*possessionFactor,rng)
-  const passBase=ctx.position==='GK'||ctx.position==='CB'?.88:ctx.position==='DM'||ctx.position==='CM'?.84:ctx.position==='ST'?.72:.78
+  const passBase=ctx.position==='GK'||ctx.position==='CB'?.88:ctx.position==='CM'?.84:ctx.position==='ST'?.72:.78
   const passPct=clamp(passBase+(q-.6)*.14,.58,.95)
   s.passesCompleted=Math.min(s.passesAttempted,Math.round(s.passesAttempted*passPct))
   s.progressivePasses=jitter(s.passesCompleted*(ctx.position==='CM'?.16:ctx.position==='WM'?.14:ctx.position==='WG'?.11:.09),rng,.28)
