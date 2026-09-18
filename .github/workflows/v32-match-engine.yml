@@ -35,3 +35,5 @@ jobs:
         run: npx tsx scripts/auditLiveBridgeV2.ts
       - name: Run 240k multi-position player influence audit
         run: npx tsx scripts/auditPositionInfluenceV32.ts
+      - name: Run direct playable career audit
+        run: npx tsx scripts/auditPlayableCareersV32.ts
