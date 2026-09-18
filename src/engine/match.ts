@@ -15,7 +15,7 @@ import { debugScenarioOverride } from './devTools'
 import { resolveLegacyDriveShot, scoreSnapshot } from './matchResolutionV2'
 import { emptyMatchStats, simulateBackgroundStats, mergeMatchStats, type PlayerMatchStats } from './matchStats'
 import { createMatchEnvironment } from './matchModel'
-import { finalizePlayerRating } from './liveMatchV2'
+import { calculatePlayerRating, type RatingBreakdown } from './ratingSystemV32'
 
 // ============================================================================
 // FOOTBALL ENGINE — Sections 1-4 (Possession, Chance/Decision, Goals, Ratings)
@@ -72,6 +72,8 @@ export interface MatchState {
   decisionQualityTotal: number
   executionQualityTotal: number
   ratedMoments: number
+  /** Transparent full-time rating ledger; populated when the match finishes. */
+  ratingBreakdown?: RatingBreakdown
   events: MatchEvent[]
   finished: boolean
   // Phase 12. Non-serialised: MatchState is transient (never written to a save slot),
@@ -1060,7 +1062,11 @@ export function finishMatchForAudit(s: MatchState): MatchState {
   })
   const stats = mergeMatchStats(background, { ...s.playerStats, goalsConceded: conceded })
   const position = (s as MatchState & { _playerPosition?: import('../types/attributes').Position })._playerPosition ?? 'CM'
-  const finalRating = finalizePlayerRating(rawRating, position, stats, playerGoalsFor, conceded)
-  return { ...s, finished: true, playerStats: stats, playerRating: finalRating,
+  const breakdown = calculatePlayerRating({
+    position, stats, decisionQuality, executionQuality, ratedMoments: s.ratedMoments,
+    minutes, yellowCards: s.yellowCards, redCarded: s.redCarded,
+  })
+  const finalRating = breakdown.total
+  return { ...s, finished: true, playerStats: stats, playerRating: finalRating, ratingBreakdown: breakdown,
     events: [...s.events, { minute: s.minute, text: s.commentator.line('fulltime', ctxOf(s)), kind: 'fulltime' as const }] }
 }
