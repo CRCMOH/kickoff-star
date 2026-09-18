@@ -50,3 +50,29 @@ export function syncMusicMute(): void {
   // If unmuting and playback was desired, make sure it's actually running.
   if (wantsToPlay && el.paused) void el.play().catch(() => { /* ignore */ })
 }
+
+
+/** Pause audio whenever the app is backgrounded and resume only if it was wanted. */
+export function installMusicLifecycle(): () => void {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return () => {}
+  const suspend = () => { if (el && !el.paused) el.pause() }
+  const resume = () => {
+    if (document.visibilityState === 'visible' && wantsToPlay && el?.paused) {
+      el.volume = isMuted() ? 0 : VOLUME
+      void el.play().catch(() => {})
+    }
+  }
+  const onVisibility = () => document.visibilityState === 'hidden' ? suspend() : resume()
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('pagehide', suspend)
+  window.addEventListener('pageshow', resume)
+  window.addEventListener('blur', suspend)
+  window.addEventListener('focus', resume)
+  return () => {
+    document.removeEventListener('visibilitychange', onVisibility)
+    window.removeEventListener('pagehide', suspend)
+    window.removeEventListener('pageshow', resume)
+    window.removeEventListener('blur', suspend)
+    window.removeEventListener('focus', resume)
+  }
+}
