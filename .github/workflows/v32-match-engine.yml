@@ -12,6 +12,7 @@ on:
       - 'src/engine/matchResolutionV2.ts'
       - 'scripts/auditMatchEngineV2.ts'
       - 'scripts/auditLiveBridgeV2.ts'
+      - 'scripts/auditPositionInfluenceV32.ts'
       - '.github/workflows/v32-match-engine.yml'
   workflow_dispatch:
 
@@ -32,3 +33,5 @@ jobs:
         run: npx tsx scripts/auditMatchEngineV2.ts
       - name: Run live resolution bridge regression audit
         run: npx tsx scripts/auditLiveBridgeV2.ts
+      - name: Run 240k multi-position player influence audit
+        run: npx tsx scripts/auditPositionInfluenceV32.ts
