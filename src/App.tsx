@@ -24,6 +24,8 @@ const isScreen = (value: unknown): value is Screen => typeof value === 'string' 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
   const [chosenSchool, setChosenSchool] = useState<School | null>(null)
+  const screenRef = { current: screen }
+  screenRef.current = screen
   const player = useCareerStore((s) => s.player)
   const loadFromSlot = useCareerStore((s) => s.loadFromSlot)
   const setSchool = useCareerStore((s) => s.setSchool)
@@ -36,8 +38,18 @@ export default function App() {
       const next = event.state?.screen
       setScreen(isScreen(next) ? next : 'menu')
     }
+    const onNativeBack = () => {
+      const current = screenRef.current
+      if (current === 'menu') return
+      if (current === 'career' || current === 'settings' || current === 'credits' || current === 'help' || current === 'load' || current === 'create') {
+        replace('menu')
+        return
+      }
+      window.history.back()
+    }
+    window.addEventListener('kickoffstar:native-back', onNativeBack)
     window.addEventListener('popstate', onPopState)
-    return () => { window.removeEventListener('popstate', onPopState); removeMusicLifecycle() }
+    return () => { window.removeEventListener('popstate', onPopState); window.removeEventListener('kickoffstar:native-back', onNativeBack); removeMusicLifecycle() }
   }, [])
 
   const navigate = (next: Screen) => {
