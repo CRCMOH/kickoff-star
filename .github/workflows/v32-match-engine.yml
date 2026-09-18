@@ -63,10 +63,12 @@ jobs:
         run: npx tsx scripts/auditMotmV32.ts
       - name: Run captaincy progression audit
         run: npx tsx scripts/auditCaptaincyV32.ts
+      - name: Build web bundle for Android
+        run: npm run build
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
       - name: Compile Android debug shell
         run: |
-          npm run build
-          npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
