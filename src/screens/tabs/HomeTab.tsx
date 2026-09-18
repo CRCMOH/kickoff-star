@@ -93,8 +93,24 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
       : divisionLabel(world.playerDivision as 1 | 2 | 3)
   }
 
+  const nextEvent = calendar.currentWeek.events.find((e) => e.day === DAYS.find((d) => eventsByDay[d])) ?? calendar.currentWeek.events[0]
   return (
-    <div className="flex flex-col gap-2.5 stagger-children">
+    <div className="career-home flex flex-col gap-2.5 stagger-children">
+      <section className="career-hero">
+        <div className="career-hero-glow"/>
+        <div className="career-hero-top"><span>KICKOFF STAR · CAREER</span><b>WEEK {calendar.currentWeek.weekNumber}</b></div>
+        <div className="career-player">
+          <Avatar id={player.avatarId ?? 0} size={62} className="career-avatar" />
+          <div className="min-w-0"><small>{player.careerClock.phase.toUpperCase()} · {player.position}</small><h1>{player.name}</h1><p>{getNation(player.nationality).flag} AGE {player.careerClock.ageYears} · {player.squadRole === 'starting-xi' ? 'STARTING XI' : (player.squadRole ?? 'SQUAD').toUpperCase()}</p></div>
+          <div className="career-ovr"><strong>{ovr}</strong><span>OVR</span></div>
+        </div>
+        <div className="career-hero-strip">
+          <div><span>ENERGY</span><b>{Math.round(player.fitness.stamina)}%</b></div>
+          <div><span>FORM</span><b>{form.avg?.toFixed(1) ?? '—'}</b></div>
+          <div><span>LEAGUE</span><b>{leaguePos ?? '—'}</b></div>
+          <div><span>NEXT</span><b>{nextEvent?.type?.replace(/-/g,' ') ?? 'OPEN'}</b></div>
+        </div>
+      </section>
       {offerCount > 0 && (
         <button
           onClick={onOpenOffers}
