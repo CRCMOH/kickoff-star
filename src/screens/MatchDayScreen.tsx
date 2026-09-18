@@ -28,6 +28,7 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
   onKickOff: () => void
 }) {
   const [entered, setEntered] = useState(false)
+  const [walkout, setWalkout] = useState(false)
   useEffect(() => { const t = window.setTimeout(() => setEntered(true), 40); return () => window.clearTimeout(t) }, [])
 
   const form = formOf(player)
@@ -42,25 +43,24 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
 
   return (
     <div className="relative min-h-screen w-full bg-ks-black flex flex-col justify-center px-5 py-8">
-      <div className="absolute inset-0" style={{
+      <div className="matchday-lights absolute inset-0"/><div className="matchday-crowd absolute inset-x-0 bottom-0 h-[34%]"/><div className="absolute inset-0" style={{
         background: 'radial-gradient(ellipse 70% 45% at 50% 30%, rgba(212,175,55,0.10), transparent 62%), linear-gradient(180deg,#0a0a09,#050504)',
       }} />
 
+{walkout && <div className="walkout-curtain"><span>THE PLAYERS ARE OUT</span><b>{playerTeam.short} · {opponent.short}</b></div>}
       <div className={`relative z-10 max-w-md mx-auto w-full transition-all duration-700 ${
         entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'
       }`}>
-        <div className="text-center font-display tracking-[0.3em] text-[10px] text-ks-gold uppercase mb-8">
-          {competitionLabel ?? 'matchday'}
-        </div>
+        <div className="matchday-kicker">KICKOFF STAR · MATCHDAY</div><div className="text-center font-display tracking-[0.3em] text-[10px] text-ks-gold uppercase mb-6">{competitionLabel ?? 'matchday'}</div>
 
         {/* the fixture */}
-        <div className="flex items-center justify-center gap-4 mb-3">
+        <div className="fixture-stage flex items-center justify-center gap-4 mb-3">
           <div className="flex-1 flex flex-col items-center gap-2">
             <TeamCrest primary={playerTeam.primaryColor} secondary={playerTeam.secondaryColor} short={playerTeam.short} />
             <span className="font-display text-ks-ink text-xs tracking-wide text-center leading-tight">{playerTeam.name}</span>
             <span className="text-[9px] text-ks-muted">strength {teamOverall(playerTeam)}</span>
           </div>
-          <div className="font-display text-ks-muted text-lg">v</div>
+          <div className="versus-mark"><span>VS</span><small>{isHome?'HOME':'AWAY'}</small></div>
           <div className="flex-1 flex flex-col items-center gap-2">
             <TeamCrest primary={opponent.primaryColor} secondary={opponent.secondaryColor} short={opponent.short} />
             <span className="font-display text-ks-ink text-xs tracking-wide text-center leading-tight">{opponent.name}</span>
@@ -136,8 +136,8 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
         )}
 
         <button
-          onClick={onKickOff}
-          className="w-full bg-ks-gold text-ks-black font-display tracking-widest rounded-xl py-4 text-sm uppercase shadow-[0_0_30px_rgba(212,175,55,0.3)] active:scale-[0.99] transition-transform"
+          onClick={() => { setWalkout(true); window.setTimeout(onKickOff, 900) }}
+          className="matchday-walkout w-full bg-ks-gold text-ks-black font-display tracking-widest rounded-xl py-4 text-sm uppercase active:scale-[0.99]"
         >
           walk out
         </button>
