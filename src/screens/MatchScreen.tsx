@@ -70,7 +70,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   const [muted, setMutedUi] = useState(isMuted())
   const [speed, setSpeed] = useState<1 | 2 | 3>(1)
   const [displayMinute, setDisplayMinute] = useState(0)
-  const [celebration, setCelebration] = useState<{ kind: CelebrationKind; minute: number } | null>(null)
+  const [celebration, setCelebration] = useState<{ kind: CelebrationKind; minute: number; ratingDelta?: number } | null>(null)
   const [halfTimeShown, setHalfTimeShown] = useState(false)
   const halfTimeSeen = useRef(false)
   const priorPlayerGoals = useRef(0)
@@ -181,7 +181,9 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
     goalsShown.current = revealedGoals
     displayScoreRef.current = { home, away }
     setDisplayScore({ home, away })
-    setCelebration({ kind: lastKind, minute: state.minute })
+    const ratingDelta=Math.max(0,state.playerRating-priorCelebrationRating.current)
+    priorCelebrationRating.current=state.playerRating
+    setCelebration({ kind: lastKind, minute: state.minute, ratingDelta })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealedGoals, state.homeScore, state.awayScore, state.playerGoals, state.playerAssists, state.minute, playerIsHome])
 
@@ -293,6 +295,8 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
           awayScore={state.awayScore}
           minute={celebration.minute}
           avatarId={celebration.kind === 'player-goal' || celebration.kind === 'player-assist' ? player.avatarId : undefined}
+          playerRating={state.playerRating}
+          ratingDelta={celebration.ratingDelta}
           onDone={() => setCelebration(null)}
         />
       )}
