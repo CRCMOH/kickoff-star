@@ -19,7 +19,7 @@ export function captaincyScore(player:Player):number{
  const tenure=Math.min(18,(player.seasonAppearances??0)*1.2)
  const role=player.squadRole==='starting-xi'?14:player.squadRole==='bench'?5:0
  const standing=player.standing
- const dressing=standing?clamp(((standing.teammates??0)+(standing.coach??0))/2,-10,10):0
+ const dressing=standing?clamp((standing.teammates??0)/10,-10,10):0
  const discipline=(player.suspensionMatches??0)>0?-14:0
  return trust*2.2+tenure+role+(form-6)*9+dressing*1.1+discipline
 }
