@@ -38,6 +38,10 @@ on:
       - 'scripts/auditYouthLayers56V4.ts'
       - 'scripts/auditYouthAcademyV4.ts'
       - 'scripts/auditRepresentativeV4.ts'
+      - 'scripts/auditV5RouteCalendar.ts'
+      - 'src/engine/youthFestivalV5.ts'
+      - 'src/engine/grassrootsContractsV5.ts'
+      - 'src/engine/schoolScholarshipsV5.ts'
       - 'scripts/auditYouthRemainingV5.ts'
       - 'scripts/simulateYouthCareersV5.ts'
       - '.github/workflows/v4-youth-world.yml'
@@ -72,5 +76,8 @@ jobs:
         run: npx tsx scripts/auditYouthRemainingV5.ts
       - name: Full career simulation
         run: npx tsx scripts/simulateYouthCareersV5.ts
+      - name: V5 route and calendar audit
+        run: npx tsx scripts/auditV5RouteCalendar.ts
+
       - name: Production build
         run: npm run build
