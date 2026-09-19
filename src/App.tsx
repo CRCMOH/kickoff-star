@@ -4,6 +4,10 @@ import MainMenu from './screens/MainMenu'
 import PlayerCreation from './screens/PlayerCreation'
 import StoryIntro from './screens/StoryIntro'
 import SchoolSelection from './screens/SchoolSelection'
+import PathwaySelection from './screens/PathwaySelection'
+import GrassrootsSelection from './screens/GrassrootsSelection'
+import type { StartingYouthRoute } from './engine/youthRouteV5'
+import type { SundayLeagueClub } from './types/youthWorld'
 import TrialsScreen from './screens/TrialsScreen'
 import Career from './screens/Career'
 import SettingsScreen from './screens/SettingsScreen'
@@ -16,20 +20,23 @@ import type { School } from './engine/schools'
 import type { SquadRole } from './engine/trials'
 import { installMusicLifecycle, pauseMusic } from './engine/music'
 
-type Screen = 'splash' | 'menu' | 'create' | 'story' | 'school' | 'trials' | 'career' | 'settings' | 'credits' | 'help' | 'load'
+type Screen = 'splash' | 'menu' | 'create' | 'story' | 'pathway' | 'school' | 'grassroots' | 'trials' | 'career' | 'settings' | 'credits' | 'help' | 'load'
 
 // Native-shell validation touch: navigation contract is intentionally centralized here.
-const SCREEN_VALUES: Screen[] = ['splash', 'menu', 'create', 'story', 'school', 'trials', 'career', 'settings', 'credits', 'help', 'load']
+const SCREEN_VALUES: Screen[] = ['splash', 'menu', 'create', 'story', 'pathway', 'school', 'grassroots', 'trials', 'career', 'settings', 'credits', 'help', 'load']
 const isScreen = (value: unknown): value is Screen => typeof value === 'string' && SCREEN_VALUES.includes(value as Screen)
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('splash')
   const [chosenSchool, setChosenSchool] = useState<School | null>(null)
+  const [chosenGrassrootsClub, setChosenGrassrootsClub] = useState<SundayLeagueClub | null>(null)
   const screenRef = useRef<Screen>(screen)
   screenRef.current = screen
   const player = useCareerStore((s) => s.player)
   const loadFromSlot = useCareerStore((s) => s.loadFromSlot)
   const setSchool = useCareerStore((s) => s.setSchool)
+  const setYouthRoute = useCareerStore((s) => s.setYouthRoute)
+  const setGrassrootsClub = useCareerStore((s) => s.setGrassrootsClub)
   const completeTrials = useCareerStore((s) => s.completeTrials)
 
   useEffect(() => {
@@ -82,9 +89,11 @@ export default function App() {
       replace('menu')
       return
     }
-    if (p.trialWeekCompleted < 3) {
-      setChosenSchool(null)
-      ;(push ? navigate : replace)('school')
+    if (!p.youthRoute) {
+      ;(push ? navigate : replace)('pathway')
+    } else if (p.trialWeekCompleted < 3) {
+      setChosenSchool(null); setChosenGrassrootsClub(null)
+      ;(push ? navigate : replace)(p.youthRoute === 'school' ? 'school' : 'grassroots')
     } else {
       ;(push ? navigate : replace)('career')
     }
@@ -97,6 +106,16 @@ export default function App() {
     await enterLoadedCareer(latest.slotId)
   }
 
+  const handlePathwayChosen = (route: StartingYouthRoute) => {
+    setYouthRoute(route)
+    setChosenSchool(null); setChosenGrassrootsClub(null)
+    replace(route === 'school' ? 'school' : 'grassroots')
+  }
+
+  const handleGrassrootsChosen = (club: SundayLeagueClub) => {
+    setChosenGrassrootsClub(club); setGrassrootsClub(club.id); replace('trials')
+  }
+
   const handleSchoolChosen = (school: School) => {
     setChosenSchool(school)
     setSchool(school.id)
@@ -105,8 +124,8 @@ export default function App() {
 
   const handleTrialsComplete = (role: SquadRole, performance: number) => {
     if (role === 'released') {
-      setChosenSchool(null)
-      replace('school')
+      setChosenSchool(null); setChosenGrassrootsClub(null)
+      replace(player?.youthRoute === 'grassroots' ? 'grassroots' : 'school')
       return
     }
     completeTrials(role, performance)
@@ -131,10 +150,13 @@ export default function App() {
   if (screen === 'credits') return <CreditsScreen onBack={goBackToMenu} />
   if (screen === 'help') return <HelpScreen onBack={goBackToMenu} />
   if (screen === 'create') return <PlayerCreation onComplete={() => replace('story')} onBack={goBackToMenu} />
-  if (screen === 'story') return <StoryIntro onComplete={() => replace('school')} />
+  if (screen === 'story') return <StoryIntro onComplete={() => replace('pathway')} />
+  if (screen === 'pathway') return <PathwaySelection onChoose={handlePathwayChosen} />
   if (screen === 'school') return <SchoolSelection onChoose={handleSchoolChosen} />
-  if (screen === 'trials' && player && chosenSchool) {
-    return <TrialsScreen player={player} school={chosenSchool} onComplete={handleTrialsComplete} />
+  if (screen === 'grassroots') return <GrassrootsSelection onChoose={handleGrassrootsChosen} />
+  if (screen === 'trials' && player && (chosenSchool || chosenGrassrootsClub)) {
+    const trialTeam: School = chosenSchool ?? { id: chosenGrassrootsClub!.id, name: chosenGrassrootsClub!.name, blurb: 'A community club trial. Earn a season contract through three weeks of assessment.', strengths: ['First-team minutes','Club development','Academy exposure'], trialDifficulty: Math.max(.9,Math.min(1.15,chosenGrassrootsClub!.strength/5)), scoutExposure: Math.max(.7,Math.min(1.4,chosenGrassrootsClub!.exposure/5)), squadPlaceOdds: 1 }
+    return <TrialsScreen player={player} school={trialTeam} onComplete={handleTrialsComplete} />
   }
   return <Career onExitToMenu={exitCareerToMenu} />
 }
