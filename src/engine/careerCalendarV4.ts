@@ -1,4 +1,4 @@
-import type { CompetitionKind, YouthWorld } from '../types/youthWorld'
+import type { CompetitionKind } from '../types/youthWorld'
 
 export type CareerRoute='school'|'grassroots'|'academy'
 export type SeasonPhase='preseason'|'league'|'cup'|'representative'|'october'|'festival'|'offseason'
@@ -33,7 +33,7 @@ export function buildGrassrootsCalendar(year:number):CareerCalendar{
   return{year,events}
 }
 
-export function replacementFootball(route:CareerRoute,eliminatedFrom:string,week:number):CareerCalendarEvent[]{
+export function replacementFootball(route:CareerRoute,_eliminatedFrom:string,week:number):CareerCalendarEvent[]{
   const title=route==='school'?'School Development Fixture':'Development / Showcase Fixture'
   const kind=route==='school'?'school-development':'grassroots-development'
   return [week+1,week+2,week+3].map(w=>e(w,'league',route,kind,title,true,true,48,'friendly'))
