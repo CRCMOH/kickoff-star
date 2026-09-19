@@ -181,7 +181,7 @@ export interface Player {
 
   // Scouting state (per-club interest, reputation-gated per Joel's locked design)
   reputation: number
-  scoutWatchers: { clubId: string; clubName: string; clubShort: string; interest: number; tier: string; prestige: number; ratings: { attack: number; midfield: number; defense: number } }[]
+  scoutWatchers: { clubId: string; clubName: string; clubShort: string; interest: number; tier: string; prestige: number; watchedMatches?: number; lastObservedWeek?: number; addedWeek?: number; ratings: { attack: number; midfield: number; defense: number } }[]
   contractOffers: { id: string; clubId: string; clubName: string; clubShort: string; weekOffered: number; expiresInWeeks: number; prestige: number; ratings: { attack: number; midfield: number; defense: number }; kind: 'academy' | 'professional' | 'club'; divisionTier?: number }[]
 
   // Absolute week counter, never resets at season boundary (used for offer expiry math)

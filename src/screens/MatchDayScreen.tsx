@@ -131,7 +131,7 @@ export default function MatchDayScreen({ player, playerTeam, opponent, isHome, o
         {sharpness < 60 && (
           <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-2 mb-3">
             <p className="text-[11px] text-orange-400 leading-relaxed">
-              You're not match-ready. You'll start blunted and tire quickly.
+              {player.fitness.stamina < 50 ? 'Below 50% energy: you are limited to a substitute appearance. Below 30%, you cannot play.' : "You are short of match sharpness and will tire quickly."}
             </p>
           </div>
         )}

@@ -32,7 +32,7 @@ export function createStoryMoment(input: Omit<StoryMoment, 'id' | 'read'>): Stor
 
 export function addStoryMoment(inbox: StoryMoment[] | undefined, moment: StoryMoment): StoryMoment[] {
   const existing = inbox ?? []
-  const duplicate = existing.some((item) => item.kind === moment.kind && item.title === moment.title && item.week === moment.week)
+  const duplicate = existing.some((item) => item.kind === moment.kind && item.title === moment.title && item.week === moment.week && item.season === moment.season)
   return duplicate ? existing : [...existing, moment].slice(-40)
 }
 

@@ -1,4 +1,5 @@
 import { rand } from './rng'
+import { matchAvailability, playerForMatch } from './selection'
 import { archetypeStaminaDrainMultiplier } from './archetypes'
 import type { Player } from '../types/player'
 import type { Team } from './teams'
@@ -134,8 +135,9 @@ export function initMatch(player: Player, playerTeam: Team, opponent: Team, play
   const surname = surnameOf(player.name)
   // Bench players come on in the last half-hour; reserves who make the squad
   // at all get on later still. Starters play from the first whistle.
-  const role = player.squadRole
-  const entryMinute = role === 'starting-xi' || !role ? 0
+  const availability = matchAvailability(player)
+  const role = playerForMatch(player, '').squadRole
+  const entryMinute = !availability.canPlay ? 120 : role === 'starting-xi' || !role ? 0
     : role === 'bench' ? 55 + Math.floor(rand() * 16) // 55-70
     : 70 + Math.floor(rand() * 16) // reserves: 70-85, a cameo
   const base: MatchState & { _playerPosition?: import('../types/attributes').Position } = {
@@ -152,7 +154,7 @@ export function initMatch(player: Player, playerTeam: Team, opponent: Team, play
     midpointMomentUsed: false,
     matchStamina: clamp(player.fitness.stamina, 5, 100), // no artificial floor-inflation — a tired player starts genuinely tired
     squad,
-    substituted: false,
+    substituted: !availability.canPlay,
     subMinute: null,
     entryMinute,
     lastMomentMinute: entryMinute,

@@ -42,7 +42,7 @@ export function isCallUpEligible(overallRating: number): boolean {
 /** Once eligible for the squad, this is what decides whether you're picked for a SPECIFIC upcoming fixture. */
 export function formQualifiesForSelection(recentRatings: number[]): boolean {
   const window = recentRatings.slice(-SELECTION_FORM_WINDOW)
-  if (window.length === 0) return false
+  if (window.length < SELECTION_FORM_WINDOW) return false
   const avg = window.reduce((a, b) => a + b, 0) / window.length
   return avg >= SELECTION_FORM_THRESHOLD
 }

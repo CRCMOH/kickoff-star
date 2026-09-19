@@ -56,7 +56,7 @@ export const COMPETITION_SPECS: CompetitionRoundSpec[] = [
 ]
 
 export const SCHOOL_SEASON_SCHEDULE: Record<string, number[]> = { schoolFriendlies:[1,2], schoolLeague:Array.from({length:18},(_,i)=>i+3), schoolCup:Array.from({length:8},(_,i)=>i+21), nationalChampionship:Array.from({length:5},(_,i)=>i+31), youthShowcase:[37] }
-export const SUNDAY_SEASON_SCHEDULE: Record<string, number[]> = { schoolLeague:Array.from({length:22},(_,i)=>i+1), sundayCup:[25,29,33,37] }
+export const SUNDAY_SEASON_SCHEDULE: Record<string, number[]> = { schoolLeague:Array.from({length:22},(_,i)=>i+1), sundayCup:[25,29,33,37], youthShowcase:[38] }
 export const ACADEMY_SEASON_SCHEDULE: Record<string, number[]> = { schoolLeague:Array.from({length:22},(_,i)=>i+1), academyLeagueCup:[24,27,30,33,36], academyKnockoutCup:[38,40,42,44] }
 export const SEASON_SCHEDULE = SCHOOL_SEASON_SCHEDULE
 
@@ -81,7 +81,7 @@ export function competitionForWeek(weekNumber: number, phase: CareerPhase = 'gra
 export type CareerPhase = 'grassroots-trials' | 'grassroots-season' | 'academy'
 export type GrassrootsPath = 'school' | 'sunday'
 const SCHOOL_ACTIVE = new Set(['schoolLeague','schoolCup','schoolFriendlies','nationalChampionship','youthShowcase'])
-const SUNDAY_ACTIVE = new Set(['sundayLeague', 'sundayCup'])
+const SUNDAY_ACTIVE = new Set(['sundayLeague', 'sundayCup', 'youthShowcase'])
 const ACADEMY_ACTIVE = new Set(['sundayLeague', 'academyLeagueCup', 'academyKnockoutCup'])
 
 export function isCompetitionActive(competitionId: string, phase: CareerPhase, grassrootsPath: GrassrootsPath = 'school'): boolean {

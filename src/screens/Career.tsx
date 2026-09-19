@@ -4,6 +4,10 @@ import { nextUnresolvedEvent, activeCompetitionForWeek } from '../engine/calenda
 import { playerCupFixture, CUP_CONFIGS } from '../engine/cup'
 import { nationFixture, internationalTeamById } from '../engine/international'
 import { generateTeam } from '../engine/teams'
+import { canPlayYouthShowcase } from '../engine/academyRecruitment'
+import { matchAvailability, playerForMatch } from '../engine/selection'
+import { representativeEvidence } from '../engine/youthOpportunities'
+import { formQualifiesForSelection } from '../engine/international'
 import { rand } from '../engine/rng'
 import { sfx } from '../engine/audio'
 import { playMusic, pauseMusic } from '../engine/music'
@@ -144,6 +148,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   const modeCup=modeCompetitionId?(cups as unknown as Record<string,import('../engine/cup').CupWorld|null>)[modeCompetitionId]:null
   const cupPlayerTeam=modeCup?.teams.find(t=>t.id===modeCup.playerTeamId)
   const playerTeam = inIntlMode && nationTeam ? nationTeam : cupPlayerTeam??clubTeam
+  const matchdayPlayer = playerForMatch(player, modeCompetitionId ?? '')
   const pending = nextUnresolvedEvent(calendar)
 
   const handleContinue = () => {
@@ -169,7 +174,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
       // Midweek international duty is its own slot, independent of Saturday.
       if (pending.title === 'international duty') {
         const fx = international ? nationFixture(international) : null
-        if (!international || !fx) { resolveCurrentEvent(); return }
+        if (!international || !fx || player.pathway?.nationalSelection !== 'selected' || !representativeEvidence(player, 'national').eligible || !formQualifiesForSelection(player.matchRatings)) { resolveCurrentEvent(); return }
         const byId = internationalTeamById(international)
         const nationIsHome = fx.homeTeamId === international.nationTeamId
         const opponent = byId.get(nationIsHome ? fx.awayTeamId : fx.homeTeamId)
@@ -206,7 +211,9 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: rand() < 0.5, competitionId: 'schoolFriendlies', competitionLabel: 'School Friendly', isKnockout: false })
         return
       }
-      if(comp.competitionId==='youthShowcase'){if(!player.pathway?.showcaseInvited){setMode({kind:'training'});return}const opponent=generateTeam(Math.max(5,Math.min(9,playerTeam.prestige+3)));setMode({kind:'matchday',opponent,isHome:true,competitionId:'youthShowcase',competitionLabel:'National Youth Showcase',isKnockout:false});return}
+      if(comp.competitionId==='youthShowcase'){if(!canPlayYouthShowcase(player,calendar)){setMode({kind:'training'});return}const opponent=generateTeam(Math.max(5,Math.min(9,playerTeam.prestige+3)));setMode({kind:'matchday',opponent,isHome:true,competitionId:'youthShowcase',competitionLabel:'National Youth Showcase',isKnockout:false});return}
+
+      if (comp.competitionId === 'nationalChampionship' && (player.pathway?.regionalSelection !== 'selected' || !representativeEvidence(player, 'regional').eligible)) { setMode({ kind: 'training' }); return }
 
       // A cup competition. If the player is eliminated (or the cup's done),
       // Saturday becomes extra training — never a dead tap.
@@ -289,10 +296,13 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'rest') {
     return <RestDayScreen player={player} onChoose={handleRestChoice} />
   }
+  if ((mode.kind === 'matchday' || mode.kind === 'match') && !matchAvailability(player).canPlay) {
+    return <div className="min-h-screen bg-ks-black flex items-center justify-center px-5"><div className="max-w-sm w-full rounded-2xl border border-ks-border p-6 text-center"><h1 className="font-display text-ks-gold text-2xl">RESTED FOR THIS MATCH</h1><p className="text-ks-ink mt-3">Your energy is {Math.round(player.fitness.stamina)}%. Below 30%, you cannot play.</p><p className="text-ks-muted text-sm mt-2">Your team will play without you. Recover to at least 50% to be considered for a starting place.</p><button className="w-full bg-ks-gold text-ks-black rounded-xl py-3 mt-5" onClick={() => { resolveCurrentEvent(); setMode({ kind: 'hub' }) }}>sit out this match →</button></div></div>
+  }
   if (mode.kind === 'matchday') {
     return (
       <MatchDayScreen
-        player={player}
+        player={matchdayPlayer}
         playerTeam={playerTeam}
         opponent={mode.opponent}
         isHome={mode.isHome}
@@ -304,7 +314,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'match') {
     return (
       <MatchScreen
-        player={player}
+        player={matchdayPlayer}
         playerTeam={playerTeam}
         opponent={mode.opponent}
         playerIsHome={mode.isHome}
@@ -376,7 +386,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           applyMatchResult(
             mode.rating, mode.goals, mode.assists, mode.finalMatchStamina, mode.injury,
             mode.opponent.id, mode.playerGoalsScored, mode.opponentGoalsScored, mode.playerWasHome,
-            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats, mode.motm?.playerWon
+            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats, mode.motm?.playerWon, { minutes: mode.minutesPlayed, started: matchdayPlayer.squadRole === 'starting-xi' }
           )
           // Must run AFTER the result lands — career counters are what most
           // achievements read, and they only exist once applyMatchResult has run.
