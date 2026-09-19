@@ -3,7 +3,7 @@ name: V4 Youth World Validation
 
 on:
   push:
-    branches: [v4-youth-world]
+    branches: [main, v4-youth-world]
     paths:
       - 'src/types/youthWorld.ts'
       - 'src/engine/youthWorld.ts'
