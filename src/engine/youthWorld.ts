@@ -253,7 +253,7 @@ export function createYouthWorld(seed: string, selectedSchoolId: string | null =
     sundayClubs:generateSundayClubs(r),
     academyClubs,
     scouting:initialScouting(academyClubs),
-    competitionWorld:{ interSchools:null,reserveLeague:null,regionalSchools:null,minorSchoolCup:null,sundayLeague:null,nationalChampionship:null },
+    competitionWorld:{ interSchools:null,reserveLeague:null,regionalSchools:null,minorSchoolCup:null,sundayLeague:null,nationalChampionship:null,statBooks:{} },
     finances:initialFinances(seed),
     competitions:YOUTH_COMPETITIONS,
     calendar:YOUTH_CALENDAR,
