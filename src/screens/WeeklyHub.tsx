@@ -11,6 +11,7 @@ import PeopleTab from './tabs/PeopleTab'
 import ClubTab from './tabs/ClubTab'
 import LeagueTab from './tabs/LeagueTab'
 import ShopTab from './tabs/ShopTab'
+import WorldTab from './tabs/WorldTab'
 import EnergySheet from '../components/EnergySheet'
 import AchievementCeremony from '../components/AchievementCeremony'
 import ArcVerdictCard from '../components/ArcVerdictCard'
@@ -38,6 +39,8 @@ export default function WeeklyHub({
   const player = useCareerStore((s) => s.player)
   const calendar = useCareerStore((s) => s.calendar)
   const cups = useCareerStore((s) => s.cups)
+  const youthWorld = useCareerStore((s) => s.youthWorld)
+  const international = useCareerStore((s) => s.international)
   const [energyOpen, setEnergyOpen] = useState(false)
   const [gazetteOpen, setGazetteOpen] = useState(false)
   const pendingAchievements = useCareerStore((s) => s.pendingAchievements)
@@ -98,6 +101,7 @@ export default function WeeklyHub({
             initialView={tab === 'table' ? 'table' : 'fixtures'}
           />
         )}
+        {tab === 'world' && <WorldTab player={player} calendar={calendar} youthWorld={youthWorld} international={international} />}
         {tab === 'shop' && <ShopTab player={player} />}
       </div>
 
