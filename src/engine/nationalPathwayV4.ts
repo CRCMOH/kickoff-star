@@ -1,5 +1,4 @@
 import type { Position } from '../types/attributes'
-import type { CompetitionFixture, CompetitionStanding, CompetitionTeamEntry, GroupCompetitionState } from '../types/youthWorld'
 import type { RegionalTrialist } from './regionalSelectionV4'
 
 export interface RepresentativePlayer {
