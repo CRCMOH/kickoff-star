@@ -3,7 +3,7 @@ import type { Position } from './attributes'
 export type SchoolSquadTier = 'first-team' | 'reserve' | 'development' | 'cut'
 export type FirstTeamRole = 'starter' | 'rotation' | 'bench'
 export type RepresentativeLevel = 'none' | 'regional-longlist' | 'regional-squad' | 'national-longlist' | 'national-squad'
-export type YouthRoute = 'school' | 'school-and-sunday' | 'sunday-only' | 'academy'
+export type YouthRoute = 'school' | 'grassroots' | 'academy'
 
 export interface YouthSchool {
   id: string
