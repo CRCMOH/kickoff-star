@@ -39,6 +39,7 @@ on:
       - 'scripts/auditYouthAcademyV4.ts'
       - 'scripts/auditRepresentativeV4.ts'
       - 'scripts/auditV5RouteCalendar.ts'
+      - 'scripts/auditV5ProductSurface.ts'
       - 'src/engine/youthFestivalV5.ts'
       - 'src/engine/grassrootsContractsV5.ts'
       - 'src/engine/schoolScholarshipsV5.ts'
@@ -78,6 +79,9 @@ jobs:
         run: npx tsx scripts/simulateYouthCareersV5.ts
       - name: V5 route and calendar audit
         run: npx tsx scripts/auditV5RouteCalendar.ts
+
+      - name: V5 whole-product surface audit
+        run: npx tsx scripts/auditV5ProductSurface.ts
 
       - name: Production build
         run: npm run build
