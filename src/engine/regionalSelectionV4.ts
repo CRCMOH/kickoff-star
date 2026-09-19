@@ -74,7 +74,7 @@ export function simulateNpcCampAssessments(camp:RegionalCamp,world:YouthWorld,st
   const r=rnd(`${world.seed}|${camp.regionId}|camp-stage-${stage}`)
   return{...camp,trialists:camp.trialists.map(p=>{
     if(p.id===camp.userPlayerId)return p
-    const assessmentScores={...p.assessmentScores,technical:clamp(.25+p.overall/100*.62+(r()-.5)*.2,0,1),position-test:clamp(.2+p.overall/100*.68+(r()-.5)*.22,0,1),...(stage>=2?{'small-sided':clamp(.18+p.form/10*.72+(r()-.5)*.22,0,1),'trial-match':clamp(.2+p.form/10*.72+(r()-.5)*.25,0,1)}:{})}
+    const assessmentScores={...p.assessmentScores,technical:clamp(.25+p.overall/100*.62+(r()-.5)*.2,0,1),'position-test':clamp(.2+p.overall/100*.68+(r()-.5)*.22,0,1),...(stage>=2?{'small-sided':clamp(.18+p.form/10*.72+(r()-.5)*.22,0,1),'trial-match':clamp(.2+p.form/10*.72+(r()-.5)*.25,0,1)}:{})}
     const vals=Object.values(assessmentScores) as number[],assessment=vals.reduce((a,b)=>a+b,0)/vals.length
     return{...p,assessmentScores,campScore:p.overall*.38+p.form*3.2+assessment*45}
   })}
