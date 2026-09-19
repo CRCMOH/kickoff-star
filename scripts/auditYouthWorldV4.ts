@@ -7,8 +7,8 @@ import {
 
 const base = createYouthWorld('audit-career', 'greenwood')
 
-assert.equal(base.schools.length, 32)
-assert.equal(new Set(base.schools.map(s => s.id)).size, 32)
+assert.equal(base.schools.length, 640)
+assert.equal(new Set(base.schools.map(s => s.id)).size, 640)
 assert.equal(base.sundayClubs.length, 16)
 assert(base.schools.some(s => s.id === 'westview'))
 assert(base.schools.some(s => s.id === 'greenwood'))
@@ -73,7 +73,7 @@ for (let i = 0; i < 3; i++) {
 }
 assert(['monitored','trial-invited'].includes(academy.pathway.academyStatus))
 
-console.log('V4 Youth World audit passed')
+console.log('V5 Youth World audit passed')
 console.log({
   schools: base.schools.length,
   persistentPlayers: Object.values(base.schoolSquads).reduce((n,s) => n+s.firstTeam.length+s.reserve.length+s.development.length,0),
