@@ -29,7 +29,7 @@ import type { SquadRole } from '../engine/trials'
 import { trustFromMatchRating, trustFromTrainingGrade, decayTrust, decayConfidence } from '../engine/coachTrust'
 import { updateReputation, updateWatcherInterest, maybeAddWatcher, checkForOffers, type ScoutingState } from '../engine/scouting'
 import { checkPostMatchHeadlines, checkWeeklyHeadlines, initSyntheticScorer, driftSyntheticScorer, type Headline } from '../engine/headlines'
-import { initLeagueWorld, recordPlayerMatchResult, batchSimDivisionRound, applyPromotionRelegation, topScorerInDivision, type LeagueWorld } from '../engine/league'
+import { initLeagueWorld, initSchoolLeagueWorld, recordPlayerMatchResult, batchSimDivisionRound, applyPromotionRelegation, topScorerInDivision, type LeagueWorld } from '../engine/league'
 import { generateSquad } from '../engine/squad'
 import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycle'
 import { generateGazetteIssue } from '../engine/gazette'
@@ -286,9 +286,10 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // Audit fix: 'Your School' placeholder shipped to players — use the actual
     // chosen school's name for the player's team.
     const school = player.schoolId ? getSchool(player.schoolId) : undefined
-    const teamName = school?.name ?? 'Your Team'
-    const squad = player.squad ?? generateSquad(2)
-    const world = initLeagueWorld(teamName)
+    const grassrootsClub = player.youthRoute === 'grassroots' ? getState().youthWorld?.sundayClubs.find(c => c.id === player.grassrootsClubId) : undefined
+    const teamName = player.youthRoute === 'school' ? (school?.name ?? 'Your School') : (grassrootsClub?.name ?? 'Your Club')
+    const squad = player.squad ?? generateSquad(player.youthRoute === 'school' ? 3 : 2)
+    const world = player.youthRoute === 'school' ? initSchoolLeagueWorld(teamName) : initLeagueWorld(teamName)
     const playerTeam = world.divisions[world.playerDivision].teams.find((t) => t.id === world.playerTeamId)!
     // P63 — real cross-division cup draws: every team across every
     // division in the league, not just fresh disconnected fake teams.
