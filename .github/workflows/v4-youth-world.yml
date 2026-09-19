@@ -1,5 +1,5 @@
 name: V4 Youth World Validation
-# Layers 1-6 integrated validation
+# Layers 1-7 integrated validation
 
 on:
   push:
@@ -12,11 +12,13 @@ on:
       - 'src/engine/youthScoutingV4.ts'
       - 'src/engine/youthCompetitionsV4.ts'
       - 'src/engine/youthFinancesV4.ts'
+      - 'src/engine/youthAcademyV4.ts'
       - 'src/engine/save.ts'
       - 'src/store/careerStore.ts'
       - 'scripts/auditYouthWorldV4.ts'
       - 'scripts/auditYouthLayers34V4.ts'
       - 'scripts/auditYouthLayers56V4.ts'
+      - 'scripts/auditYouthAcademyV4.ts'
       - '.github/workflows/v4-youth-world.yml'
   workflow_dispatch:
 
@@ -39,5 +41,7 @@ jobs:
         run: npx tsx scripts/auditYouthLayers34V4.ts
       - name: Competition and finance audit
         run: npx tsx scripts/auditYouthLayers56V4.ts
+      - name: Academy trials and offers audit
+        run: npx tsx scripts/auditYouthAcademyV4.ts
       - name: Production build
         run: npm run build
