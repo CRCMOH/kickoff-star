@@ -43,27 +43,29 @@ export function applyTrialOutcome(world: YouthWorld, rawPerformance: number, wee
   outcome: TrialOutcome
 } {
   const outcome = resolveOpeningTrial(world, rawPerformance)
+  const isGrassroots = world.pathway.route === 'grassroots'
   const history: PathwayHistoryEntry = {
     week, type: outcome.tier === 'cut' ? 'cut' : 'trial',
-    title: outcome.tier === 'cut' ? 'Released after school trials' : 'School trials completed',
+    title: outcome.tier === 'cut' ? (isGrassroots ? 'Released after club trial' : 'Released after school trials') : (isGrassroots ? 'Grassroots club trial completed' : 'School trials completed'),
     detail: outcome.explanation,
   }
   const pathway: YouthPathwayState = {
     ...world.pathway,
-    route: outcome.tier === 'cut' ? 'sunday-only' : 'school',
-    schoolTier: outcome.tier,
+    route: isGrassroots ? 'grassroots' : 'school',
+    schoolTier: isGrassroots ? 'cut' : outcome.tier,
     firstTeamRole: outcome.role,
     schoolTierSinceWeek: week,
     selectionScore: Math.round(outcome.adjustedPerformance * 100),
     exposure: {
       ...world.pathway.exposure,
-      school: Math.round(outcome.adjustedPerformance * 8),
+      school: isGrassroots ? world.pathway.exposure.school : Math.round(outcome.adjustedPerformance * 8),
+      grassroots: isGrassroots ? Math.round(outcome.adjustedPerformance * 8) : world.pathway.exposure.grassroots,
     },
     history: [...world.pathway.history, history],
   }
   return {
     world: { ...world, currentWeek: Math.max(world.currentWeek, week), pathway },
-    legacySquadRole: mapLegacyRole(outcome.tier, outcome.role),
+    legacySquadRole: isGrassroots ? (outcome.tier === 'cut' ? 'released' : outcome.adjustedPerformance >= .68 ? 'starting-xi' : 'bench') : mapLegacyRole(outcome.tier, outcome.role),
     outcome,
   }
 }
