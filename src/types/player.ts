@@ -11,7 +11,7 @@ export type GrassrootsSeason = 1 | 2 | 3 | 4 // hard-capped, age 14-18
 
 export interface CareerClock {
   ageYears: number
-  phase: 'grassroots-trials' | 'grassroots-season' | 'academy'
+  phase: 'school-trials' | 'school-season' | 'grassroots-trials' | 'grassroots-season' | 'academy'
   grassrootsSeason: GrassrootsSeason | null
 }
 
@@ -32,8 +32,12 @@ export interface Player {
 
   careerClock: CareerClock
 
-  // Grassroots trials fields (Football Engine Spec Section: Grassroots opening)
+  /** V5 single source of truth for the pre-academy route. */
+  youthRoute?: 'school' | 'grassroots'
+  /** School id on the school route; null on grassroots. */
   schoolId: string | null
+  /** Grassroots club id on the grassroots route; null on school. */
+  grassrootsClubId?: string | null
   trialWeekCompleted: 0 | 1 | 2 | 3
 
   // Phase 32 — standing with the three groups (coach reads off coachTrust)
