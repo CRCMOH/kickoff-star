@@ -43,7 +43,16 @@ export function buildAcademySquad(club:AcademyClub,year:number,level:AcademySqua
 function leagueOpponents(club:AcademyClub,clubs:AcademyClub[]){
   const same=clubs.filter(c=>c.id!==club.id&&c.region===club.region)
   const fallback=clubs.filter(c=>c.id!==club.id)
-  return (same.length>=5?same:fallback).slice(0,9)
+  return [...same,...fallback.filter(c=>!same.some(s=>s.id===c.id))].slice(0,9)
+}
+function cupOpponents(club:AcademyClub,clubs:AcademyClub[]){
+  const domestic=clubs.filter(c=>c.id!==club.id&&c.region===club.region)
+  const fallback=clubs.filter(c=>c.id!==club.id)
+  return (domestic.length?domestic:fallback).slice(0,4)
+}
+function continentalOpponents(club:AcademyClub,clubs:AcademyClub[]){
+  const foreign=clubs.filter(c=>c.id!==club.id&&c.region!==club.region).sort((a,b)=>b.prestige-a.prestige)
+  return foreign.slice(0,5)
 }
 
 export function buildAcademySeason(club:AcademyClub,clubs:AcademyClub[],year:number,playerAge:number):AcademySeason{
@@ -55,8 +64,10 @@ export function buildAcademySeason(club:AcademyClub,clubs:AcademyClub[],year:num
     fixtures.push({id:`al-${year}-${club.id}-h-${opp.id}`,competition:'academy-league',round:i+1,week:week++,homeClubId:club.id,awayClubId:opp.id,played:false})
     fixtures.push({id:`al-${year}-${club.id}-a-${opp.id}`,competition:'academy-league',round:i+1+opponents.length,week:week+9,homeClubId:opp.id,awayClubId:club.id,played:false})
   })
-  ;[12,20,28,36].forEach((w,i)=>fixtures.push({id:`ac-${year}-${club.id}-${i}`,competition:'academy-cup',round:i+1,week:w,homeClubId:i%2?club.id:'cup-opponent',awayClubId:i%2?'cup-opponent':club.id,played:false}))
-  ;[10,15,24,31,39].forEach((w,i)=>fixtures.push({id:`cy-${year}-${club.id}-${i}`,competition:'continental-youth',round:i+1,week:w,homeClubId:i%2?club.id:'continental-opponent',awayClubId:i%2?'continental-opponent':club.id,played:false}))
+  const domestic=cupOpponents(club,clubs)
+  ;[12,20,28,36].forEach((w,i)=>{const opp=domestic[i%domestic.length];if(opp)fixtures.push({id:`ac-${year}-${club.id}-${i}`,competition:'academy-cup',round:i+1,week:w,homeClubId:i%2?club.id:opp.id,awayClubId:i%2?opp.id:club.id,played:false})})
+  const continental=continentalOpponents(club,clubs)
+  ;[10,15,24,31,39].forEach((w,i)=>{const opp=continental[i%continental.length];if(opp)fixtures.push({id:`cy-${year}-${club.id}-${i}`,competition:'continental-youth',round:i+1,week:w,homeClubId:i%2?club.id:opp.id,awayClubId:i%2?opp.id:club.id,played:false})})
   return{year,clubId:club.id,squadLevel:level,squad:buildAcademySquad(club,year,level),fixtures:fixtures.sort((a,b)=>a.week-b.week),leaguePoints:0,cupAlive:true,continentalAlive:club.prestige>=86,proPathwayScore:0,releaseRisk:0}
 }
 
