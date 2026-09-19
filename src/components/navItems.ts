@@ -10,7 +10,7 @@
 //  - the freed slot goes to the shop
 // 'table' and 'scouts' are kept in the type as routable destinations so
 // existing deep links (e.g. "table →" on the hub) still work.
-export type HubTab = 'home' | 'player' | 'people' | 'club' | 'fixtures' | 'table' | 'scouts' | 'shop'
+export type HubTab = 'home' | 'player' | 'people' | 'club' | 'fixtures' | 'table' | 'scouts' | 'shop' | 'world'
 
 export const NAV_ITEMS: { tab: HubTab; icon: string; label: string }[] = [
   { tab: 'home', icon: '⌂', label: 'home' },
@@ -18,5 +18,6 @@ export const NAV_ITEMS: { tab: HubTab; icon: string; label: string }[] = [
   { tab: 'people', icon: '♥', label: 'people' },
   { tab: 'club', icon: '▣', label: 'club' },
   { tab: 'fixtures', icon: '▤', label: 'league' },
+  { tab: 'world', icon: '★', label: 'world' },
   { tab: 'shop', icon: '⬢', label: 'shop' },
 ]
