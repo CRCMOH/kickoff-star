@@ -16,6 +16,13 @@ on:
       - 'src/engine/academyCareerV4.ts'
       - 'src/engine/regionalSelectionV4.ts'
       - 'src/engine/nationalPathwayV4.ts'
+      - 'src/engine/youthSaveV5.ts'
+      - 'src/engine/careerEndV4.ts'
+      - 'src/engine/academyNegotiationV4.ts'
+      - 'src/engine/youthTransfersV4.ts'
+      - 'src/engine/gazetteV4.ts'
+      - 'src/engine/competitionStatsV4.ts'
+      - 'src/engine/careerCalendarV4.ts'
       - 'src/engine/save.ts'
       - 'src/store/careerStore.ts'
       - 'scripts/auditYouthWorldV4.ts'
@@ -23,6 +30,7 @@ on:
       - 'scripts/auditYouthLayers56V4.ts'
       - 'scripts/auditYouthAcademyV4.ts'
       - 'scripts/auditRepresentativeV4.ts'
+      - 'scripts/auditYouthRemainingV5.ts'
       - '.github/workflows/v4-youth-world.yml'
   workflow_dispatch:
 
@@ -49,5 +57,7 @@ jobs:
         run: npx tsx scripts/auditYouthAcademyV4.ts
       - name: Representative pathway audit
         run: npx tsx scripts/auditRepresentativeV4.ts
+      - name: Remaining youth systems audit
+        run: npx tsx scripts/auditYouthRemainingV5.ts
       - name: Production build
         run: npm run build
