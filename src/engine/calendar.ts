@@ -72,12 +72,13 @@ export function competitionForWeek(weekNumber: number) {
 // the academy cups are dormant and vice versa. A week whose competition is
 // dormant for the current phase is NOT a matchday for the player — it renders
 // as extra training instead (fixes the Phase 25 audit's "20 dead matchdays").
-export type CareerPhase = 'grassroots-trials' | 'grassroots-season' | 'academy'
-const GRASSROOTS_ACTIVE = new Set(['sundayLeague', 'schoolCup', 'sundayCup', 'schoolFriendlies'])
+export type CareerPhase = 'school-trials' | 'school-season' | 'grassroots-trials' | 'grassroots-season' | 'academy'
+const SCHOOL_ACTIVE = new Set(['sundayLeague', 'schoolCup', 'schoolFriendlies'])
+const GRASSROOTS_ACTIVE = new Set(['sundayLeague', 'sundayCup'])
 const ACADEMY_ACTIVE = new Set(['sundayLeague', 'academyLeagueCup', 'academyKnockoutCup'])
 
 export function isCompetitionActive(competitionId: string, phase: CareerPhase): boolean {
-  const set = phase === 'academy' ? ACADEMY_ACTIVE : GRASSROOTS_ACTIVE
+  const set = phase === 'academy' ? ACADEMY_ACTIVE : phase.startsWith('school') ? SCHOOL_ACTIVE : GRASSROOTS_ACTIVE
   return set.has(competitionId)
 }
 
