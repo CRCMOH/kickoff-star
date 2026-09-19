@@ -60,9 +60,9 @@ function buildNewPlayer(name: string, position: Position, foot: 'left' | 'right'
     potential,
     confidence: { value: 0, baseline: 0 },
     fitness: { stamina: 100 },
-    careerClock: { ageYears: 14, phase: 'grassroots-trials', grassrootsSeason: 1 },
+    careerClock: { ageYears: 14, phase: 'school-trials', grassrootsSeason: 1 },
     nationality, avatarId, archetype: archetypeId,
-    schoolId: null, trialWeekCompleted: 0, squadRole: null, trainingMomentum: 0, matchRatings: [], seasonGoals: 0, seasonAssists: 0, injury: null, recentInjuryCount: 0, matchesSinceReturn: 3, coachTrust: 0, reputation: 5, scoutWatchers: [], contractOffers: [], totalWeeksElapsed: 0, academyClubName: null, turnedPro: null,
+    youthRoute: undefined, schoolId: null, grassrootsClubId: null, trialWeekCompleted: 0, squadRole: null, trainingMomentum: 0, matchRatings: [], seasonGoals: 0, seasonAssists: 0, injury: null, recentInjuryCount: 0, matchesSinceReturn: 3, coachTrust: 0, reputation: 5, scoutWatchers: [], contractOffers: [], totalWeeksElapsed: 0, academyClubName: null, turnedPro: null,
   }
 }
 
