@@ -8,28 +8,28 @@ let world=createYouthWorld('layer34-audit','greenwood')
 world=applyTrialOutcome(world,.58).world
 assert.equal(world.pathway.schoolTier,'first-team')
 
-// School + Sunday route should create Thu/Sun football without illegal same-day collision.
-world={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs[0].id,route:'school-and-sunday'}}
+// V5 routes are exclusive: a School career must never silently add grassroots football.
+world={...world,pathway:{...world.pathway,sundayClubId:null,route:'school'}}
 const w8=buildYouthWeekSchedule(world,8,84)
 const active8=w8.events.filter(e=>!e.blockedReason)
 assert(active8.some(e=>e.kind==='school-match'))
-assert(active8.some(e=>e.kind==='sunday-match'))
+assert(!active8.some(e=>e.kind==='sunday-match'))
 assert.equal(new Set(active8.map(e=>e.day)).size,active8.length)
 const energy8=simulateScheduleEnergy(w8,84)
-assert(energy8.matchStarts.length>=2)
+assert(energy8.matchStarts.length>=1)
 assert(energy8.matchStarts.every(m=>m.energy>=0&&m.energy<=100))
 
 // Representative duty outranks lower-priority football when calendar conflicts.
 world={...world,pathway:{...world.pathway,representative:'regional-squad'}}
-const w25=buildYouthWeekSchedule(world,25,90)
-const active25=w25.events.filter(e=>!e.blockedReason)
+const w32=buildYouthWeekSchedule(world,32,90)
+const active25=w32.events.filter(e=>!e.blockedReason)
 assert(active25.some(e=>e.kind==='representative-duty'))
 assert(!active25.some(e=>e.kind==='sunday-match'), 'national duty should override Sunday League in tournament week')
 
 // Cut players have no mandatory school match but can take Sunday path.
 let cut=createYouthWorld('cut34','riverside')
 cut=applyTrialOutcome(cut,.02).world
-cut={...cut,pathway:{...cut.pathway,sundayClubId:cut.sundayClubs[0].id,route:'sunday-only'}}
+cut={...cut,pathway:{...cut.pathway,sundayClubId:cut.sundayClubs[0].id,route:'grassroots'}}
 const cutWeek=buildYouthWeekSchedule(cut,10,75)
 assert(!cutWeek.events.some(e=>!e.blockedReason&&e.kind==='school-match'))
 assert(cutWeek.events.some(e=>!e.blockedReason&&e.kind==='sunday-match'))
@@ -78,7 +78,7 @@ prospect=applyScoutedPerformance(prospect,{
 const after=Math.max(...Object.values(prospect.scouting.academyInterest).map(i=>i.interest))
 assert(after<=before+5)
 
-console.log('V4 layers 3-4 audit passed')
+console.log('V5 route scheduling/scouting audit passed')
 console.log({
   week8Congestion:w8.congestion,
   week8EndEnergy:energy8.endEnergy,
