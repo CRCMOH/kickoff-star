@@ -39,7 +39,7 @@ function applyScore(rows:CompetitionStanding[],home:string,away:string,hg:number
   return sortTable(out)
 }
 
-function roundRobin(teamIds:string[],competitionId:string,groupId?:string):CompetitionFixture[]{
+function roundRobin(teamIds:string[],competitionId:string,groupId?:string,legs:1|2=1):CompetitionFixture[]{
   const ids=[...teamIds]
   if(ids.length%2===1)ids.push('__BYE__')
   const n=ids.length
@@ -60,6 +60,7 @@ function roundRobin(teamIds:string[],competitionId:string,groupId?:string):Compe
     }
     rotating.unshift(rotating.pop()!)
   }
+  if(legs===2){const second=fixtures.map(f=>({...f,id:`${f.id}-leg2`,round:f.round+(n-1),homeTeamId:f.awayTeamId,awayTeamId:f.homeTeamId,played:false,homeGoals:undefined,awayGoals:undefined,winnerId:undefined}));fixtures.push(...second)}
   return fixtures
 }
 
@@ -107,12 +108,12 @@ function representativeEntries(world:YouthWorld):CompetitionTeamEntry[]{
   }))
 }
 
-export function initLeagueCompetition(id:string,teams:CompetitionTeamEntry[]):LeagueCompetitionState{
-  return {id,kind:'league',teams,fixtures:roundRobin(teams.map(t=>t.id),id),standings:teams.map(t=>emptyStanding(t.id)),currentRound:1,complete:false}
+export function initLeagueCompetition(id:string,teams:CompetitionTeamEntry[],legs:1|2=1):LeagueCompetitionState{
+  return {id,kind:'league',teams,fixtures:roundRobin(teams.map(t=>t.id),id,undefined,legs),standings:teams.map(t=>emptyStanding(t.id)),currentRound:1,complete:false}
 }
 
 export function initInterSchools(world:YouthWorld):LeagueCompetitionState{
-  return initLeagueCompetition('inter-schools',selectLocalSchools(world,6))
+  return initLeagueCompetition('inter-schools',selectLocalSchools(world,10),2)
 }
 
 export function initReserveLeague(world:YouthWorld):LeagueCompetitionState{
@@ -125,7 +126,7 @@ export function initSundayLeague(world:YouthWorld):LeagueCompetitionState{
     const own=world.sundayClubs.find(c=>c.id===world.pathway.sundayClubId)
     if(own)clubs=[{id:own.id,name:own.name,strength:own.strength,source:'sunday' as const},...clubs.slice(0,11)]
   }
-  return initLeagueCompetition('sunday-league',clubs)
+  return initLeagueCompetition('sunday-league',clubs,2)
 }
 
 function initGroupCompetition(id:string,teams:CompetitionTeamEntry[],groupsCount:number):GroupCompetitionState{
@@ -150,6 +151,13 @@ function initGroupCompetition(id:string,teams:CompetitionTeamEntry[],groupsCount
   return {id,kind:'groups-knockout',teams,groups,fixtures,standings,currentRound:1,stage:'groups',qualifiedTeamIds:[],eliminatedTeamIds:[],championId:null}
 }
 
+export function initOctoberSchoolLeague(world:YouthWorld):LeagueCompetitionState{return initLeagueCompetition('october-schools',selectLocalSchools(world,5),1)}
+export function initOctoberGrassrootsLeague(world:YouthWorld):LeagueCompetitionState{
+ let clubs=world.sundayClubs.slice(0,5).map(c=>({id:c.id,name:c.name,strength:c.strength,source:'sunday' as const}))
+ const own=world.pathway.sundayClubId&&world.sundayClubs.find(c=>c.id===world.pathway.sundayClubId)
+ if(own&&!clubs.some(c=>c.id===own.id))clubs[clubs.length-1]={id:own.id,name:own.name,strength:own.strength,source:'sunday' as const}
+ return initLeagueCompetition('october-grassroots',clubs,1)
+}
 export function initRegionalSchools(world:YouthWorld):GroupCompetitionState{
   return initGroupCompetition('regional-schools',selectRegionalSchools(world,24),4)
 }
