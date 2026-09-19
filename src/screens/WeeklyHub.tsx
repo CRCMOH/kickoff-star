@@ -18,6 +18,8 @@ import ArcVerdictCard from '../components/ArcVerdictCard'
 import SeasonReviewCard from '../components/SeasonReviewCard'
 import HeadlineToast from '../components/HeadlineToast'
 import GazetteScreen from './GazetteScreen'
+import YearCalendar from './YearCalendar'
+import { buildSchoolCalendar, buildGrassrootsCalendar } from '../engine/careerCalendarV4'
 import CaptaincyStoryCard from '../components/CaptaincyStoryCard'
 
 // Phase 10: WeeklyHub is now a shell that hosts six real, routed tabs.
@@ -43,6 +45,7 @@ export default function WeeklyHub({
   const international = useCareerStore((s) => s.international)
   const [energyOpen, setEnergyOpen] = useState(false)
   const [gazetteOpen, setGazetteOpen] = useState(false)
+  const [yearCalendarOpen, setYearCalendarOpen] = useState(false)
   const pendingAchievements = useCareerStore((s) => s.pendingAchievements)
   const pendingArcVerdicts = useCareerStore((s) => s.pendingArcVerdicts)
   const pendingSeasonReview = useCareerStore((s) => s.pendingSeasonReview)
@@ -84,6 +87,7 @@ export default function WeeklyHub({
             onOpenEnergy={() => setEnergyOpen(true)}
             latestGazetteMasthead={latestGazette?.masthead ?? null}
             onOpenGazette={() => setGazetteOpen(true)}
+            onOpenYearCalendar={() => setYearCalendarOpen(true)}
           />
         )}
         {(tab === 'player' || tab === 'scouts') && <PlayerTab player={player} onOpenOffers={onOpenOffers} />}
@@ -110,6 +114,7 @@ export default function WeeklyHub({
 
       {energyOpen && <EnergySheet player={player} onClose={() => setEnergyOpen(false)} />}
       {gazetteOpen && latestGazette && <GazetteScreen issue={latestGazette} onClose={() => setGazetteOpen(false)} />}
+      {yearCalendarOpen && !isAcademy && <YearCalendar calendar={player.youthRoute === 'grassroots' ? buildGrassrootsCalendar(calendar.currentWeek.seasonYear) : buildSchoolCalendar(calendar.currentWeek.seasonYear)} currentWeek={calendar.currentWeek.weekNumber} onClose={() => setYearCalendarOpen(false)} />}
 
       {/* the season review takes precedence — it's the biggest beat of the year */}
       {pendingSeasonReview && (
