@@ -64,6 +64,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const eventsByDay = Object.fromEntries(calendar.currentWeek.events.map((e) => [e.day, e]))
   const ovr = toOvr(computeCurrentAbility(player))
   const isAcademy = player.careerClock.phase === 'academy'
+  const youthRoute = player.youthRoute ?? 'grassroots'
   const world = isAcademy ? academyLeague : league
 
   let leaguePos: string | null = null
@@ -75,7 +76,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
     leaguePos = pos > 0 ? ordinal(pos) : '—'
     leagueName = isAcademy
       ? academyDivisionLabel(world.playerDivision as 1 | 2)
-      : divisionLabel(world.playerDivision as 1 | 2 | 3)
+      : youthRoute === 'school' ? 'Inter-Schools League' : divisionLabel(world.playerDivision as 1 | 2 | 3)
   }
 
   const nextEvent = DAYS.map((day) => eventsByDay[day]).find((e) => e && !e.resolved) ?? calendar.currentWeek.events.find((e) => !e.resolved) ?? calendar.currentWeek.events[0]
@@ -349,7 +350,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         }
       >
         <div className="flex flex-col gap-1.5">
-          <StatRow label="path" value={isAcademy ? 'Academy' : 'Grassroots'} />
+          <StatRow label="path" value={isAcademy ? 'Academy' : youthRoute === 'school' ? 'School Football' : 'Grassroots Football'} />
           {!isAcademy && <StatRow label="season" value={`${player.careerClock.grassrootsSeason ?? '—'} / 4`} />}
           <StatRow label="week" value={`${calendar.currentWeek.weekNumber} / ${SEASON_WEEKS}`} />
           <StatRow label="squad role" value={<span className="capitalize">{player.squadRole ?? 'TBD'}</span>} />
