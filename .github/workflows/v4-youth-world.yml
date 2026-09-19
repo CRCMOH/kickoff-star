@@ -14,12 +14,15 @@ on:
       - 'src/engine/youthFinancesV4.ts'
       - 'src/engine/youthAcademyV4.ts'
       - 'src/engine/academyCareerV4.ts'
+      - 'src/engine/regionalSelectionV4.ts'
+      - 'src/engine/nationalPathwayV4.ts'
       - 'src/engine/save.ts'
       - 'src/store/careerStore.ts'
       - 'scripts/auditYouthWorldV4.ts'
       - 'scripts/auditYouthLayers34V4.ts'
       - 'scripts/auditYouthLayers56V4.ts'
       - 'scripts/auditYouthAcademyV4.ts'
+      - 'scripts/auditRepresentativeV4.ts'
       - '.github/workflows/v4-youth-world.yml'
   workflow_dispatch:
 
@@ -44,5 +47,7 @@ jobs:
         run: npx tsx scripts/auditYouthLayers56V4.ts
       - name: Academy trials and offers audit
         run: npx tsx scripts/auditYouthAcademyV4.ts
+      - name: Representative pathway audit
+        run: npx tsx scripts/auditRepresentativeV4.ts
       - name: Production build
         run: npm run build
