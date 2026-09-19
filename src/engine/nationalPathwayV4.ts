@@ -29,7 +29,11 @@ export function selectNational23(selection:NationalSelection):NationalSelection{
   for(const [pos,limit] of Object.entries(NATIONAL_LIMITS)){
     picked.push(...selection.shortlist.filter(p=>p.position===pos).sort((a,b)=>b.championshipRating-a.championshipRating||b.championshipMinutes-a.championshipMinutes).slice(0,limit))
   }
-  const ids=new Set(picked.slice(0,23).map(p=>p.id))
+  const unique=new Map(picked.map(p=>[p.id,p]))
+  if(unique.size<23){
+    for(const p of selection.shortlist){if(unique.size>=23)break;if(!unique.has(p.id))unique.set(p.id,p)}
+  }
+  const ids=new Set([...unique.keys()].slice(0,23))
   return{...selection,finalSquadIds:[...ids],shortlist:selection.shortlist.map(p=>({...p,selected:ids.has(p.id)}))}
 }
 
