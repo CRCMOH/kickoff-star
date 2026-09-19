@@ -25,10 +25,10 @@ function seeded(seed: string) {
 }
 
 const DISTRICTS = [
-  { id: 'north', name: 'North District' },
-  { id: 'central', name: 'Central District' },
-  { id: 'south', name: 'South District' },
-  { id: 'west', name: 'West District' },
+  { id:'north',name:'North Region' },{ id:'north-east',name:'North East Region' },
+  { id:'east',name:'East Region' },{ id:'south-east',name:'South East Region' },
+  { id:'south',name:'South Region' },{ id:'south-west',name:'South West Region' },
+  { id:'west',name:'West Region' },{ id:'central',name:'Central Region' },
 ]
 
 const SCHOOL_PREFIX = ['Westview', 'Greenwood', 'Riverside', 'Kingsway', 'Northridge', 'Parkside', 'Hillcrest', 'Lakeside', 'St Andrews', 'Central', 'Oakridge', 'Morningside', 'Fairmont', 'Newlands', 'Rocklands', 'Silverstream']
@@ -74,9 +74,9 @@ function schoolIdentity(index: number) {
 }
 
 function generateSchools(r: () => number): YouthSchool[] {
-  const schools = Array.from({ length: 32 }, (_, i) => {
+  const schools = Array.from({ length: 640 }, (_, i) => {
     const identity = schoolIdentity(i)
-    const district = DISTRICTS[i % DISTRICTS.length]
+    const district = DISTRICTS[Math.floor(i / 80) % DISTRICTS.length]
     const prestigeBase = i === 0 ? 82 : i === 1 ? 67 : i === 2 ? 49 : 45 + Math.round(r() * 38)
     const rating = clamp(Math.round(prestigeBase * .62 + 22 + (r() - .5) * 10), 48, 82)
     const school: YouthSchool = {
@@ -197,8 +197,8 @@ function generateSundayClubs(r: () => number): SundayLeagueClub[] {
   const roots = ['City Stars','Young Lions','Athletic Juniors','United Youth','Community FC','Dynamos','Rovers','Sporting','Warriors','Future Stars','Township United','Olympians']
   return Array.from({ length: 16 }, (_, i) => ({
     id: `sunday-${i + 1}`,
-    name: `${DISTRICTS[i % 4].name.replace(' District','')} ${roots[i % roots.length]}`,
-    districtId: DISTRICTS[i % 4].id,
+    name: `${DISTRICTS[i % DISTRICTS.length].name.replace(' Region','')} ${roots[i % roots.length]}`,
+    districtId: DISTRICTS[i % DISTRICTS.length].id,
     strength: Math.round(48 + r() * 27),
     coaching: Math.round(45 + r() * 35),
     exposure: Math.round((.55 + r() * .8) * 100) / 100,
@@ -208,31 +208,28 @@ function generateSundayClubs(r: () => number): SundayLeagueClub[] {
 }
 
 export const YOUTH_COMPETITIONS: YouthCompetition[] = [
-  { id:'preseason-friendlies', name:'School Preseason', kind:'friendly', prestige:1, monthStart:2, monthEnd:2, matchDay:'thursday', eligibleSquads:['first-team','reserve'], format:{type:'friendlies',targetMatches:3} },
-  { id:'inter-schools', name:'Inter-Schools League', kind:'school-league', prestige:2, monthStart:3, monthEnd:3, matchDay:'thursday', eligibleSquads:['first-team'], format:{type:'league',teams:6,rounds:5} },
+  { id:'preseason-friendlies', name:'School Preseason', kind:'friendly', prestige:1, monthStart:1, monthEnd:1, matchDay:'thursday', eligibleSquads:['first-team','reserve'], format:{type:'friendlies',targetMatches:2} },
+  { id:'inter-schools', name:'Inter-Schools League', kind:'school-league', prestige:2, monthStart:2, monthEnd:6, matchDay:'thursday', eligibleSquads:['first-team'], format:{type:'league',teams:10,rounds:18} },
   { id:'reserve-league', name:'Inter-Schools Reserve League', kind:'reserve-league', prestige:1, monthStart:3, monthEnd:9, matchDay:'thursday', eligibleSquads:['reserve'], format:{type:'league',teams:8,rounds:7} },
   { id:'regional-schools', name:'Regional Schools Championship', kind:'school-cup', prestige:4, monthStart:4, monthEnd:5, matchDay:'thursday', eligibleSquads:['first-team'], format:{type:'groups-knockout',teams:24,groups:4,groupSize:6,qualifyPerGroup:2} },
   { id:'minor-school-cups', name:'School Invitationals', kind:'minor-school-cup', prestige:2, monthStart:6, monthEnd:9, matchDay:'thursday', eligibleSquads:['first-team','reserve'], format:{type:'knockout',teams:8} },
-  { id:'sunday-league', name:'Sunday Youth League', kind:'sunday-league', prestige:2, monthStart:3, monthEnd:10, matchDay:'sunday', eligibleSquads:['first-team','reserve','development','cut'], format:{type:'league',teams:12,rounds:11} },
+  { id:'sunday-league', name:'Grassroots League', kind:'sunday-league', prestige:2, monthStart:2, monthEnd:9, matchDay:'sunday', eligibleSquads:['first-team','reserve','development','cut'], format:{type:'league',teams:12,rounds:22} },
   { id:'regional-selection', name:'Regional Selection Camp', kind:'regional-selection', prestige:5, monthStart:6, monthEnd:6, matchDay:'mixed', eligibleSquads:['first-team','reserve'], format:{type:'selection',longlist:60,camp:35,finalSquad:23} },
   { id:'national-schools', name:'National Youth Championship', kind:'national-championship', prestige:7, monthStart:7, monthEnd:7, matchDay:'mixed', eligibleSquads:['first-team','reserve'], format:{type:'groups-knockout',teams:8,groups:2,groupSize:4,qualifyPerGroup:2} },
   { id:'youth-showcase', name:'Youth Showcase', kind:'showcase', prestige:6, monthStart:10, monthEnd:10, matchDay:'saturday', eligibleSquads:['first-team','reserve','development','cut'], format:{type:'showcase',matches:2} },
-  { id:'academy-window', name:'Academy Trial Window', kind:'academy-trial', prestige:8, monthStart:11, monthEnd:11, matchDay:'mixed', eligibleSquads:['first-team','reserve','development','cut'], format:{type:'trial',sessions:3} },
+  { id:'academy-window', name:'Academy Trial Window', kind:'academy-trial', prestige:8, monthStart:10, monthEnd:10, matchDay:'mixed', eligibleSquads:['first-team','reserve','development','cut'], format:{type:'trial',sessions:3} },
 ]
 
 export const YOUTH_CALENDAR: YouthCalendarBlock[] = [
-  { id:'jan-trials', weeks:[1,3], month:1, title:'School Trials', primary:'training', sundayLeagueAvailable:false, notes:'Three-week opening selection process.' },
-  { id:'feb-preseason', weeks:[4,7], month:2, title:'Preseason', primary:'friendly', schoolMatchDay:'thursday', sundayLeagueAvailable:false, notes:'Friendlies establish the school pecking order.' },
-  { id:'mar-inter-schools', weeks:[8,12], month:3, title:'Inter-Schools League', primary:'school-league', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Five local competitive school fixtures.' },
-  { id:'apr-regional-groups', weeks:[13,17], month:4, title:'Regional Group Stage', primary:'school-cup', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Five group matches; top two advance.' },
-  { id:'may-regional-knockouts', weeks:[18,20], month:5, title:'Regional Knockouts', primary:'school-cup', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Quarter-final, semi-final, final.' },
-  { id:'jun-selection', weeks:[21,24], month:6, title:'Regional Selection + School Football', primary:'regional-selection', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Minor school fixtures continue around representative selection.' },
-  { id:'jul-national', weeks:[25,29], month:7, title:'National Championship', primary:'national-championship', sundayLeagueAvailable:true, notes:'Representative football overrides conflicting club/school fixtures.' },
-  { id:'aug-school', weeks:[30,33], month:8, title:'School Football', primary:'friendly', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Friendlies, derbies and smaller fixtures.' },
-  { id:'sep-invitational', weeks:[34,37], month:9, title:'Schools Invitational', primary:'minor-school-cup', schoolMatchDay:'thursday', sundayLeagueAvailable:true, notes:'Prestigious but not a progression requirement.' },
-  { id:'oct-showcase', weeks:[38,41], month:10, title:'Showcase Month', primary:'showcase', sundayLeagueAvailable:true, notes:'Sunday League finale and invitation-only showcase.' },
-  { id:'nov-academy', weeks:[42,45], month:11, title:'Academy Trial Window', primary:'academy-trial', sundayLeagueAvailable:false, notes:'Academies invite monitored prospects to assessments.' },
-  { id:'dec-offseason', weeks:[46,48], month:12, title:'Off-season', primary:'off-season', sundayLeagueAvailable:false, notes:'Recovery, season review and development choices.' },
+  {id:'jan-trials',weeks:[1,3],month:1,title:'Opening Trials',primary:'training',sundayLeagueAvailable:false,notes:'Three-week route-specific trials.'},
+  {id:'jan-friendlies',weeks:[4,5],month:1,title:'Preseason Friendlies',primary:'friendly',schoolMatchDay:'thursday',sundayLeagueAvailable:false,notes:'Two friendlies after trials.'},
+  {id:'feb-jun-league',weeks:[6,23],month:2,title:'Main League Season',primary:'school-league',schoolMatchDay:'thursday',sundayLeagueAvailable:true,notes:'School: 10 teams, 18 home/away rounds. Grassroots league runs through September.'},
+  {id:'jul-aug-regional',weeks:[24,28],month:7,title:'Regional / Development Competition',primary:'school-cup',schoolMatchDay:'thursday',sundayLeagueAvailable:true,notes:'Qualified schools play five regional group matches; eliminated schools play five development matches.'},
+  {id:'aug-selection',weeks:[29,31],month:8,title:'Regional Selection Camp',primary:'regional-selection',sundayLeagueAvailable:true,notes:'Persistent 60 → 35 → 23 selection.'},
+  {id:'sep-national',weeks:[32,35],month:9,title:'National Schools Championship',primary:'national-championship',sundayLeagueAvailable:true,notes:'Eight regional representative squads.'},
+  {id:'october',weeks:[36,40],month:10,title:'October Competition / Academy Assessment',primary:'showcase',sundayLeagueAvailable:true,notes:'Four-match five-team competition with one bye, or academy assessment.'},
+  {id:'november',weeks:[41,43],month:11,title:'International / Festival Window',primary:'showcase',sundayLeagueAvailable:false,notes:'Representative international football or optional three-day 40-minute festival.'},
+  {id:'december',weeks:[44,48],month:12,title:'Season Close',primary:'off-season',sundayLeagueAvailable:false,notes:'Awards, contracts, recovery and season transition.'},
 ]
 
 export function initialPathway(route: 'school' | 'grassroots' = 'school'): YouthPathwayState {
