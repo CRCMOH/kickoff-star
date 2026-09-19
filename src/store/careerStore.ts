@@ -758,7 +758,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   },
 
   advanceToNextWeek: () => {
-    const { player, calendar, league, academyLeague, cups, international } = getState()
+    const { player, calendar, league, academyLeague, cups, international, youthWorld } = getState()
     if (!player || !calendar) return
     let lastEconomyNote: string | null = null
     let lastSelectionNote: string | null = null
@@ -861,7 +861,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // 'schoolFriendlies' needs no batch sim — friendlies are self-contained.
 
     // International windows run MIDWEEK, independent of the Saturday branch above.
-    if (updatedInternational && hasDuty) {
+    if (updatedInternational && campaignActive) {
       const intlRound = internationalRoundForWeek(completedWeekNumber)
       if (intlRound) {
         if (updatedInternational.stage === 'qualifiers' && intlRound.stage === 'qualifiers') {
@@ -1232,8 +1232,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const newArc = maybeStartArc(arcPlayer, result.calendar.currentWeek.weekNumber, arcPlayer.activeArcs ?? [], arcPlayer.recentArcKeys ?? [])
     if (newArc) arcPlayer = { ...arcPlayer, activeArcs: [...(arcPlayer.activeArcs ?? []), newArc] }
 
-    // Career end: reaching the age cap (20) without turning pro is the fail-state
-    const finalPlayer = result.reachedAgeCap
+    // V5 graduation rule: if school ends at 18 and no academy/pro route was secured, the youth career ends here.
+    const graduatedWithoutAcademy = result.seasonEnded && result.newAge >= 18 && arcPlayer.careerClock.phase !== 'academy' && !arcPlayer.turnedPro
+    const finalPlayer = (result.reachedAgeCap || graduatedWithoutAcademy)
       ? { ...arcPlayer, careerEnded: true }
       : arcPlayer
 
@@ -1266,7 +1267,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       worldTeamNames: divisionForHeadlines?.teams.map((t) => t.name) ?? [],
     })
 
-    setState({ player: finalPlayer, calendar: result.calendar, league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
+    const updatedYouthWorld = youthWorld ? { ...youthWorld, currentWeek: result.calendar.currentWeek.weekNumber, seasonYear: result.calendar.currentWeek.seasonYear } : youthWorld
+    setState({ player: finalPlayer, calendar: result.calendar, league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, youthWorld: updatedYouthWorld, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
     // Non-match achievements (scouts noticing you, offers arriving, coach trust,
     // reputation, squad role, injury comeback) have no match to hang off, so the
     // week tick is their trigger. Runs after setState so it reads the new state.
