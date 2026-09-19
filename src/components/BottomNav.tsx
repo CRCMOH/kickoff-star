@@ -42,7 +42,15 @@ export default function BottomNav({ active, onSelect, badges }: {
                   key={isActive ? 'on' : 'off'}
                   className={`text-base leading-none ${isActive ? 'animate-[tabpop_0.25s_ease-out] drop-shadow-[0_0_6px_rgba(212,175,55,0.5)]' : ''}`}
                 >
-                  {item.icon}
+                  <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={{
+home:'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',
+player:'M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M4 21v-3a8 8 0 0 1 16 0v3',
+people:'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M2 21v-3a7 7 0 0 1 14 0v3M17 4a4 4 0 0 1 0 7M19 14q3 1 3 7',
+club:'M12 2 3 6v6q0 7 9 10 9-3 9-10V6zM8 11h8M12 7v10',
+fixtures:'M7 3h10v7a5 5 0 0 1-10 0zM7 5H3v3q0 4 4 4M17 5h4v3q0 4-4 4M12 15v5M8 21h8',
+shop:'M3 7h18l-2 14H5zM8 7V5a4 4 0 0 1 8 0v2',
+table:'',scouts:''
+}[item.tab]}/></svg>
                 </span>
                 <span className={`text-[8px] tracking-wide ${isActive ? 'font-display' : ''}`}>{item.label}</span>
 

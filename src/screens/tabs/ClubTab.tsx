@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { decideSelection, selectionAdvice } from '../../engine/selection'
 import type { Player } from '../../types/player'
 import type { Division } from '../../engine/league'
 import { sortStandings, divisionLabel } from '../../engine/league'
@@ -23,11 +25,16 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
     ? academyDivisionLabel(division.tier as 1 | 2)
     : player.grassrootsPath === 'school' ? 'Local School League' : divisionLabel(division.tier)
 
+  const [view, setView] = useState<'squad' | 'club'>('squad')
+  const selection = decideSelection(player, player.squad)
   return (
     <div className="flex flex-col gap-2.5">
       <section className="club-hero" style={{'--club-primary':playerTeam.primaryColor,'--club-secondary':playerTeam.secondaryColor} as React.CSSProperties}><div className="club-stand"/><small>{isAcademy?'ACADEMY CLUB':player.grassrootsPath==='school'?'SCHOOL TEAM':'GRASSROOTS CLUB'} · {divName}</small><div className="club-identity"><TeamCrest primary={playerTeam.primaryColor} secondary={playerTeam.secondaryColor} short={playerTeam.short} /><div><h2>{playerTeam.name}</h2><p>{pos>0?ordinal(pos):'—'} IN LEAGUE · PRESTIGE {playerTeam.prestige}/10</p></div><div className="club-strength"><b>{teamOverall(playerTeam)}</b><span>TEAM OVR</span></div></div><div className="club-record"><div><span>PLAYED</span><b>{standing?.played??0}</b></div><div><span>W-D-L</span><b>{standing?.won??0}-{standing?.drawn??0}-{standing?.lost??0}</b></div><div><span>POINTS</span><b>{standing?.points??0}</b></div><div><span>GD</span><b>{((standing?.goalsFor??0)-(standing?.goalsAgainst??0))>0?'+':''}{(standing?.goalsFor??0)-(standing?.goalsAgainst??0)}</b></div></div></section>
 
-      <div className="home-section-label"><span>SQUAD PROFILE</span><i/></div><Panel title="💪 team strength">
+      <section className="selection-feature"><small>YOUR PLACE IN THE SIDE</small><h2>{(player.squadRole ?? 'squad').replaceAll('-', ' ')}</h2><p>{selection.pecking} of {selection.competing} for your position · {selectionAdvice(selection, player)}</p></section>
+      <div className="section-switch" aria-label="Club sections">{(['squad','club'] as const).map(v=><button key={v} aria-pressed={view===v} onClick={()=>setView(v)}>{v==='club'?'Club & league':v}</button>)}</div>
+      {view === 'squad' && <>
+      <div className="home-section-label"><span>SQUAD PROFILE</span><i/></div><Panel title="team strength">
         <div className="flex flex-col gap-1.5">
           {(['attack', 'midfield', 'defense'] as const).map((line) => (
             <div key={line} className="flex items-center gap-2">
@@ -39,7 +46,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      <Panel title="📊 your standing">
+      <Panel title="your standing">
         <div className="flex flex-col gap-1.5">
           <StatRow label="squad role" value={<span className="capitalize">{player.squadRole ?? 'TBD'}</span>} />
           <StatRow label="position" value={pos > 0 ? ordinal(pos) : '—'} />
@@ -56,7 +63,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      <Panel title="🎽 squad">
+      <Panel title="squad">
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2 rounded-md border border-ks-gold/40 bg-ks-gold/10 px-2 py-2">
             <span className="text-[9px] text-ks-gold w-8">YOU</span>
@@ -76,6 +83,8 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
+      </>}
+      {view === 'club' && <>
       <div className="home-section-label"><span>THE DIVISION</span><i/></div>
       <Panel title={`rivals — ${divName}`}>
         <div className="flex flex-col gap-2">
@@ -119,7 +128,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      <Panel title="⚽ top scoring teams">
+      <Panel title="top scoring teams">
         <div className="flex flex-col gap-1.5">
           {[...division.standings].sort((a, b) => b.goalsFor - a.goalsFor).slice(0, 5).map((s, i) => (
             <div key={s.teamId} className="flex items-center gap-2 text-[11px]">
@@ -131,7 +140,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      <Panel title="🗓️ your season">
+      <Panel title="your season">
         <div className="flex flex-col gap-1.5">
           <StatRow label="goals" value={player.seasonGoals ?? 0} />
           <StatRow label="assists" value={player.seasonAssists ?? 0} />
@@ -145,6 +154,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
           />
         </div>
       </Panel>
+      </>}
     </div>
   )
 }

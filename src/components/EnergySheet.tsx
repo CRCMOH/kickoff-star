@@ -1,4 +1,8 @@
 import type { Player } from '../types/player'
+import { useRef, useState } from 'react'
+import { useCareerStore } from '../store/careerStore'
+import { itemById } from '../engine/economy'
+import { watchRewardedAd, remainingToday } from '../engine/ads'
 import {
   bandSpec, describeEffects, BANDS, matchSharpnessFrom, MATCH_SHARPNESS_FLOOR,
 } from '../engine/energy'
@@ -24,6 +28,10 @@ export function EnergyMeter({ stamina, showLabel = true }: { stamina: number; sh
 const TONE_CLASS = { good: 'text-green-500', neutral: 'text-ks-ink', bad: 'text-orange-500' } as const
 
 export default function EnergySheet({ player, onClose }: { player: Player; onClose: () => void }) {
+  const consumeItem = useCareerStore(s => s.consumeItem)
+  const restoreEnergyFromAd = useCareerStore(s => s.restoreEnergyFromAd)
+  const [busy, setBusy] = useState(false)
+  const adPending = useRef(false)
   const stamina = player.fitness.stamina
   const spec = bandSpec(stamina)
   const effects = describeEffects(player)
@@ -32,7 +40,7 @@ export default function EnergySheet({ player, onClose }: { player: Player; onClo
     <div className="fixed inset-0 z-40 flex items-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70" />
       <div
-        className="relative w-full max-w-md mx-auto bg-[#0f0f0d] border-t border-ks-border rounded-t-2xl px-4 pt-4"
+        className="relative w-full max-w-md mx-auto bg-[#0f0f0d] border-t border-ks-border rounded-t-2xl px-4 pt-4 max-h-[90dvh] overflow-y-auto"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -43,6 +51,18 @@ export default function EnergySheet({ player, onClose }: { player: Player; onClo
           <span className={`font-display text-2xl ${spec.colorClass}`}>{Math.round(stamina)}</span>
         </div>
         <EnergyMeter stamina={stamina} />
+        {stamina < 100 && <div className="flex flex-col gap-2 mt-3">
+          {Object.entries(player.consumables ?? {}).filter(([,n]) => n > 0).map(([id,n]) =>
+            <button key={id} className="rounded-lg border border-ks-gold/40 py-3 text-sm text-ks-gold" onClick={() => consumeItem(id)}>Use {itemById(id)?.name ?? 'drink'} · {n} available</button>
+          )}
+          {remainingToday('energy') > 0 && <button disabled={busy} className="rounded-lg border border-ks-border py-3 text-sm text-ks-muted" onClick={async () => {
+            if (adPending.current) return
+            adPending.current = true
+            setBusy(true)
+            try { if (await watchRewardedAd('energy')) restoreEnergyFromAd(20) }
+            finally { adPending.current = false; setBusy(false) }
+          }}>{busy ? 'Opening reward…' : 'Watch ad for +20% energy'}</button>}
+        </div>}
 
         <p className="text-[11px] text-ks-muted leading-relaxed mt-3 mb-4">
           Energy is your week-to-week freshness — not your fitness in a single match.

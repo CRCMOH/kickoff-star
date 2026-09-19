@@ -97,12 +97,16 @@ function PersonCard({ person, player }: { person: Relationship; player: Player }
 }
 
 export default function PeopleTab({ player }: { player: Player }) {
+  const [view, setView] = useState<'people' | 'objectives' | 'standing'>('people')
   const cast = activeCast(player.relationships ?? [])
   const arcs = player.activeArcs ?? []
   const sorted = [...cast].sort((a, b) => b.bond - a.bond)
 
   return (
     <div className="flex flex-col gap-2.5">
+      <div className="editorial-heading"><h2>Your circle</h2><span>{cast.length} relationships</span></div>
+      <div className="section-switch" aria-label="People sections">{(['people','objectives','standing'] as const).map(v=><button key={v} aria-pressed={view===v} onClick={()=>setView(v)}>{v}</button>)}</div>
+      {view === 'standing' && <>
       {/* P32 — the three groups. Coach reads off coachTrust so there is one
           source of truth; the dressing room and the terraces are their own. */}
       <Panel title="📊 standing">
@@ -133,6 +137,8 @@ export default function PeopleTab({ player }: { player: Player }) {
         </p>
       </Panel>
 
+      </>}
+      {view === 'objectives' && <>
       <Panel title={`storylines — ${arcs.length} live`}>
         {arcs.length === 0 ? (
           <EmptyNote>Nothing hanging over you right now. Storylines start from the choices you make.</EmptyNote>
@@ -154,9 +160,11 @@ export default function PeopleTab({ player }: { player: Player }) {
         )}
       </Panel>
 
+      </>}
+      {view === 'people' && <>
       <Panel title={`people — ${cast.length}`}>
         {cast.length === 0 ? (
-          <EmptyNote>Nobody yet.</EmptyNote>
+          <EmptyNote>Your circle grows as your career progresses. New people will appear here.</EmptyNote>
         ) : (
           <div className="flex flex-col gap-2">
             {sorted.map((p) => <PersonCard key={p.id} person={p} player={player} />)}
@@ -164,6 +172,7 @@ export default function PeopleTab({ player }: { player: Player }) {
         )}
       </Panel>
 
+      </>}
       <p className="text-[10px] text-ks-muted leading-relaxed px-1">
         Bonds fade if you leave people alone too long. Close relationships steady your confidence,
         a good coach bond builds trust faster, and family keeps your energy up.

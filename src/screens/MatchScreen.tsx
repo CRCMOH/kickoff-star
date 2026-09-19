@@ -296,7 +296,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
   }
 
   const skipAhead = () => setDisplayMinute(state.minute)
-  const cycleSpeed = () => setSpeed((s) => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length])
+
   const clockLabel = displayMinute > 90 ? `90+${displayMinute - 90}'` : `${displayMinute}'`
 
   return (
@@ -354,24 +354,14 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       </svg>
       <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 90% 55% at 50% 0%, transparent 30%, rgba(5,5,4,0.92) 78%)' }} />
 
-      <div className="relative z-10 px-5 pt-5 max-w-md mx-auto w-full">
+      <div className="match-broadcast relative z-10 px-5 pt-5 max-w-md mx-auto w-full">
         <div className="flex items-center justify-between mb-2">
-          <button
-            onClick={cycleSpeed}
-            className="text-[10px] font-display tracking-widest uppercase text-ks-gold border border-ks-gold/40 rounded-md px-2.5 py-1 bg-ks-gold/5"
-            aria-label="commentary speed"
-          >
-            {speed}x speed
-          </button>
-          <div className="font-display tracking-widest text-ks-ink text-lg tabular-nums bg-[#0f0f0dcc] border border-ks-border rounded-lg px-3 py-0.5">
-            {clockLabel}
+          <div className="playback-selector" aria-label="Match playback speed">
+            {!matchOver && SPEEDS.map(value=><button key={value} aria-label={`Playback speed ${value} times`} aria-pressed={speed===value} onClick={()=>setSpeed(value)}>{value}×</button>)}
           </div>
-          <button
-            onClick={() => { const m = toggleMuted(); setMutedUi(m); syncMusicMute() }}
-            className="text-[10px] font-display tracking-widest uppercase text-ks-muted border border-ks-border rounded-md px-2 py-1"
-            aria-label={muted ? 'unmute sound' : 'mute sound'}
-          >
-            {muted ? '🔇' : '🔊'}
+          <div className="broadcast-clock" aria-label="Match clock"><small>{matchOver ? 'FULL TIME' : halfTimeShown ? 'HALF TIME' : displayMinute > 45 ? 'SECOND HALF' : 'FIRST HALF'}</small><strong>{matchOver ? 'FT' : halfTimeShown ? 'HT' : clockLabel}</strong></div>
+          <button className="broadcast-audio" onClick={() => { const m = toggleMuted(); setMutedUi(m); syncMusicMute() }} aria-label={muted ? 'Unmute sound' : 'Mute sound'} aria-pressed={!muted}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/>{muted ? <path d="m17 9 5 6m0-6-5 6"/> : <><path d="M16 8q4 4 0 8"/><path d="M19 5q7 7 0 14"/></>}</svg>
           </button>
         </div>
         <div className="flex items-center justify-between gap-2 mb-1">
@@ -405,7 +395,7 @@ export default function MatchScreen({ player, playerTeam, opponent, playerIsHome
       </div>
 
       <div className="relative z-10 px-5 max-w-md mx-auto w-full mb-2">
-        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} playerPosition={player.position} minute={displayMinute} action={pitchAction} focusPlayer={showMoment || executing !== null} />
+        <LiveMatchPitch momentum={state.momentum} homeColor={state.homeTeam.primaryColor} awayColor={state.awayTeam.primaryColor} playerIsHome={playerIsHome} playerPosition={player.position} minute={displayMinute} action={pitchAction} playerName={player.name} scoringSide={lastVisibleEvent?.scoringSide} focusPlayer={showMoment || executing !== null} />
       </div>
 
       <div ref={feedRef} className="relative z-10 flex-1 min-h-0 overflow-y-auto px-5 max-w-md mx-auto w-full" style={{ maxHeight: '30vh' }}>
