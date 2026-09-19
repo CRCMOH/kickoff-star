@@ -89,7 +89,7 @@ export default function WeeklyHub({
         {(tab === 'player' || tab === 'scouts') && <PlayerTab player={player} onOpenOffers={onOpenOffers} />}
         {tab === 'people' && <PeopleTab player={player} />}
         {tab === 'club' && (
-          <ClubTab player={player} playerTeam={playerTeam} division={playerDivision} isAcademy={isAcademy} />
+          <ClubTab player={player} playerTeam={playerTeam} division={playerDivision} isAcademy={isAcademy} youthWorld={youthWorld} />
         )}
         {(tab === 'fixtures' || tab === 'table') && (
           <LeagueTab
