@@ -64,7 +64,6 @@ export default function MatchSummary({ rating, goals, assists, won, drew, injury
   ].filter((row) => Math.abs(row.value) >= .005) : []
   const [revealedRows, setRevealedRows] = useState(0)
   const tallyTimerRef = useRef<number | null>(null)
-  const openingTimerRef = useRef<number | null>(null)
   const tallyComplete = !ratingBreakdown || revealedRows >= ratingRows.length
   const runningRating = ratingBreakdown
     ? tallyComplete
@@ -74,10 +73,6 @@ export default function MatchSummary({ rating, goals, assists, won, drew, injury
 
   useEffect(() => {
     if (!ratingBreakdown || ratingRows.length === 0) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setRevealedRows(ratingRows.length)
-      return
-    }
     setRevealedRows(0)
     let shown = 0
     const opening = window.setTimeout(() => {
@@ -88,7 +83,6 @@ export default function MatchSummary({ rating, goals, assists, won, drew, injury
       }, 470)
       tallyTimerRef.current = ticker
     }, 650)
-    openingTimerRef.current = opening
     return () => {
       window.clearTimeout(opening)
       if (tallyTimerRef.current !== null) window.clearInterval(tallyTimerRef.current)
@@ -220,7 +214,6 @@ export default function MatchSummary({ rating, goals, assists, won, drew, injury
         <button onClick={() => {
           if (tallyComplete) onDone()
           else {
-            if (openingTimerRef.current !== null) window.clearTimeout(openingTimerRef.current)
             if (tallyTimerRef.current !== null) window.clearInterval(tallyTimerRef.current)
             setRevealedRows(ratingRows.length)
           }

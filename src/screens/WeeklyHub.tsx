@@ -65,7 +65,7 @@ export default function WeeklyHub({
   const unreadStory = (player.inbox ?? []).find((item) => !item.read) ?? null
 
   return (
-    <div className="career-shell min-h-screen bg-ks-black flex flex-col">
+    <div className="min-h-screen bg-ks-black flex flex-col">
       {/* tab header — gives every destination a sense of place */}
       <div className="sticky top-0 z-20 bg-ks-black/95 backdrop-blur border-b border-ks-border/50">
         <div className="max-w-md mx-auto w-full px-3 py-2">
@@ -77,7 +77,6 @@ export default function WeeklyHub({
         {tab === 'home' && (
           <HomeTab
             player={player}
-            playerTeam={playerTeam}
             calendar={calendar}
             league={isAcademy ? null : league}
             academyLeague={isAcademy ? academyLeague : null}
@@ -102,13 +101,13 @@ export default function WeeklyHub({
             cups={cups}
             world={(isAcademy ? academyLeague : league)!}
             isAcademy={isAcademy}
-            initialView={tab === 'table' ? 'table' : undefined}
+            initialView={tab === 'table' ? 'table' : 'fixtures'}
           />
         )}
         {tab === 'shop' && <ShopTab player={player} />}
       </div>
 
-      <BottomNav active={tab} onSelect={onTabChange} badges={{ player: offerCount }} />
+      <BottomNav active={tab} onSelect={onTabChange} badges={{ scouts: offerCount }} />
 
       {energyOpen && <EnergySheet player={player} onClose={() => setEnergyOpen(false)} />}
       {gazetteOpen && latestGazette && <GazetteScreen issue={latestGazette} onClose={() => setGazetteOpen(false)} />}

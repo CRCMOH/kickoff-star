@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Player } from '../../types/player'
 import { computeCurrentAbility, toOvr } from '../../engine/rating'
 import { trustLabel, trustEmoji, generateNotebookEntry, notebookTone } from '../../engine/coachTrust'
@@ -40,7 +39,6 @@ function ratingColor(r: number): string {
 }
 
 export default function PlayerTab({ player, onOpenOffers }: { player: Player; onOpenOffers?: () => void }) {
-  const [view, setView] = useState<'attributes' | 'form' | 'career'>('attributes')
   const c = player.career
   const values = player.attributes.values as Record<string, number>
   const isGk = player.attributes.kind === 'goalkeeper'
@@ -78,8 +76,6 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
       </div>
 
       <div className="player-quick-strip"><div><span>APPS</span><b>{c?.appearances ?? 0}</b></div><div><span>GOALS</span><b>{c?.goals ?? 0}</b></div><div><span>ASSISTS</span><b>{c?.assists ?? 0}</b></div><div><span>BEST</span><b>{c?.bestRating?.toFixed(1) ?? '—'}</b></div></div>
-      <div className="section-switch" aria-label="Player profile sections">{(['attributes','form','career'] as const).map(v=><button key={v} aria-pressed={view===v} onClick={()=>setView(v)}>{v}</button>)}</div>
-      {view === 'attributes' && <>
       {/* P50 — the coach's verdict used to only ever surface as a one-time
           weekly note that scrolled away. Now it's always visible: where you
           actually stand, and how long until it can change — the real
@@ -91,7 +87,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         const weeksLeft = Math.max(0, SETTLE_WEEKS - weeksSinceSet)
         const roleLabel = player.squadRole === 'starting-xi' ? 'Starting XI' : player.squadRole === 'bench' ? 'Bench' : 'Reserves'
         return (
-          <Panel title="squad status">
+          <Panel title="🎽 squad status">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[13px] text-ks-ink font-display tracking-wide">{roleLabel}</span>
               <span className="text-[11px] text-ks-muted">{verdict.pecking} of {verdict.competing} for your position</span>
@@ -156,9 +152,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         </div>
       )}
 
-      </>}
-      {view === 'form' && <>
-      <Section title="Form & season" defaultOpen>
+      <Section title="📈 form & season" defaultOpen>
         {recent.length === 0 ? (
           <EmptyNote>No matches played yet. Your recent ratings will show here.</EmptyNote>
         ) : (
@@ -178,9 +172,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         <ScoutsTab player={player} onOpenOffers={onOpenOffers ?? (() => {})} />
       </Section>
 
-      </>}
-      {view === 'career' && <>
-      <Section title="Career record" defaultOpen>
+      <Section title="🏅 career record">
         <div className="flex flex-col gap-1.5">
           <StatRow label="appearances" value={c?.appearances ?? 0} />
           <StatRow label="goals" value={c?.goals ?? 0} />
@@ -216,7 +208,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         )}
       </Section>
 
-      <Section title="career pathway" defaultOpen>
+      <Section title="🧭 career pathway" defaultOpen>
         <div className="flex items-stretch gap-1.5">
           {([
             { key: 'grassroots', label: 'Grassroots', active: player.careerClock.phase !== 'academy' && !player.turnedPro, complete: player.careerClock.phase === 'academy' || !!player.turnedPro },
@@ -241,7 +233,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         <GloryCabinet player={player} />
       </Section>
 
-      <Section title="trophy cabinet & achievements">
+      <Section title="🎖️ trophy cabinet & achievements">
         <AchievementList player={player} />
       </Section>
 
@@ -271,7 +263,6 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         </div>
       </Section>
 
-      </>}
       {player.injury && (
         <Panel title={<span className="flex items-center gap-1"><Icon src={iconMedical} />medical</span>}>
           <div className="flex flex-col gap-1.5">

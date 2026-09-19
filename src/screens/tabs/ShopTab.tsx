@@ -40,20 +40,29 @@ function ItemCard({ item, player, onBuy }: { item: ShopItem; player: Player; onB
   const affordable = (player.money ?? 0) >= item.price
   const owned = (player.equipment ?? []).find((o) => o.itemId === item.id)
   const held = (player.consumables ?? {})[item.id] ?? 0
-  const current = item.kind === 'equipment' ? (player.equipment ?? []).find(o => itemById(o.itemId)?.slot === item.slot) : undefined
-  const currentItem = current ? itemById(current.itemId) : undefined
 
   return (
     <div className={`rounded-lg border px-3 py-2.5 transition-colors ${owned ? 'border-ks-gold/50 bg-ks-gold/5' : 'border-ks-border bg-[#0f0f0d]'}`}>
       <div className="flex items-start gap-2 mb-1">
-        <Icon src={item.kind === 'equipment' ? iconBoots : iconEnergy} size={36} />
-        <span className="text-[11px] text-ks-ink flex-1 leading-snug">{item.name}{owned && <small className="block text-ks-gold mt-1">EQUIPPED</small>}</span>
+        <span className="text-[11px] text-ks-ink flex-1 leading-snug">{item.name}</span>
         {held > 0 && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">x{held}</span>}
         {owned && <span className="text-[9px] text-ks-gold uppercase tracking-wider shrink-0">{owned.condition ?? Math.round((owned.weeksRemaining / Math.max(1, item.durationWeeks ?? owned.weeksRemaining)) * 100)}% · {owned.weeksRemaining}w</span>}
       </div>
 
+      {(player.finances?.transactions.length ?? 0) > 0 && (
+        <Panel title={<span className="flex items-center gap-1"><Icon src={iconCoins} />recent transactions</span>}>
+          <div className="flex flex-col gap-1.5">
+            {[...(player.finances?.transactions ?? [])].reverse().slice(0, 6).map((transaction) => (
+              <div key={transaction.id} className="flex items-center gap-2 text-[10px]">
+                <span className="text-ks-muted w-8">wk {transaction.week}</span>
+                <span className="text-ks-ink flex-1 truncate">{transaction.description}</span>
+                <span className={transaction.amount >= 0 ? 'text-green-500' : 'text-orange-400'}>{transaction.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(transaction.amount))}</span>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
       <p className="text-[10px] text-ks-muted leading-relaxed mb-2">{item.description}</p>
-      {currentItem && !owned && <p className="text-xs text-ks-muted mb-3">Replaces {currentItem.name}. {currentItem.description}</p>}
       <button
         onClick={() => onBuy(item.id)}
         disabled={!affordable}
@@ -91,7 +100,7 @@ export default function ShopTab({ player }: { player: Player }) {
   const grantCashFromAd = useCareerStore((s) => s.grantCashFromAd)
   const sendMoneyHome = useCareerStore((s) => s.sendMoneyHome)
   const [flash, setFlash] = useState<string | null>(null)
-  const [section, setSection] = useState<'kit' | 'recovery' | 'jobs'>('kit')
+  const [section, setSection] = useState<'kit' | 'jobs'>('kit')
 
   const say = (msg: string) => { setFlash(msg); window.setTimeout(() => setFlash(null), 2600) }
 
@@ -255,53 +264,39 @@ export default function ShopTab({ player }: { player: Player }) {
         )}
       </Panel>
 
-      {(player.finances?.transactions.length ?? 0) > 0 && (
-        <Panel title={<span className="flex items-center gap-1"><Icon src={iconCoins} />recent transactions</span>}>
-          <div className="flex flex-col gap-1.5">
-            {[...(player.finances?.transactions ?? [])].reverse().slice(0, 6).map((transaction) => (
-              <div key={transaction.id} className="flex items-center gap-2 text-[10px]">
-                <span className="text-ks-muted w-8">wk {transaction.week}</span>
-                <span className="text-ks-ink flex-1 truncate">{transaction.description}</span>
-                <span className={transaction.amount >= 0 ? 'text-green-500' : 'text-orange-400'}>{transaction.amount >= 0 ? '+' : '−'}{formatMoney(Math.abs(transaction.amount))}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
       <div className="flex gap-1.5 p-1 rounded-xl bg-[#0f0f0d] border border-ks-border">
-        {(['kit', 'recovery', 'jobs'] as const).map((v) => (
+        {(['kit', 'jobs'] as const).map((v) => (
           <button
             key={v}
-            aria-pressed={section === v}
             onClick={() => setSection(v)}
             className={`flex-1 rounded-lg py-2 font-display tracking-widest text-[10px] uppercase transition-all ${
               section === v ? 'bg-ks-gold text-ks-black' : 'text-ks-muted'
             }`}
           >
-            {v === 'kit' ? 'Equipment' : v === 'recovery' ? 'Recovery' : 'Earn money'}
+            {v === 'kit' ? 'shop' : 'earn money'}
           </button>
         ))}
       </div>
 
-      {section !== 'jobs' ? (
+      {section === 'kit' ? (
         <>
-          {section === 'recovery' && <Panel title={<span className="flex items-center gap-1"><Icon src={iconEnergy} />energy & recovery</span>}>
+          <Panel title={<span className="flex items-center gap-1"><Icon src={iconEnergy} />energy & recovery</span>}>
             <div className="flex flex-col gap-2">
               {consumables.map((i) => <ItemCard key={i.id} item={i} player={player} onBuy={(id) => {
                 const r = buyItem(id)
                 say(r.ok ? `bought ${itemById(id)?.name}` : r.reason ?? 'could not buy that')
               }} />)}
             </div>
-          </Panel>}
+          </Panel>
 
-          {section === 'kit' && <Panel title={<span className="flex items-center gap-1"><Icon src={iconBoots} />boots & equipment</span>}>
+          <Panel title={<span className="flex items-center gap-1"><Icon src={iconBoots} />boots & equipment</span>}>
             <div className="flex flex-col gap-2">
               {equipment.map((i) => <ItemCard key={i.id} item={i} player={player} onBuy={(id) => {
                 const r = buyItem(id)
                 say(r.ok ? `bought ${itemById(id)?.name}` : r.reason ?? 'could not buy that')
               }} />)}
             </div>
-          </Panel>}
+          </Panel>
           <p className="text-[10px] text-ks-muted leading-relaxed px-1">
             Equipment wears out after a set number of weeks, and you can only wear one item per slot —
             new boots replace your old pair.

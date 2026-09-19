@@ -31,12 +31,10 @@ export default function CompetitionHub({ player, division, playerTeamId, cups }:
     <div className="flex flex-col gap-2.5">
       <div className="rounded-xl border border-ks-gold/35 bg-gradient-to-br from-[#1b180d] to-[#0d0d0b] px-4 py-3">
         <div className="text-[9px] text-ks-gold uppercase tracking-[0.25em]">competition centre</div>
-        <div className="font-display text-lg text-ks-ink mt-1">Your season, stage by stage.</div>
+        <div className="font-display text-lg text-ks-ink mt-1">Every match has a consequence.</div>
         <p className="text-[10px] text-ks-muted mt-1">Track your position, cup path, discipline and performance on each stage.</p>
       </div>
-      <details className="pathway-details"><summary>Career pathway & selection progress</summary>
       {player.careerClock.phase!=='academy'&&<div className="pathway-map"><div className="pathway-map-head"><span>{pathway.ageGroup} PLAYER PATHWAY</span><b>{pathwayNextStep(player)}</b></div><div className="pathway-track"><PathStep label="School" state="complete"/><PathStep label="Regional XI" state={pathway.regionalSelection==='selected'?'complete':pathway.regionalSelection==='cut'?'missed':pathway.regionalSelection==='not-started'?'locked':'active'}/><PathStep label="National" state={pathway.nationalSelection==='selected'?'complete':pathway.nationalSelection==='cut'?'missed':pathway.nationalSelection==='not-started'?'locked':'active'}/><PathStep label="International" state={pathway.nationalSelection==='selected'?'active':'locked'}/></div><div className="pathway-side-route"><span>Sunday route</span><b>{pathway.sundayStatus.replace('-',' ')}</b><i>{pathway.sundayInterest}% interest</i></div></div>}
-      </details>
 
       <CompetitionCard name={leagueDef.name} format="League" prestige={leagueDef.prestige} status={position > 0 ? `${position}${position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'} of ${sorted.length}` : 'Not placed'} stats={current[leagueKey]} />
       {activeCups.map((cup) => {
