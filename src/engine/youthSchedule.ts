@@ -48,8 +48,8 @@ function tierMatch(world: YouthWorld, week: number): YouthScheduleEvent | null {
   if (!block) return null
 
   if (tier === 'first-team') {
-    if (block.primary === 'school-league') return event(`school-${week}`,'thu','school-match','Inter-Schools League',true,-22,80,'school-league')
-    if (block.primary === 'school-cup') return event(`regional-${week}`,'thu','school-match',week <= 17 ? 'Regional Schools — Group Stage' : 'Regional Schools — Knockout',true,-24,90,'school-cup')
+    if (block.primary === 'school-league' && world.pathway.route === 'school') return event(`school-${week}`,'thu','school-match','Inter-Schools League',true,-22,80,'school-league')
+    if (block.primary === 'school-cup' && world.pathway.route === 'school') return event(`regional-${week}`,'thu','school-match','Regional Schools / Development Competition',true,-24,90,'school-cup')
     if (block.primary === 'minor-school-cup') return event(`minor-${week}`,'thu','school-match','School Invitational',true,-21,65,'minor-school-cup')
     if (block.primary === 'friendly') return event(`friendly-${week}`,'thu','school-match','School Friendly',false,-18,45,'friendly')
   }
@@ -90,7 +90,7 @@ function specialEvent(world: YouthWorld, week: number): YouthScheduleEvent | nul
 function sundayEvent(world: YouthWorld, week: number): YouthScheduleEvent | null {
   if (!world.pathway.sundayClubId) return null
   const block = world.calendar.find(b => week >= b.weeks[0] && week <= b.weeks[1])
-  if (!block?.sundayLeagueAvailable) return null
+  if (!block?.sundayLeagueAvailable || world.pathway.route !== 'grassroots') return null
   return event(`sunday-${week}`,'sun','sunday-match','Sunday League Match',true,-22,70,'sunday-league')
 }
 
@@ -125,7 +125,7 @@ export function buildYouthWeekSchedule(world: YouthWorld, week: number, starting
 
   const events: YouthScheduleEvent[] = [
     event(`recovery-mon-${week}`,'mon','recovery','Recovery / Reset',false,+16,20),
-    event(`school-train-${week}`,'tue','school-training','School Training',world.pathway.schoolTier !== 'cut',-10,35),
+    event(`school-train-${week}`,'tue',world.pathway.route==='school'?'school-training':'sunday-training',world.pathway.route==='school'?'School Training':'Grassroots Training',true,-10,35),
     event(`personal-${week}`,'wed','personal-training','Personal Development',false,-8,15),
     event(`rest-fri-${week}`,'fri','recovery','Recovery Day',false,+14,20),
   ]
