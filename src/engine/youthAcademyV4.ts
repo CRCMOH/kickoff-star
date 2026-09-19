@@ -122,7 +122,7 @@ export function generateAcademyOffers(
   // minimum 3 and maximum 6. If the threshold produced fewer than three, the
   // best scouting fits fill the remaining slots rather than inventing clubs.
   const pool=ranked.length>=3?ranked:world.academyClubs
-    .map((club,index)=>({club,score:offerScore(world,club,campaign.finalScore!,position,index)+(club.id===campaign.clubId?.16:0)}))
+    .map((club,index)=>({club,score:offerScore(world,club,campaign.finalScore!,position,index)+(club.id===campaign.clubId ? .16 : 0)}))
     .sort((a,b)=>b.score-a.score)
   const desired=clamp(3+Math.floor(campaign.finalScore*4),3,6)
   const unique=pool.filter((x,i,a)=>a.findIndex(y=>y.club.id===x.club.id)===i).slice(0,desired)
