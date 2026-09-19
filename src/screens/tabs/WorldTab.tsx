@@ -12,12 +12,13 @@ export default function WorldTab({player,calendar,youthWorld,international}:{pla
  const nextIntl=internationalCalendarV5().find(x=>x.week>=calendar.currentWeek.weekNumber)
  const school=youthWorld?.schools.find(s=>s.id===youthWorld.selectedSchoolId)
  const sunday=youthWorld?.sundayClubs.find(c=>c.id===pathway?.sundayClubId)
+ const route=pathway?.route??player.youthRoute??'school'
  const intlStage=international?.stage??'not called up',history=[...(pathway?.history??[])].slice(-5).reverse()
  return <div className="flex flex-col gap-2.5">
-  <section className="career-hero"><div className="career-hero-glow"/><div className="career-hero-top"><span>YOUTH WORLD</span><b>{nation.flag} {nation.short}</b></div><h2 className="font-display text-xl text-ks-ink mt-2">YOUR PATHWAY</h2><p className="text-[10px] text-ks-muted mt-1">School → representative football → academy → professional contract.</p></section>
-  <div className="grid grid-cols-2 gap-2"><Badge label="Route" value={pathway?.route??player.careerClock.phase}/><Badge label="School squad" value={pathway?.schoolTier??'—'}/><Badge label="Representative" value={pathway?.representative?.replaceAll('-',' ')??'none'}/><Badge label="Academy" value={pathway?.academyStatus?.replaceAll('-',' ')??'none'}/></div>
+  <section className="career-hero"><div className="career-hero-glow"/><div className="career-hero-top"><span>YOUTH WORLD</span><b>{nation.flag} {nation.short}</b></div><h2 className="font-display text-xl text-ks-ink mt-2">YOUR PATHWAY</h2><p className="text-[10px] text-ks-muted mt-1">{route==='school'?'School → regional/national selection → academy → professional contract.':'Grassroots club → divisions/cups → academy assessment → professional contract.'}</p></section>
+  <div className="grid grid-cols-2 gap-2"><Badge label="Route" value={route==='school'?'School Football':route==='grassroots'?'Grassroots Football':'Academy'}/><Badge label={route==='school'?'School squad':'Club route'} value={route==='school'?(pathway?.schoolTier??'—'):(sunday?.name??'Grassroots club')}/><Badge label="Representative" value={pathway?.representative?.replaceAll('-',' ')??'none'}/><Badge label="Academy" value={pathway?.academyStatus?.replaceAll('-',' ')??'none'}/></div>
   <Panel title="season calendar"><div className="flex flex-col gap-2">
-   <div className="text-[10px] text-ks-ink">Week {calendar.currentWeek.weekNumber} · {school?.name??'School pathway'}{sunday?' + '+sunday.name:''}</div>
+   <div className="text-[10px] text-ks-ink">Week {calendar.currentWeek.weekNumber} · {route==='school'?(school?.name??'School pathway'):(sunday?.name??'Grassroots pathway')}</div>
    {nextIntl&&<div className="rounded-lg border border-ks-gold/30 p-2"><div className="text-[9px] text-ks-gold uppercase tracking-wider">next international window</div><div className="text-[11px] text-ks-ink mt-1">Week {nextIntl.week} · {nextIntl.label}</div></div>}
    <div className="grid grid-cols-4 gap-1">{[8,16,24,32,37,40,43].map(w=><div key={w} className={'text-center rounded-md border py-1.5 text-[9px] '+(calendar.currentWeek.weekNumber===w?'border-ks-gold text-ks-gold':'border-ks-border text-ks-muted')}>W{w}</div>)}</div>
   </div></Panel>
