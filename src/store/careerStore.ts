@@ -1,22 +1,25 @@
 import { create } from 'zustand'
 import type { Player } from '../types/player'
 import { spendXp, positionCostMultiplier } from '../engine/xp'
-import { computeCurrentAbility, toOvr } from '../engine/rating'
 import type { CalendarState } from '../types/calendar'
 import type { DecisionResult } from '../types/decision'
-import { readSave, writeSave, EMPTY_CUPS, type SaveSlotId, type CupWorlds } from '../engine/save'
-import { nextUnresolvedEvent, markResolved, advanceWeek, activeCompetitionForWeek, internationalRoundForWeek, SEASON_WEEKS } from '../engine/calendar'
-import { initCupById, batchSimCupStage, advanceCupStage, recordCupPlayerResult, playerCupFixture } from '../engine/cup'
-import { initInternationalWorld, isCallUpEligible, formQualifiesForSelection, batchSimQualifyingRound, batchSimFinalsRound, advanceInternationalStage, recordNationResult, internationalTeamById, nationFixture, type InternationalWorld } from '../engine/international'
+import { readSave, writeSave, EMPTY_CUPS, SAVE_SCHEMA_VERSION, type SaveSlotId, type CupWorlds } from '../engine/save'
+import { nextUnresolvedEvent, markResolved, advanceWeek, alignMatchDays, activeCompetitionForWeek, internationalRoundForWeek, SEASON_WEEKS } from '../engine/calendar'
+import { initCupById, batchSimCupStage, advanceCupStage, recordCupPlayerResult, playerCupFixture, syncCupTeamIdentities } from '../engine/cup'
+import { initInternationalWorld, formQualifiesForSelection, batchSimQualifyingRound, batchSimFinalsRound, advanceInternationalStage, recordNationResult, internationalTeamById, nationFixture, type InternationalWorld } from '../engine/international'
 import { getSchool } from '../engine/schools'
 import { getNation } from '../engine/nations'
-import { rand } from '../engine/rng'
 import { archetypeConfidenceSwingMultiplier, archetypeTrustGainMultiplier } from '../engine/archetypes'
 import { initialCast, driftRelationships, adjustBond, addPerson, relationshipEffects, resolveInteraction, interactedThisWeek, pruneCast, INTERACTIONS } from '../engine/relationships'
 import { maybeStartArc, tickArcs, ARC_TEMPLATES, baselineOf, type ActiveArc, type ArcVerdict } from '../engine/storylines'
 import { itemById, ageEquipment, monthlyAllowance, allowanceDue, rewardForStreak, shopFor, availableJobs, canWorkThisWeek, weeklyLivingCost, energyGainFromPct, type OwnedEquipment } from '../engine/economy'
 import { netWage, commissionOn } from '../engine/agents'
-import { decideSelection } from '../engine/selection'
+import { hasSundayContract, migrateSundayContracts, openSundayContractWindow } from '../engine/sundayContracts'
+import { generateTeam } from '../engine/teams'
+import { ensureSundayClub, simulateSundayThrough, sundayClub } from '../engine/sundayFootball'
+import { recordLeagueGoals } from '../engine/leagueScorers'
+import { repairSundayInvitation, representativeEvidence, updateSundayRecruitment } from '../engine/youthOpportunities'
+import { decideSelection, matchAvailability, playerForMatch } from '../engine/selection'
 import { standingFromMatch, applyStandingDeltas, driftStanding } from '../engine/standing'
 import { startNegotiation, resolveChoice, tickNegotiation, isLive } from '../engine/negotiation'
 import { contractStatus, renewalVerdict, renewalBaseWage, releaseOutcome } from '../engine/contractLifecycle'
@@ -29,12 +32,17 @@ import type { SquadRole } from '../engine/trials'
 import { trustFromMatchRating, trustFromTrainingGrade, decayTrust, decayConfidence } from '../engine/coachTrust'
 import { updateReputation, updateWatcherInterest, maybeAddWatcher, checkForOffers, type ScoutingState } from '../engine/scouting'
 import { checkPostMatchHeadlines, checkWeeklyHeadlines, initSyntheticScorer, driftSyntheticScorer, type Headline } from '../engine/headlines'
-import { initLeagueWorld, recordPlayerMatchResult, batchSimDivisionRound, applyPromotionRelegation, topScorerInDivision, type LeagueWorld } from '../engine/league'
+import { initLeagueWorld, initSchoolLeagueWorld, migrateToSchoolLeagueWorld, resetSchoolLeagueSeason, recordPlayerMatchResult, batchSimDivisionRound, applyPromotionRelegation, topScorerInDivision, sortStandings, type LeagueWorld } from '../engine/league'
 import { generateSquad } from '../engine/squad'
 import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycle'
 import { generateGazetteIssue } from '../engine/gazette'
 import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, applyAcademyPromotion, type AcademyWorld } from '../engine/academy'
 import { evaluateCaptaincy, recordCaptainAppearance, clearCaptaincyStory } from '../engine/captaincy'
+import { addQualification, archiveCompetitionSeason, initCompetitionCareer, recordCompetitionMatch, recordSelectionResult, scoutingPrestigeMultiplier, serveCompetitionSuspension } from '../engine/competitionCareer'
+import { defaultClubSupport, initYouthFinance, postTransaction, type FinanceCategory, type FinanceTransaction } from '../engine/youthFinances'
+import { addStoryMoment, createStoryMoment, type StoryMoment } from '../engine/presentation'
+import { academyEntryOpen, academyRecruitmentReport, academyTrialAvailable, migrateAcademyRecruitment, reviewAcademyShowcase } from '../engine/academyRecruitment'
+import { ageGroupFor, initYouthPathway, representativeSelection, selectionPassed } from '../engine/pathway'
 
 interface CareerStore {
   player: Player | null
@@ -71,6 +79,7 @@ interface CareerStore {
   /** P35: NSS-style contextual news toasts, distinct from the weekly Gazette. Drained one at a time. */
   pendingHeadlines: Headline[]
   clearHeadline: () => void
+  markStoryRead: (id: string) => void
   /** Short note about money/kit from the last week tick, shown on the hub. */
   economyNote: string | null
   /** Team-selection change from the last week tick, shown on the hub. */
@@ -111,8 +120,10 @@ interface CareerStore {
   setSchool: (schoolId: string) => void
   completeTrials: (role: SquadRole, trialPerformance: number) => void
   /** competitionId routes the result: 'sundayLeague' updates the league table; cup ids update their bracket; 'international' the nation's campaign; 'schoolFriendlies' nothing. shootoutWonByPlayer is only set for drawn knockout ties. */
-  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }, playerWonMotm?: boolean) => void
+  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }, playerWonMotm?: boolean, participation?: { minutes: number; started: boolean }) => void
   respondToOffer: (offerId: string, accept: boolean) => void
+  acceptSundayRegistration: () => void
+  resolveAcademyTrial: (offerId:string, passed:boolean, score:number) => void
   ensureLeagueWorld: () => void
 }
 
@@ -120,10 +131,71 @@ function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v))
 }
 
+/** Keep the legacy numeric balance and the V4 ledger in lockstep. */
+function applyFinancialDelta(player: Player, amount: number, category: FinanceCategory, description: string, coveredBy: FinanceTransaction['coveredBy'] = 'player'): Player {
+  if (!amount) return player
+  const before = player.money ?? 0
+  const after = Math.max(0, before + amount)
+  const actualAmount = after - before
+  return {
+    ...player,
+    money: after,
+    finances: postTransaction(player.finances, player.careerClock.phase, {
+      week: player.totalWeeksElapsed ?? 0,
+      amount: actualAmount,
+      category,
+      description,
+      coveredBy,
+    }),
+  }
+}
+
+function withStory(player: Player, calendar: CalendarState | null, input: Omit<StoryMoment, 'id' | 'read' | 'week' | 'season'>): Player {
+  const moment = createStoryMoment({
+    ...input,
+    week: calendar?.currentWeek.weekNumber ?? player.totalWeeksElapsed ?? 0,
+    season: calendar?.currentWeek.seasonYear ?? 1,
+  })
+  return { ...player, inbox: addStoryMoment(player.inbox, moment) }
+}
+
+
+function reviewAcademyOpportunities(player: Player, calendar: CalendarState): Player {
+  if (player.careerClock.phase === 'academy') return player
+  let updated = reviewAcademyShowcase(player, calendar)
+  const report = academyRecruitmentReport(updated, calendar)
+  const state: ScoutingState = {
+    reputation: updated.reputation,
+    watchers: updated.scoutWatchers.map(w => ({
+      club: { id: w.clubId, name: w.clubName, short: w.clubShort, ratings: w.ratings, prestige: w.prestige, primaryColor: '#888', secondaryColor: '#fff', notablePlayers: [] },
+      interest: w.interest, tier: w.tier as 'local' | 'regional' | 'national',
+      watchedMatches: w.watchedMatches, lastObservedWeek: w.lastObservedWeek, addedWeek: w.addedWeek,
+    })),
+    offers: [],
+  }
+  // Existing offers retain their original expiry; a club cannot issue another
+  // invitation while its existing one is still on the table.
+  state.watchers = state.watchers.filter(w => !updated.contractOffers.some(o => o.clubId === w.club.id))
+  const result = checkForOffers(state, updated.totalWeeksElapsed ?? 0, false, updated.careerClock.ageYears, report)
+  for (const offer of result.offers) {
+    updated = { ...updated,
+      scoutWatchers: updated.scoutWatchers.filter(w => w.clubId !== offer.club.id),
+      contractOffers: [...updated.contractOffers, { id: offer.id, clubId: offer.club.id, clubName: offer.club.name, clubShort: offer.club.short, ratings: offer.club.ratings, prestige: offer.club.prestige, kind: 'academy', weekOffered: offer.weekOffered, expiresInWeeks: offer.expiresInWeeks }],
+      pathway: updated.pathway?.academyTrialStatus === 'passed' ? updated.pathway : { ...(updated.pathway ?? initYouthPathway(updated)), academyTrialStatus: 'invited', academyTrialClubId: offer.club.id },
+    }
+    updated = withStory(updated, calendar, { kind: 'invitation', eyebrow: 'Academy invitation', title: `${offer.club.name.toUpperCase()} WANT YOU`,
+      body: 'After reviewing your long-term record and repeated scouting visits, the academy has invited you to a trial.',
+      detail: `${report.appearances} matches reviewed · ${report.average.toFixed(2)} average rating. Pass the trial before scholarship negotiations can begin.` })
+  }
+  return updated
+}
+
 // Backfill fields missing from older saves so schema drift never produces NaN/undefined.
 function migratePlayer(player: Player): Player {
   return {
     ...player,
+    grassrootsPath: player.grassrootsPath ?? (player.squadRole === 'released' ? 'sunday' : 'school'),
+    pathway: player.pathway ?? initYouthPathway(player),
     trainingMomentum: player.trainingMomentum ?? 0,
     matchRatings: player.matchRatings ?? [],
     seasonGoals: player.seasonGoals ?? 0,
@@ -152,7 +224,7 @@ function migratePlayer(player: Player): Player {
     reputation: player.reputation ?? 5,
     // drop any watcher/offer entries from saves predating clubId/ratings (schema-shape change, not just a missing field)
     scoutWatchers: (player.scoutWatchers ?? []).filter((w) => w && typeof w.clubId === 'string' && w.ratings),
-    contractOffers: (player.contractOffers ?? []).filter((o) => o && typeof o.clubId === 'string' && o.ratings && (o.kind === 'academy' || o.kind === 'professional')),
+    contractOffers: (player.contractOffers ?? []).filter((o) => o && typeof o.clubId === 'string' && o.ratings && (o.kind === 'academy' || o.kind === 'professional' || o.kind === 'club')),
     turnedPro: player.turnedPro ?? null,
     academyClubName: player.academyClubName ?? null,
     totalWeeksElapsed: player.totalWeeksElapsed ?? 0,
@@ -167,6 +239,13 @@ function migratePlayer(player: Player): Player {
     // P29 — careers saved before the economy existed start it now, with the
     // same two free drinks a new career gets rather than nothing.
     money: player.money ?? 25,
+    finances: {
+      ...initYouthFinance(player.careerClock.phase),
+      ...(player.finances ?? {}),
+      currency: 'GBP',
+      transactions: player.finances?.transactions ?? [],
+      sponsorships: player.finances?.sponsorships ?? [],
+    },
     equipment: player.equipment ?? [],
     consumables: player.consumables ?? { 'energy-drink': 2 },
     lastAllowanceWeek: player.lastAllowanceWeek ?? (player.totalWeeksElapsed ?? 0),
@@ -181,6 +260,12 @@ function migratePlayer(player: Player): Player {
     standing: player.standing ?? { teammates: 0, fans: 0 },
     // P36 — saves predating the trophy cabinet simply have an empty one.
     personalGlory: player.personalGlory ?? {},
+    competitionCareer: {
+      ...initCompetitionCareer(),
+      ...(player.competitionCareer ?? {}),
+      selections: player.competitionCareer?.selections ?? [],
+    },
+    inbox: player.inbox ?? [],
     suspensionMatches: player.suspensionMatches ?? 0,
     clubGlory: player.clubGlory ?? {},
     nationalGlory: player.nationalGlory ?? {},
@@ -201,18 +286,42 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   loadFromSlot: async (slot) => {
     const save = await readSave(slot)
     if (!save) return
-    setState({ player: migratePlayer(save.player), calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
+    let player = ensureSundayClub(repairSundayInvitation(migrateAcademyRecruitment(migratePlayer(save.player), save.calendar)), save.calendar.currentWeek.weekNumber)
+    const loadedCalendar = alignMatchDays(save.calendar, player.careerClock.phase, player.grassrootsPath ?? 'school', player.pathway?.sundayStatus === 'registered')
+    let league = save.league ?? null
+    player = migrateSundayContracts(player, player.grassrootsPath === 'school' ? player.sundayLeague : league, save.calendar.currentWeek.seasonYear)
+    if (player.pathway?.sundayStatus === 'squad-offer' && player.sundayLeague && !player.sundayContract) player = openSundayContractWindow(player, player.sundayLeague, save.calendar.currentWeek.seasonYear, true)
+    let cups = save.cups ?? { ...EMPTY_CUPS }
+    if (league && player.careerClock.phase !== 'academy' && player.grassrootsPath === 'school') {
+      const schoolName = (player.schoolId ? getSchool(player.schoolId)?.name : null) ?? 'Your School'
+      league = migrateToSchoolLeagueWorld(league, schoolName)
+      const teams = Object.values(league.divisions).flatMap((division) => division.teams)
+      const playerTeam = teams.find((team) => team.id === league!.playerTeamId)
+      cups = {
+        ...cups,
+        schoolCup: cups.schoolCup ? syncCupTeamIdentities(cups.schoolCup, teams) : playerTeam ? initCupById('schoolCup', playerTeam, teams) : null,
+        sundayCup: null,
+      }
+    }
+    setState({ player, calendar: loadedCalendar, league, academyLeague: save.academyLeague ?? null, cups, international: save.international ?? null, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
+    void getState().saveCurrent()
   },
 
   startNewCareer: async (player, calendar, slot) => {
     // Phase 28: every career opens with a cast — family, a friend, a coach, a rival.
     player = {
       ...player,
+      grassrootsPath: player.grassrootsPath ?? 'school',
+      sundayLeague: undefined, sundaySquad: undefined, leagueGoals: [], sundayContract: undefined, lastSundayOfferSeason: undefined, sundayContractsVersion: 1,
+      pathway: player.pathway ?? initYouthPathway(player),
       relationships: player.relationships ?? initialCast(),
       activeArcs: [], recentArcKeys: [],
       // P29: you start with a bit of birthday money and, as Joel asked,
       // two free energy drinks in the bag.
       money: 25,
+      finances: initYouthFinance(player.careerClock.phase),
+      competitionCareer: initCompetitionCareer(),
+      inbox: [],
       consumables: { 'energy-drink': 2 },
       equipment: [],
       lastAllowanceWeek: 0,
@@ -247,13 +356,13 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       nationalGlory: {},
     }
     setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, activeSlot: slot, pendingTraining: null })
-    await writeSave({ schemaVersion: 3, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null })
+    await writeSave({ schemaVersion: SAVE_SCHEMA_VERSION, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null })
   },
 
   saveCurrent: async () => {
     const { player, calendar, league, academyLeague, cups, international, activeSlot, pendingTraining } = getState()
     if (!player || !calendar || activeSlot === null) return
-    await writeSave({ schemaVersion: 3, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null })
+    await writeSave({ schemaVersion: SAVE_SCHEMA_VERSION, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null })
   },
 
   setPendingTraining: (snapshot) => {
@@ -268,14 +377,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   // (trials use ad-hoc opponents; the real league only needs to exist once trials are done).
   // Never runs during Academy phase — academyLeague governs matches there instead.
   ensureLeagueWorld: () => {
-    const { player, league, cups } = getState()
+    const { player, league, cups, calendar } = getState()
     if (!player || league || player.careerClock.phase === 'academy') return
     // Audit fix: 'Your School' placeholder shipped to players — use the actual
     // chosen school's name for the player's team.
     const school = player.schoolId ? getSchool(player.schoolId) : undefined
-    const teamName = school?.name ?? 'Your Team'
+    const schoolName = school?.name ?? 'Your School'
+    const isSchoolPath = player.grassrootsPath !== 'sunday'
+    const teamName = isSchoolPath ? schoolName : generateTeam(2).name
     const squad = player.squad ?? generateSquad(2)
-    const world = initLeagueWorld(teamName)
+    const world = isSchoolPath ? initSchoolLeagueWorld(teamName) : initLeagueWorld(teamName)
     const playerTeam = world.divisions[world.playerDivision].teams.find((t) => t.id === world.playerTeamId)!
     // P63 — real cross-division cup draws: every team across every
     // division in the league, not just fresh disconnected fake teams.
@@ -284,10 +395,12 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // registered in the calendar but never instantiated anywhere).
     const newCups: CupWorlds = {
       ...cups,
-      schoolCup: cups.schoolCup ?? initCupById('schoolCup', playerTeam, allLeagueTeams),
-      sundayCup: cups.sundayCup ?? initCupById('sundayCup', playerTeam, allLeagueTeams),
+      schoolCup: isSchoolPath ? (cups.schoolCup ?? initCupById('schoolCup', playerTeam, allLeagueTeams)) : null,
+      nationalChampionship: cups.nationalChampionship ?? null,
+      sundayCup: !isSchoolPath ? (cups.sundayCup ?? initCupById('sundayCup', playerTeam, allLeagueTeams)) : null,
     }
-    setState({ league: world, cups: newCups, player: { ...player, squad } })
+    const readyPlayer = !isSchoolPath && calendar ? openSundayContractWindow({ ...player, squad }, world, calendar.currentWeek.seasonYear, true) : { ...player, squad }
+    setState({ league: world, cups: newCups, player: readyPlayer })
     void getState().saveCurrent()
   },
 
@@ -312,8 +425,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       },
       coachTrust: clamp((player.coachTrust ?? 0) + (effect.coachTrust ?? 0), -10, 10),
       reputation: clamp((player.reputation ?? 0) + (effect.reputation ?? 0), 0, 100),
-      money: Math.max(0, (player.money ?? 0) + (effect.money ?? 0)),
     }
+    updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
+    if (effect.money) updatedPlayer = applyFinancialDelta(updatedPlayer, effect.money, 'other', effect.narrative || 'Life event')
     updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
 
     // Phase 28 — this is the link that makes the life layer causal:
@@ -392,6 +506,12 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   // deserves its own beat rather than being collapsed into one card
   clearArcVerdicts: () => setState({ pendingArcVerdicts: getState().pendingArcVerdicts.slice(1) }),
   clearHeadline: () => setState({ pendingHeadlines: getState().pendingHeadlines.slice(1) }),
+  markStoryRead: (id) => {
+    const player = getState().player
+    if (!player) return
+    setState({ player: { ...player, inbox: (player.inbox ?? []).map((item) => item.id === id ? { ...item, read: true } : item) } })
+    void getState().saveCurrent()
+  },
 
   // ---- P29 economy ----------------------------------------------------
   buyItem: (itemId) => {
@@ -401,14 +521,14 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     if (!shopFor(player).some((i) => i.id === itemId)) return { ok: false, reason: 'not available yet' }
     if ((player.money ?? 0) < item.price) return { ok: false, reason: 'not enough money' }
 
-    let next: Player = { ...player, money: (player.money ?? 0) - item.price }
+    let next: Player = applyFinancialDelta(player, -item.price, item.kind === 'equipment' ? 'equipment' : 'recovery', `Bought ${item.name}`)
     if (item.kind === 'consumable') {
       next = { ...next, consumables: { ...(next.consumables ?? {}), [itemId]: ((next.consumables ?? {})[itemId] ?? 0) + 1 } }
     } else {
       // One item per slot: buying new boots replaces the old pair rather than
       // stacking, so kit bonuses can never be piled up indefinitely.
       const kept = (next.equipment ?? []).filter((o) => itemById(o.itemId)?.slot !== item.slot)
-      const owned: OwnedEquipment = { itemId, weeksRemaining: item.durationWeeks ?? 8 }
+      const owned: OwnedEquipment = { itemId, weeksRemaining: item.durationWeeks ?? 8, condition: 100 }
       next = { ...next, equipment: [...kept, owned] }
     }
     setState({ player: next })
@@ -451,7 +571,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   grantCashFromAd: (amount) => {
     const { player } = getState()
     if (!player) return
-    setState({ player: { ...player, money: (player.money ?? 0) + amount } })
+    setState({ player: applyFinancialDelta(player, amount, 'reward', 'Rewarded video bonus') })
     void getState().saveCurrent()
   },
 
@@ -465,7 +585,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const continued = (player.lastRewardWeek ?? -1) === week - 1
     const streak = continued ? (player.rewardStreak ?? 0) + 1 : 0
     const reward = rewardForStreak(streak)
-    let next: Player = { ...player, rewardStreak: streak, lastRewardWeek: week, money: (player.money ?? 0) + (reward.money ?? 0) }
+    let next: Player = { ...player, rewardStreak: streak, lastRewardWeek: week }
+    if (reward.money) next = applyFinancialDelta(next, reward.money, 'reward', `Weekly check-in: ${reward.label}`)
     if (reward.itemId) {
       next = { ...next, consumables: { ...(next.consumables ?? {}), [reward.itemId]: ((next.consumables ?? {})[reward.itemId] ?? 0) + (reward.count ?? 1) } }
     }
@@ -483,14 +604,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // One job a week — see canWorkThisWeek. Without this the shop could be
     // farmed indefinitely inside a single week.
     if (!canWorkThisWeek(player)) return { ok: false }
-    setState({
-      player: {
-        ...player,
-        money: (player.money ?? 0) + job.pay,
-        lastJobWeek: player.totalWeeksElapsed ?? 0,
-        fitness: { stamina: Math.round(clamp(player.fitness.stamina - job.energyCost, 0, 100)) },
-      },
-    })
+    const paid = applyFinancialDelta(player, job.pay, 'job', job.label)
+    setState({ player: { ...paid, lastJobWeek: player.totalWeeksElapsed ?? 0, fitness: { stamina: Math.round(clamp(player.fitness.stamina - job.energyCost, 0, 100)) } } })
     void getState().saveCurrent()
     return { ok: true, pay: job.pay }
   },
@@ -501,8 +616,10 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const { player, calendar } = getState()
     if (!player || !calendar) return
     const event = nextUnresolvedEvent(calendar)
+    const competitionId = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)?.competitionId
+      ?? (nextUnresolvedEvent(calendar)?.title === 'international duty' ? 'international' : 'other')
     setState({
-      player: { ...player, suspensionMatches: Math.max(0, (player.suspensionMatches ?? 0) - 1) },
+      player: { ...player, suspensionMatches: Math.max(0, (player.suspensionMatches ?? 0) - 1), competitionCareer: serveCompetitionSuspension(player.competitionCareer, competitionId) },
       calendar: event ? markResolved(calendar, event.id) : calendar,
     })
     void getState().saveCurrent()
@@ -569,14 +686,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const weekly = player.contract?.terms.weeklyWage ?? Math.max(10, monthlyAllowance(player) / 4)
     const bondGain = Math.max(1, Math.min(12, Math.round((amt / weekly) * 6)))
 
-    setState({
-      player: {
-        ...player,
-        money: (player.money ?? 0) - amt,
-        relationships: adjustBond(player.relationships ?? [], parent.id, bondGain, `you sent money home`),
-        confidence: { ...player.confidence, value: clamp(player.confidence.value + 0.4, -10, 10) },
-      },
-    })
+    const sent = applyFinancialDelta(player, -amt, 'family-gift', 'Sent money home')
+    setState({ player: { ...sent, relationships: adjustBond(player.relationships ?? [], parent.id, bondGain, `you sent money home`), confidence: { ...player.confidence, value: clamp(player.confidence.value + 0.4, -10, 10) } } })
     void getState().saveCurrent()
     return { ok: true, bondGain }
   },
@@ -624,6 +735,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     if (isLive(player.negotiation)) return
     const offer = (player.contractOffers ?? []).find((o) => o.id === offerId)
     if (!offer || (offer.kind !== 'academy' && offer.kind !== 'professional')) return
+    if (offer.kind === 'academy' && (!academyTrialAvailable(player, offerId, getState().calendar) || player.pathway?.academyTrialStatus !== 'passed' || player.pathway.academyTrialClubId !== offer.clubId)) return
     const negotiation = startNegotiation(player, offer.clubId, offer.clubName, offer.prestige, offer.kind)
     setState({ player: { ...player, negotiation }, negotiationBeat: negotiation.log[0] })
     void getState().saveCurrent()
@@ -632,6 +744,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   makeNegotiationChoice: (choiceId) => {
     const { player } = getState()
     if (!player?.negotiation || !isLive(player.negotiation)) return
+    if (player.negotiation.kind === 'academy' && (!academyEntryOpen(player, getState().calendar) || player.pathway?.academyTrialStatus !== 'passed' || player.pathway.academyTrialClubId !== player.negotiation.clubId)) return
     const outcome = resolveChoice(player.negotiation, choiceId, player)
     const next: Player = { ...player, negotiation: outcome.negotiation }
 
@@ -640,13 +753,13 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       const week = player.totalWeeksElapsed ?? 0
       const dealKind = player.negotiation.kind ?? 'academy'
       // The signing-on fee lands immediately, minus the agent's cut.
-      const signed: Player = {
+      let signed: Player = {
         ...next,
         contract: { clubName, terms, signedWeek: week, expiresWeek: week + terms.years * SEASON_WEEKS },
-        money: (next.money ?? 0) + netWage(terms.signingBonus, next.agentId),
         careerEarnings: (next.careerEarnings ?? 0) + terms.signingBonus,
         agentFeesPaid: (next.agentFeesPaid ?? 0) + commissionOn(terms.signingBonus, next.agentId),
       }
+      signed = applyFinancialDelta(signed, netWage(terms.signingBonus, next.agentId), 'wage', `${clubName} signing bonus`)
       // P33: the pipeline now closes three different deals.
       if (dealKind === 'renewal') {
         // Same club, fresh terms — no world transition, just a new contract.
@@ -763,13 +876,13 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // fixture additionally depends on real recent form — eligible doesn't
     // mean automatic, matching how a real youth call-up actually works.
     let updatedInternational = international
-    if (!updatedInternational && isCallUpEligible(toOvr(computeCurrentAbility(player)))) {
+    if (!updatedInternational && player.pathway?.nationalSelection === 'selected' && representativeEvidence(player, 'national').eligible) {
       const nation = getNation(player.nationality)
       updatedInternational = initInternationalWorld(nation.name)
     }
     const campaignActive = !!updatedInternational && updatedInternational.stage !== 'complete' && updatedInternational.stage !== 'not-qualified'
-    const hasDuty = campaignActive && formQualifiesForSelection(player.matchRatings ?? [])
-    const result = advanceWeek(calendar, player.careerClock.ageYears, phase, hasDuty)
+    const hasDuty = campaignActive && player.pathway?.nationalSelection === 'selected' && representativeEvidence(player, 'national').eligible && formQualifiesForSelection(player.matchRatings ?? [])
+    const result = advanceWeek(calendar, player.careerClock.ageYears, phase, hasDuty, player.grassrootsPath, player.pathway?.sundayStatus === 'registered')
     // injuries count down by ~1 week per week advance; clear when recovered
     const injuryStillOut = player.injury && player.injury.weeksRemaining > 1
     // coach trust decays gently toward neutral each week (spec: needs reinforcement)
@@ -793,6 +906,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // the division's simulation. Promotion/relegation still applies at season end regardless.
     // Same treatment applies to the academy world once the player has transitioned there.
     let updatedLeague = league
+    let updatedSundayLeague = player.sundayLeague ? simulateSundayThrough(player.sundayLeague, completedWeekNumber) : undefined
     let updatedAcademyLeague = academyLeague
     let updatedCups: CupWorlds = { ...cups }
     const isInAcademy = phase === 'academy'
@@ -801,9 +915,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // the previous code only ever handled 'sundayLeague' while the calendar
     // reserved matchdays for five other competitions that didn't exist at
     // runtime, producing 20 dead matchdays a season and zero cup football.
-    const weekCompetition = activeCompetitionForWeek(completedWeekNumber, phase)
+    const weekCompetition = activeCompetitionForWeek(completedWeekNumber, phase, player.grassrootsPath)
 
-    if (weekCompetition?.competitionId === 'sundayLeague') {
+    if (weekCompetition?.competitionId === 'sundayLeague' || weekCompetition?.competitionId === 'schoolLeague') {
       const round = weekCompetition.round
       if (!isInAcademy && updatedLeague) {
         const division = updatedLeague.divisions[updatedLeague.playerDivision]
@@ -889,38 +1003,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       }
     }
 
-    // P27 — REALISTIC CLUB TRANSFERS (grassroots only; academy moves stay the
-    // scouted academy-offer path). During the mid-season window (weeks 18-24)
-    // and the run-in window (weeks 40-43), Sunday League clubs who've seen
-    // enough — reputation + recent form — can approach you to join THEM next
-    // Saturday. The approaching club is a REAL team from the league world (you
-    // would genuinely play with that squad in that division), never a
-    // fabricated one, and stronger divisions demand more reputation.
-    let clubApproachOffers = survivingOffers
-    const inTransferWindow = (completedWeekNumber >= 18 && completedWeekNumber <= 24) || (completedWeekNumber >= 40 && completedWeekNumber <= 43)
-    if (!isInAcademy && updatedLeague && inTransferWindow && !player.injury) {
-      const recentForm = (player.matchRatings ?? []).slice(-5)
-      const formAvg = recentForm.length >= 3 ? recentForm.reduce((a, b) => a + b, 0) / recentForm.length : 0
-      const rep = player.reputation ?? 0
-      const alreadyHasClubOffer = clubApproachOffers.some((o) => o.kind === 'club')
-      // ~8% of window weeks with good form + some reputation — a couple of
-      // approaches per strong season, none for a quiet one.
-      if (!alreadyHasClubOffer && formAvg >= 6.8 && rep >= 12 && rand() < 0.08) {
-        const targetTier = rep >= 35 && updatedLeague.playerDivision > 1
-          ? updatedLeague.playerDivision - 1 // a division above comes calling
-          : updatedLeague.playerDivision // a stronger side in your own division
-        const division = updatedLeague.divisions[targetTier as 1 | 2 | 3]
-        const candidates = division.teams.filter((t) => t.id !== updatedLeague!.playerTeamId)
-        const club = candidates[Math.floor(rand() * candidates.length)]
-        if (club) {
-          clubApproachOffers = [...clubApproachOffers, {
-            id: crypto.randomUUID(), clubId: club.id, clubName: club.name, clubShort: club.short,
-            weekOffered: nextTotalWeeks, expiresInWeeks: 3, prestige: club.prestige, ratings: club.ratings,
-            kind: 'club' as const, divisionTier: targetTier,
-          }]
-        }
-      }
-    }
+    // Sunday clubs issue one contract batch at the season boundary, never weekly approaches.
+    const clubApproachOffers = survivingOffers
 
     // P33: build the review BEFORE promotion/relegation and the stat reset, so
     // it reports the season that was actually played.
@@ -928,7 +1012,22 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     let personalAwardsWon: import('../engine/glory').PersonalGloryKey[] = []
     let clubAwardsWon: import('../engine/glory').ClubGloryKey[] = []
     let nationalAwardWon = false
+    const seasonCompetitionOutcomes: Record<string, string> = {}
     if (result.seasonEnded) {
+      const finishingDivision = isInAcademy
+        ? updatedAcademyLeague?.divisions[updatedAcademyLeague.playerDivision]
+        : updatedLeague?.divisions[updatedLeague.playerDivision]
+      const finishingTeamId = isInAcademy ? updatedAcademyLeague?.playerTeamId : updatedLeague?.playerTeamId
+      if (finishingDivision && finishingTeamId) {
+        const position = sortStandings(finishingDivision.standings).findIndex((s) => s.teamId === finishingTeamId) + 1
+        if (position > 0) seasonCompetitionOutcomes[isInAcademy ? 'academyLeague' : updatedLeague?.kind === 'sunday' ? 'sundayLeague' : 'schoolLeague'] = `Finished ${position}${position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th'}`
+      }
+      for (const cup of Object.values(updatedCups)) {
+        if (!cup) continue
+        seasonCompetitionOutcomes[cup.competitionId] = cup.playerWonCup ? 'Champion' : cup.playerEliminated ? 'Eliminated' : cup.stage === 'complete' ? 'Completed' : 'In progress'
+      }
+      if (updatedInternational) seasonCompetitionOutcomes.international = updatedInternational.wonTournament ? 'Champion' : updatedInternational.stage === 'not-qualified' ? 'Did not qualify' : updatedInternational.stage === 'complete' ? 'Eliminated' : 'In progress'
+
       // `player` (not the post-tick copy) still holds the season just played.
       seasonReview = buildSeasonReview(
         player,
@@ -952,7 +1051,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     }
 
     if (result.seasonEnded) {
-      if (!isInAcademy && updatedLeague) updatedLeague = applyPromotionRelegation(updatedLeague)
+      if (updatedSundayLeague) updatedSundayLeague = applyPromotionRelegation(updatedSundayLeague)
+      if (!isInAcademy && updatedLeague?.kind === 'sunday') updatedLeague = applyPromotionRelegation(updatedLeague)
+      if (!isInAcademy && updatedLeague?.kind === 'school') updatedLeague = resetSchoolLeagueSeason(updatedLeague)
       if (isInAcademy && updatedAcademyLeague) updatedAcademyLeague = applyAcademyPromotion(updatedAcademyLeague)
       // Fresh cup draws every season; a finished international campaign resets
       // too (eligibility is re-checked, so a star keeps getting called up).
@@ -961,8 +1062,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       const allLeagueTeams = updatedLeague ? Object.values(updatedLeague.divisions).flatMap((d) => d.teams) : []
       const allAcademyTeams = updatedAcademyLeague ? Object.values(updatedAcademyLeague.divisions).flatMap((d) => d.teams) : []
       updatedCups = {
-        schoolCup: !isInAcademy && grassrootsTeam ? initCupById('schoolCup', grassrootsTeam, allLeagueTeams) : null,
-        sundayCup: !isInAcademy && grassrootsTeam ? initCupById('sundayCup', grassrootsTeam, allLeagueTeams) : null,
+        schoolCup: !isInAcademy && updatedLeague?.kind === 'school' && grassrootsTeam ? initCupById('schoolCup', grassrootsTeam, allLeagueTeams) : null,
+        nationalChampionship: null,
+        sundayCup: !isInAcademy && updatedLeague?.kind === 'sunday' && grassrootsTeam ? initCupById('sundayCup', grassrootsTeam, allLeagueTeams) : null,
         academyLeagueCup: isInAcademy && academyTeam ? initCupById('academyLeagueCup', academyTeam, allAcademyTeams) : null,
         academyKnockoutCup: isInAcademy && academyTeam ? initCupById('academyKnockoutCup', academyTeam, allAcademyTeams) : null,
       }
@@ -1010,7 +1112,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
             opponentName: opponent.name,
             opponentPrestige: opponent.prestige,
             ownPrestige: ownTeam.prestige,
-            competitionLabel: isInAcademy ? 'the league' : 'the Sunday League',
+            competitionLabel: isInAcademy ? 'the league' : updatedLeague?.kind === 'school' ? 'the Local School League' : 'the Sunday League',
             isRivalOrCup: false,
           }
         }
@@ -1040,6 +1142,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       relationships: driftedRelationships,
       standing: driftedStanding,
       squad: updatedSquad,
+      sundayLeague: updatedSundayLeague,
+      sundaySquad: result.seasonEnded ? player.sundaySquad?.map(p => ({ ...p, seasonGoals: 0, seasonAssists: 0 })) : player.sundaySquad,
+      leagueGoals: result.seasonEnded ? [] : player.leagueGoals,
       gazetteIssues: [...(player.gazetteIssues ?? []), gazetteIssue].slice(-8),
       // season tallies reset at each season boundary (so "season goals" != career goals)
       seasonGoals: result.seasonEnded ? 0 : player.seasonGoals,
@@ -1066,6 +1171,10 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       personalGlory: personalAwardsWon.length > 0 ? addGlory(player.personalGlory, personalAwardsWon) : player.personalGlory,
       clubGlory: clubAwardsWon.length > 0 ? addGlory(player.clubGlory, clubAwardsWon) : player.clubGlory,
       nationalGlory: nationalAwardWon ? addGlory(player.nationalGlory, ['internationalTrophy'] as const) : player.nationalGlory,
+      pathway: { ...(player.pathway ?? initYouthPathway(player)), ageGroup:ageGroupFor(result.newAge), ...(result.seasonEnded?{regionalSelection:'not-started' as const,nationalSelection:'not-started' as const,regionalScore:undefined,nationalScore:undefined,showcaseInvited:false,showcaseSeason:undefined}:{}) },
+      competitionCareer: result.seasonEnded
+        ? archiveCompetitionSeason(player.competitionCareer, calendar.currentWeek.seasonYear, seasonCompetitionOutcomes)
+        : player.competitionCareer,
       injury: injuryStillOut ? { ...player.injury!, weeksRemaining: player.injury!.weeksRemaining - 1 } : null,
       coachTrust: clamp(decayedTrust.value + relEffects.trustDrift, -10, 10),
       confidence: { ...player.confidence, value: clamp(decayedConfidence + relEffects.confidenceSupport, -10, 10) },
@@ -1080,6 +1189,24 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
           : player.careerClock.grassrootsSeason,
       },
     }
+    if (!isInAcademy && updatedLeague?.kind === 'school' && !result.seasonEnded) {
+      const pathway=updatedPlayer.pathway??initYouthPathway(updatedPlayer)
+      if(completedWeekNumber===20){const d=updatedLeague.divisions[updatedLeague.playerDivision];const position=sortStandings(d.standings).findIndex(s=>s.teamId===updatedLeague!.playerTeamId)+1;const qualified=position>0&&position<=3;if(!qualified&&updatedCups.schoolCup)updatedCups={...updatedCups,schoolCup:{...updatedCups.schoolCup,playerEliminated:true}};if(qualified)updatedPlayer={...updatedPlayer,competitionCareer:addQualification(updatedPlayer.competitionCareer,{competitionId:'schoolLeague',qualifiedFor:'schoolCup',season:calendar.currentWeek.seasonYear,reason:'league-position',position})};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:qualified?'qualification':'elimination',eyebrow:'Local School League · final table',title:qualified?'REGIONAL CUP QUALIFIED':'SCHOOL RUN ENDS HERE',body:qualified?`A ${position}${position===1?'st':position===2?'nd':'rd'}-place finish sends your school into the 24-team Regional Schools Cup.`:'Your school missed the top three. Your individual performances can still earn a Regional XI longlist place.',detail:qualified?'Four groups of six. Five group matches. The top two in each group reach the quarter-finals.':'Selection staff judge the player, not only the school result.',ceremony:qualified?'draw':'selection'})}
+      else if(completedWeekNumber===28&&pathway.regionalSelection==='not-started'){const score=representativeSelection(updatedPlayer,'regional');const ok=score.eligible===true&&score.total>=44;updatedPlayer={...updatedPlayer,pathway:{...pathway,regionalSelection:ok?'longlist':'cut',regionalScore:score}};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:ok?'selection':'elimination',eyebrow:'Regional XI · 60-player longlist',title:ok?'YOUR NAME IS ON THE LIST':'NOT ON THE LONGLIST',body:ok?'Your school performances earned a place at the regional selection camp.':'You missed this regional window, but your school and Sunday performances can reopen it next season.',detail:`${score.reason} Selection score ${score.total}/100 · positional rank ${score.positionalRank}.`,ceremony:'selection',metrics:[{label:'Performance',value:score.performance,suffix:'%'},{label:'Ability',value:score.ability,suffix:'%'},{label:'Coach trust',value:score.coachTrust,suffix:'%'},{label:'Total',value:score.total,suffix:'/100',tone:ok?'good':'bad'}]})}
+      else if(completedWeekNumber===29&&pathway.regionalSelection==='longlist'){updatedPlayer={...updatedPlayer,pathway:{...pathway,regionalSelection:'camp'}};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:'selection',eyebrow:'Regional XI · selection camp',title:'FINAL SESSION',body:'Sixty players have become thirty-five. Every touch is being judged by position.',detail:'Form, ability, coach trust, fitness and mentality all count toward the final 23.',ceremony:'selection'})}
+      else if(completedWeekNumber===30&&pathway.regionalSelection==='camp'&&pathway.regionalScore){const finalScore=representativeSelection(updatedPlayer,'regional');pathway.regionalScore=finalScore;const ok=selectionPassed(finalScore,'regional');updatedPlayer={...updatedPlayer,pathway:{...pathway,regionalSelection:ok?'selected':'cut'},competitionCareer:recordSelectionResult(updatedPlayer.competitionCareer,{competitionId:'regionalSelection',season:calendar.currentWeek.seasonYear,round:3,entrants:60,survivors:23,score:pathway.regionalScore.total,outcome:ok?'selected':'cut'})};const base=updatedLeague.divisions[updatedLeague.playerDivision].teams.find(t=>t.id===updatedLeague!.playerTeamId);if(ok&&base)updatedCups={...updatedCups,nationalChampionship:initCupById('nationalChampionship',{...base,id:`regional-xi-${calendar.currentWeek.seasonYear}`,name:'Your Regional XI',short:'RXI',prestige:Math.max(5,base.prestige+2)})};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:ok?'selection':'elimination',eyebrow:'Regional XI · final 23',title:ok?'REGIONAL XI':'THE FINAL CUT',body:ok?'Your shirt is hanging in the regional dressing room. You will play at the National Schools Championship.':'Another player edged the final place in your position. The coaches have explained exactly where the gap was.',detail:`Final score ${pathway.regionalScore.total}/100 · positional rank ${pathway.regionalScore.positionalRank}.`,ceremony:ok?'callup':'selection',metrics:[{label:'Final score',value:pathway.regionalScore.total,suffix:'/100',tone:ok?'good':'bad'},{label:'Position rank',value:pathway.regionalScore.positionalRank},{label:'Squad places',value:23}]})}
+      else if(completedWeekNumber===35&&pathway.regionalSelection==='selected'&&pathway.nationalSelection==='not-started'&&representativeEvidence(updatedPlayer,'national').eligible){const score=representativeSelection(updatedPlayer,'national');updatedPlayer={...updatedPlayer,pathway:{...pathway,nationalSelection:'longlist',nationalScore:score}};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:'selection',eyebrow:'National schools · shortlist',title:'NATIONAL CONSIDERATION',body:'The championship selectors have reduced the country to one final camp.',detail:`You enter camp ranked ${score.positionalRank} in your position with a score of ${score.total}/100.`,ceremony:'selection',metrics:[{label:'Championship form',value:score.performance,suffix:'%'},{label:'Selection score',value:score.total,suffix:'/100'}]})}
+      else if(completedWeekNumber===35&&pathway.regionalSelection==='selected'&&pathway.nationalSelection==='not-started'){const evidence=representativeEvidence(updatedPlayer,'national');updatedPlayer={...updatedPlayer,pathway:{...pathway,nationalSelection:'cut'}};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:'selection',eyebrow:'National schools review',title:'MORE TO PROVE',body:'You have not yet built the championship record needed for national selection.',detail:evidence.reason,ceremony:'selection'})}
+      else if(completedWeekNumber===36&&pathway.nationalSelection==='longlist'&&pathway.nationalScore){const finalScore=representativeSelection(updatedPlayer,'national');pathway.nationalScore=finalScore;const ok=selectionPassed(finalScore,'national');updatedPlayer={...updatedPlayer,pathway:{...pathway,nationalSelection:ok?'selected':'cut'},competitionCareer:recordSelectionResult(updatedPlayer.competitionCareer,{competitionId:'nationalSelection',season:calendar.currentWeek.seasonYear,round:2,entrants:35,survivors:23,score:pathway.nationalScore.total,outcome:ok?'selected':'cut'})};updatedPlayer=withStory(updatedPlayer,result.calendar,{kind:ok?'selection':'elimination',eyebrow:'National schools · final squad',title:ok?'COUNTRY CALLED':'NOT THIS WINDOW',body:ok?'You have earned the national shirt. International youth football is next.':'You were close, but the final national place went elsewhere. Your pathway stays open.',detail:`Final score ${pathway.nationalScore.total}/100 · positional rank ${pathway.nationalScore.positionalRank}.`,ceremony:ok?'callup':'selection',metrics:[{label:'Final score',value:pathway.nationalScore.total,suffix:'/100',tone:ok?'good':'bad'},{label:'Position rank',value:pathway.nationalScore.positionalRank}]})}
+    }
+    const newClubApproach = clubApproachOffers.find((offer) => offer.kind === 'club' && !(player.contractOffers ?? []).some((old) => old.id === offer.id))
+    if (newClubApproach) {
+      updatedPlayer = withStory(updatedPlayer, result.calendar, {
+        kind: 'invitation', eyebrow: 'Club approach', title: `${newClubApproach.clubName.toUpperCase()} ARE WATCHING`,
+        body: 'A grassroots club has offered you a new route through the youth game.',
+        detail: 'The offer expires. Review the club, its division and what the move would mean for your place.',
+      })
+    }
     // 3) P29 economy tick: kit wears out, and the allowance lands monthly.
     const { equipment: agedEquipment, expired } = ageEquipment(updatedPlayer.equipment)
     updatedPlayer = { ...updatedPlayer, equipment: agedEquipment }
@@ -1090,11 +1217,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // Your parents stop the allowance once the club is paying you.
     if (!updatedPlayer.contract && allowanceDue(updatedPlayer)) {
       const amount = monthlyAllowance(updatedPlayer)
-      updatedPlayer = {
-        ...updatedPlayer,
-        money: (updatedPlayer.money ?? 0) + amount,
-        lastAllowanceWeek: updatedPlayer.totalWeeksElapsed ?? 0,
-      }
+      updatedPlayer = applyFinancialDelta(updatedPlayer, amount, 'allowance', 'Family allowance', 'family')
+      updatedPlayer = { ...updatedPlayer, lastAllowanceWeek: updatedPlayer.totalWeeksElapsed ?? 0 }
       lastEconomyNote = lastEconomyNote
         ? `${lastEconomyNote} Allowance came in: £${amount}.`
         : `Allowance came in: £${amount}.`
@@ -1114,9 +1238,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const SETTLE_WEEKS = 3
     const weeksSinceSet = (updatedPlayer.totalWeeksElapsed ?? 0) - (updatedPlayer.squadRoleSetWeek ?? 0)
     const verdict = decideSelection(updatedPlayer, updatedPlayer.squad)
-    if (verdict.changed && weeksSinceSet >= SETTLE_WEEKS) {
-      updatedPlayer = { ...updatedPlayer, squadRole: verdict.role, squadRoleSetWeek: updatedPlayer.totalWeeksElapsed ?? 0 }
+    if (!matchAvailability(updatedPlayer).canStart) lastSelectionNote = verdict.reason
+    if (verdict.changed && weeksSinceSet >= SETTLE_WEEKS && matchAvailability(updatedPlayer).canStart) {
+      updatedPlayer = { ...updatedPlayer, squadRole:verdict.role, squadRoleSetWeek:updatedPlayer.totalWeeksElapsed??0, pathway:updatedPlayer.pathway?{...updatedPlayer.pathway,schoolSquad:verdict.role==='reserves'?'reserve':updatedPlayer.grassrootsPath==='sunday'?'released':'first'}:updatedPlayer.pathway }
       lastSelectionNote = verdict.reason
+      updatedPlayer = withStory(updatedPlayer, result.calendar, {
+        kind: 'squad', eyebrow: 'Squad announcement',
+        title: verdict.role === 'starting-xi' ? 'YOU ARE IN THE STARTING XI' : verdict.role === 'bench' ? 'NAMED ON THE BENCH' : 'MOVED TO THE RESERVES',
+        body: verdict.reason,
+        detail: `Your role is now ${verdict.role === 'starting-xi' ? 'Starting XI' : verdict.role}.`,
+      })
     } else if (verdict.changed) {
       // A change is warranted but hasn't settled yet — surface the pecking
       // order itself so it's visible, not silent, even while nothing moves.
@@ -1134,12 +1265,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       // Digs, travel and food come straight back out — a scholarship is income
       // AND independence, not free money.
       const living = weeklyLivingCost(updatedPlayer)
-      updatedPlayer = {
-        ...updatedPlayer,
-        money: Math.max(0, (updatedPlayer.money ?? 0) + netWage(gross, updatedPlayer.agentId) - living),
-        careerEarnings: (updatedPlayer.careerEarnings ?? 0) + gross,
-        agentFeesPaid: (updatedPlayer.agentFeesPaid ?? 0) + fee,
-      }
+      updatedPlayer = applyFinancialDelta(updatedPlayer, netWage(gross, updatedPlayer.agentId), 'wage', `${updatedPlayer.contract.clubName} weekly allowance`, 'academy')
+      updatedPlayer = applyFinancialDelta(updatedPlayer, -living, 'living-cost', 'Digs, travel and food')
+      updatedPlayer = { ...updatedPlayer, careerEarnings: (updatedPlayer.careerEarnings ?? 0) + gross, agentFeesPaid: (updatedPlayer.agentFeesPaid ?? 0) + fee }
+    }
+
+    const sundayWorldForPay = player.grassrootsPath === 'school' ? player.sundayLeague : league
+    if (hasSundayContract(player, calendar.currentWeek.seasonYear, sundayWorldForPay) && player.sundayContract!.lastPaidWeek !== player.totalWeeksElapsed) {
+      const contract = player.sundayContract!
+      updatedPlayer = applyFinancialDelta(updatedPlayer, contract.weeklyWage, 'wage', `${contract.clubName} Sunday league salary`)
+      updatedPlayer = { ...updatedPlayer, sundayContract: { ...contract, lastPaidWeek: player.totalWeeksElapsed }, careerEarnings: (updatedPlayer.careerEarnings ?? 0) + contract.weeklyWage }
     }
 
     // 3b2) P33 — CONTRACT LIFECYCLE. Found by playing a career to the end: a
@@ -1224,9 +1359,26 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     if (newArc) arcPlayer = { ...arcPlayer, activeArcs: [...(arcPlayer.activeArcs ?? []), newArc] }
 
     // Career end: reaching the age cap (20) without turning pro is the fail-state
-    const finalPlayer = result.reachedAgeCap
+    let finalPlayer = result.reachedAgeCap
       ? { ...arcPlayer, careerEnded: true }
       : arcPlayer
+    if(result.seasonEnded&&result.newAge>=18&&!isInAcademy&&finalPlayer.grassrootsPath==='school'&&!finalPlayer.careerEnded){finalPlayer={...finalPlayer,grassrootsPath:'sunday',squadRole:'bench',pathway:{...(finalPlayer.pathway??initYouthPathway(finalPlayer)),schoolSquad:'released',sundayInterest:100,sundayStatus:'registered'}};finalPlayer=withStory(finalPlayer,result.calendar,{kind:'milestone',eyebrow:'Age 18 · school leaver',title:'SCHOOL FOOTBALL COMPLETE',body:'Your school career is over, but your football career is not. Sunday football, showcases and academy opportunities remain open.',detail:'There are no dead careers: keep performing and another route can find you.',ceremony:'callup'});updatedLeague=updatedSundayLeague??null;finalPlayer={...finalPlayer,squad:finalPlayer.sundaySquad??finalPlayer.squad,sundayLeague:undefined,sundaySquad:undefined};updatedSundayLeague=undefined;updatedCups={...EMPTY_CUPS}}
+    if (result.seasonEnded && finalPlayer.careerClock.phase !== 'academy' && !finalPlayer.careerEnded) {
+      const contractWorld = finalPlayer.grassrootsPath === 'school' ? finalPlayer.sundayLeague : updatedLeague
+      if (contractWorld) {
+        finalPlayer = openSundayContractWindow(finalPlayer, contractWorld, result.calendar.currentWeek.seasonYear, false, player)
+        if (finalPlayer.contractOffers.some(o => o.kind === 'club')) finalPlayer = withStory(finalPlayer, result.calendar, { kind: 'invitation', eyebrow: 'Sunday transfer week · week 1', title: 'CHOOSE YOUR NEXT SEASON',
+          body: 'The season is complete. Review your renewal and any approaches from other clubs.',
+          detail: 'This is the one-week transfer window. Each deal lasts for the full new season; club names, divisions and weekly wages are shown in Offers.' })
+      }
+    }
+    finalPlayer = reviewAcademyOpportunities(finalPlayer, result.calendar)
+    const hasPyramidMovement = isInAcademy || updatedLeague?.kind === 'sunday'
+    if (result.seasonEnded && hasPyramidMovement && seasonReview?.promoted) {
+      finalPlayer = withStory(finalPlayer, result.calendar, { kind: 'promotion', eyebrow: 'Season verdict', title: 'PROMOTED', body: 'Your team has earned a place at the next level.', detail: seasonReview.verdict })
+    } else if (result.seasonEnded && hasPyramidMovement && seasonReview?.relegated) {
+      finalPlayer = withStory(finalPlayer, result.calendar, { kind: 'relegation', eyebrow: 'Season verdict', title: 'RELEGATED', body: 'The season ends with your team dropping a division.', detail: seasonReview.verdict })
+    }
 
     // P35 — weekly headlines: title race / relegation tension / golden boot
     // chase / a big cup tie coming up. Checked once per week, separate from
@@ -1257,7 +1409,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       worldTeamNames: divisionForHeadlines?.teams.map((t) => t.name) ?? [],
     })
 
-    setState({ player: finalPlayer, calendar: result.calendar, league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
+    setState({ player: finalPlayer, calendar: alignMatchDays(result.calendar, finalPlayer.careerClock.phase, finalPlayer.grassrootsPath ?? 'school', finalPlayer.pathway?.sundayStatus === 'registered'), league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
     // Non-match achievements (scouts noticing you, offers arriving, coach trust,
     // reputation, squad role, injury comeback) have no match to hang off, so the
     // week tick is their trigger. Runs after setState so it reads the new state.
@@ -1322,7 +1474,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   },
 
   completeTrials: (role, performance) => {
-    const { player } = getState()
+    const { player, calendar } = getState()
     if (!player) return
     // Trial performance nudges starting attributes within a small band (potential untouched).
     // Strong trials (+) lift attrs slightly; poor trials (-) start lower. Never exceeds potential.
@@ -1331,19 +1483,32 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     for (const k of Object.keys(values)) {
       values[k] = clamp(Math.round((values[k] + band) * 10) / 10, 1, player.potential - 1)
     }
-    const updatedPlayer: Player = {
+    let updatedPlayer: Player = {
       ...player,
       attributes: { ...player.attributes, values } as Player['attributes'],
       squadRole: role,
+      grassrootsPath: role === 'released' ? 'sunday' : 'school',
+      pathway: { ...(player.pathway??initYouthPathway(player)), schoolSquad:role==='released'?'released':role==='reserves'?(performance<.5?'development':'reserve'):'first', sundayInterest:role==='released'?100:0, sundayStatus:role==='released'?'registered':'undiscovered' },
       squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
       trialWeekCompleted: 3,
       careerClock: { ...player.careerClock, phase: 'grassroots-season' },
+      competitionCareer: recordSelectionResult(player.competitionCareer, {
+        competitionId: 'schoolTrials', season: calendar?.currentWeek.seasonYear ?? 1, round: 4,
+        entrants: 60, survivors: 20, score: Math.round(performance * 100),
+        outcome: role === 'released' ? 'cut' : 'selected',
+      }),
     }
+    updatedPlayer = withStory(updatedPlayer, calendar, {
+      kind: 'selection', eyebrow: 'Final squad reveal',
+      title: role === 'released' ? 'YOU HAVE BEEN CUT' : role === 'starting-xi' ? 'STARTING XI' : role === 'bench' ? 'YOU MADE THE SQUAD' : 'DEVELOPMENT SQUAD',
+      body: role === 'released' ? 'The school coaches made their decision. Your next route is Sunday football, where strong performances can reopen the academy pathway.' : `The coaches selected you for the ${role === 'starting-xi' ? 'starting eleven' : role}. You will represent your school in the local league and Regional Schools Cup.`,
+      detail: `Trial score: ${Math.round(performance * 100)}. The selection was earned from your performance, ability, fitness and coach trust.`,
+    })
     setState({ player: updatedPlayer })
     void getState().saveCurrent()
   },
 
-  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats, playerWonMotm = false) => {
+  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats, playerWonMotm = false, participation) => {
     const { player, calendar, league, academyLeague, cups, international } = getState()
     if (!player || !calendar) return
     // P24 rebalance: was tuned for a 9-match season; the flat 2/-1 values
@@ -1355,15 +1520,22 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // P27 'Maverick' passive: confidence swings amplified in BOTH directions
     const swing = archetypeConfidenceSwingMultiplier(player.archetype)
     const confDelta = (rating >= 7 ? 1.1 : rating >= 6 ? 0.2 : -0.6) * swing
-    const wasStarter = player.squadRole === 'starting-xi'
+    if (!matchAvailability(player).canPlay || participation?.minutes === 0) { getState().resolveCurrentEvent(); return }
+    const wasStarter = matchAvailability(player).canStart && (participation?.started ?? playerForMatch(player, competitionId).squadRole === 'starting-xi')
     const isInAcademy = player.careerClock.phase === 'academy'
+    if (!isInAcademy && (competitionId === 'sundayLeague' || competitionId === 'sundayCup') && !hasSundayContract(player, calendar.currentWeek.seasonYear, player.grassrootsPath === 'school' ? player.sundayLeague : league)) { getState().resolveCurrentEvent(); return }
+    const careerCompetitionId = competitionId === 'sundayLeague' && isInAcademy ? 'academyLeague' : competitionId
+    const matchStories: Omit<StoryMoment, 'id' | 'read' | 'week' | 'season'>[] = []
 
     // Route the result to the RIGHT competition — league table only moves for
     // league matches; cup brackets and the international campaign own theirs;
     // friendlies touch nothing but the player.
-    const isLeagueMatch = competitionId === 'sundayLeague'
-    let updatedLeague = isLeagueMatch && !isInAcademy && league ? recordPlayerMatchResult(league, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome) : league
-    let updatedAcademyLeague = isLeagueMatch && isInAcademy && academyLeague ? recordAcademyMatchResult(academyLeague, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome) : academyLeague
+    const isSideSunday = !isInAcademy && player.grassrootsPath === 'school' && competitionId === 'sundayLeague'
+    const isLeagueMatch = competitionId === 'sundayLeague' || competitionId === 'schoolLeague'
+    let updatedSundayLeague = isSideSunday && player.sundayLeague ? recordPlayerMatchResult(player.sundayLeague, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, goals) : player.sundayLeague
+    if (isSideSunday && updatedSundayLeague) updatedSundayLeague = simulateSundayThrough(updatedSundayLeague, calendar.currentWeek.weekNumber, false)
+    let updatedLeague = isLeagueMatch && !isSideSunday && !isInAcademy && league ? recordPlayerMatchResult(league, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, goals) : league
+    let updatedAcademyLeague = isLeagueMatch && isInAcademy && academyLeague ? recordAcademyMatchResult(academyLeague, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, goals) : academyLeague
 
     // P60 — "round results" on the match summary screen needs the REST of
     // this week's fixtures simulated too, not just the player's own. That
@@ -1374,8 +1546,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // player's own result. includePlayerTeam stays false — that fixture is
     // already recorded above, batchSimDivisionRound correctly skips
     // anything already marked played.
-    if (isLeagueMatch) {
-      const roundInfo = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase)
+    if (isLeagueMatch && !isSideSunday) {
+      const roundInfo = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)
       if (roundInfo) {
         if (!isInAcademy && updatedLeague) {
           const division = updatedLeague.divisions[updatedLeague.playerDivision]
@@ -1397,6 +1569,13 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       if (cupWorld) {
         let next = recordCupPlayerResult(cupWorld, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, shootoutWonByPlayer)
         next = advanceCupStage(next)
+        if (!cupWorld.playerWonCup && next.playerWonCup) {
+          matchStories.push({ kind: 'champion', eyebrow: cupWorld.label, title: 'CHAMPIONS', body: `You and your teammates have won the ${cupWorld.label}.`, detail: 'This trophy is now part of your permanent career history.', ceremony:'trophy' })
+        } else if (!cupWorld.playerEliminated && next.playerEliminated) {
+          matchStories.push({ kind: 'elimination', eyebrow: cupWorld.label, title: 'ELIMINATED', body: `Your run in the ${cupWorld.label} is over.`, detail: 'The world keeps moving. Your league season and other pathways remain alive.' })
+        } else if (cupWorld.stage === 'group' && next.stage === 'knockout' && !next.playerEliminated) {
+          matchStories.push({ kind: 'qualification', eyebrow: cupWorld.label, title: 'QUALIFIED', body: 'You have advanced from the group stage.', detail: 'The knockout draw is now waiting in the Competition Hub.', ceremony:'draw' })
+        }
         updatedCups = { ...cups, [key]: next }
       }
     }
@@ -1404,6 +1583,13 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     if (competitionId === 'international' && international) {
       updatedInternational = recordNationResult(international, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, shootoutWonByPlayer)
       updatedInternational = advanceInternationalStage(updatedInternational)
+      if (!international.wonTournament && updatedInternational.wonTournament) {
+        matchStories.push({ kind: 'champion', eyebrow: 'International youth football', title: 'INTERNATIONAL CHAMPIONS', body: 'You have won a tournament for your country.', detail: 'This is the biggest stage in the youth game.', ceremony:'trophy' })
+      } else if (international.stage !== 'complete' && updatedInternational.stage === 'complete' && !updatedInternational.wonTournament) {
+        matchStories.push({ kind: 'elimination', eyebrow: 'International youth football', title: 'TOURNAMENT OVER', body: 'Your country has been eliminated.', detail: 'Your performances remain on your career record and in front of national-level scouts.' })
+      } else if (international.stage === 'qualifiers' && updatedInternational.stage === 'finals') {
+        matchStories.push({ kind: 'qualification', eyebrow: 'International youth football', title: 'FINALS QUALIFIED', body: 'Your country has reached the international finals.', detail: 'The pressure—and the scouting exposure—just increased.' })
+      }
     }
 
     // Coach Trust: aggregate from this match's performance relative to expectations (spec)
@@ -1418,6 +1604,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       watchers: (player.scoutWatchers ?? []).map((w) => ({
         club: { id: w.clubId, name: w.clubName, short: w.clubShort, ratings: w.ratings, prestige: w.prestige, primaryColor: '#888', secondaryColor: '#fff', notablePlayers: [] },
         interest: w.interest, tier: w.tier as 'local' | 'regional' | 'national',
+        watchedMatches: w.watchedMatches, lastObservedWeek: w.lastObservedWeek, addedWeek: w.addedWeek,
       })),
       // 'club' transfer approaches are a P27 store-level concept the scouting
       // engine doesn't know about — hold them aside and merge back after.
@@ -1431,16 +1618,33 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       tackles: matchStats?.tackle ?? 0, interceptions: matchStats?.interception ?? 0,
       headers: matchStats?.header ?? 0, keyPasses: matchStats?.keyPass ?? 0, saves: matchStats?.save ?? 0,
       cleanSheet: opponentGoalsScored === 0,
+      competitionPrestigeMultiplier: scoutingPrestigeMultiplier(careerCompetitionId),
     })
-    scoutingOut = updateWatcherInterest(scoutingOut, rating)
-    scoutingOut = maybeAddWatcher(scoutingOut)
-    scoutingOut = checkForOffers(scoutingOut, player.totalWeeksElapsed ?? 0, isInAcademy, player.careerClock.ageYears)
+    if (player.careerClock.ageYears >= 16) {
+      scoutingOut = updateWatcherInterest(scoutingOut, rating, player.totalWeeksElapsed ?? 0)
+      scoutingOut = maybeAddWatcher(scoutingOut, player.careerClock.ageYears, player.totalWeeksElapsed ?? 0)
+    } else {
+      scoutingOut = { ...scoutingOut, watchers: [] }
+    }
+    if (isInAcademy) scoutingOut = checkForOffers(scoutingOut, player.totalWeeksElapsed ?? 0, true, player.careerClock.ageYears)
+    const newOffer = scoutingOut.offers.find((offer) => !scoutingIn.offers.some((old) => old.id === offer.id))
+    if (newOffer) {
+      matchStories.push({
+        kind: 'invitation', eyebrow: newOffer.kind === 'academy' ? 'Academy invitation' : 'Professional opportunity',
+        title: `${newOffer.club.name.toUpperCase()} WANT YOU`,
+        body: newOffer.kind === 'academy' ? 'Your performances have earned an academy invitation.' : 'A club is ready to discuss your first professional contract.',
+        detail: 'Open your offers before the invitation expires.',
+      })
+    }
 
     // weekly stamina reflects how the match actually went, not a flat cost —
     // a player subbed early or barely used ends up less drained (Section 5)
-    const updatedPlayer: Player = {
+    let updatedPlayer: Player = {
       ...player,
-      squad: squad ?? player.squad,
+      squad: isSideSunday ? player.squad : squad ?? player.squad,
+      sundaySquad: isSideSunday ? squad ?? player.sundaySquad : player.sundaySquad,
+      sundayLeague: updatedSundayLeague,
+      leagueGoals: isLeagueMatch ? recordLeagueGoals(player, careerCompetitionId, isSideSunday ? player.sundayLeague?.playerDivision ?? 3 : isInAcademy ? academyLeague?.playerDivision ?? 2 : league?.playerDivision ?? 1, goals) : player.leagueGoals,
       lastMatchResult: opponentName
         ? { opponentName, playerScore: playerGoalsScored, opponentScore: opponentGoalsScored, playerGoals: goals, playerAssists: assists, playerRating: rating }
         : player.lastMatchResult,
@@ -1480,8 +1684,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
         }
         const bucket: keyof typeof prev =
           competitionId === 'international' ? 'international'
-          : competitionId === 'sundayLeague' ? 'league'
-          : competitionId === 'schoolCup' || competitionId === 'sundayCup' || competitionId === 'academyLeagueCup' || competitionId === 'academyKnockoutCup' ? 'cup'
+          : competitionId === 'sundayLeague' || competitionId === 'schoolLeague' ? 'league'
+          : competitionId === 'schoolCup' || competitionId === 'nationalChampionship' || competitionId === 'sundayCup' || competitionId === 'academyLeagueCup' || competitionId === 'academyKnockoutCup' ? 'cup'
           : 'other'
         return {
           ...prev,
@@ -1492,6 +1696,18 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
           },
         }
       })(),
+      competitionCareer: recordCompetitionMatch(player.competitionCareer, {
+        competitionId: careerCompetitionId,
+        season: calendar.currentWeek.seasonYear,
+        started: wasStarter,
+        minutes: participation?.minutes ?? (wasStarter ? 90 : player.squadRole === 'bench' ? 30 : 15),
+        rating,
+        goals,
+        assists,
+        cleanSheet: player.position === 'GK' && opponentGoalsScored === 0,
+        redCarded,
+        playerOfMatch: rating >= 8.3 && (goals + assists > 0 || (player.position === 'GK' && opponentGoalsScored === 0)),
+      }),
       confidence: { ...player.confidence, value: clamp(player.confidence.value + confDelta, -10, 10) },
       fitness: { stamina: Math.round(clamp(Math.min(finalMatchStamina, player.fitness.stamina), 0, 100)) },
       injury: injury ? { severity: injury.severity, weeksRemaining: injury.weeksOut, description: injury.description } : player.injury,
@@ -1515,12 +1731,21 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       })),
       coachTrust: trustState.value,
       reputation: scoutingOut.reputation,
-      scoutWatchers: scoutingOut.watchers.map((w) => ({ clubId: w.club.id, clubName: w.club.name, clubShort: w.club.short, interest: w.interest, tier: w.tier, prestige: w.club.prestige, ratings: w.club.ratings })),
+      scoutWatchers: scoutingOut.watchers.map((w) => ({ clubId: w.club.id, clubName: w.club.name, clubShort: w.club.short, interest: w.interest, tier: w.tier, prestige: w.club.prestige, ratings: w.club.ratings, watchedMatches: w.watchedMatches, lastObservedWeek: w.lastObservedWeek, addedWeek: w.addedWeek })),
       contractOffers: [
         ...scoutingOut.offers.map((o) => ({ id: o.id, clubId: o.club.id, clubName: o.club.name, clubShort: o.club.short, weekOffered: o.weekOffered, expiresInWeeks: o.expiresInWeeks, prestige: o.club.prestige, ratings: o.club.ratings, kind: o.kind as 'academy' | 'professional' | 'club' })),
         ...(player.contractOffers ?? []).filter((o) => o.kind === 'club'),
       ],
     }
+    if(newOffer?.kind==='academy')updatedPlayer={...updatedPlayer,pathway:{...(updatedPlayer.pathway??initYouthPathway(updatedPlayer)),academyTrialStatus:'invited',academyTrialClubId:newOffer.club.id}}
+    if (!isInAcademy && player.grassrootsPath === 'school' && ['schoolLeague', 'schoolReserveLeague', 'schoolCup'].includes(competitionId)) {
+      const previousStatus = updatedPlayer.pathway?.sundayStatus
+      updatedPlayer = ensureSundayClub(updateSundayRecruitment(updatedPlayer, rating), calendar.currentWeek.weekNumber)
+      if (updatedPlayer.pathway?.sundayStatus === 'squad-offer' && updatedPlayer.sundayLeague) updatedPlayer = openSundayContractWindow(updatedPlayer, updatedPlayer.sundayLeague, calendar.currentWeek.seasonYear, true)
+      if (updatedPlayer.pathway?.sundayStatus === 'training-invite' && previousStatus !== 'training-invite' && previousStatus !== 'squad-offer') matchStories.push({ kind: 'invitation', eyebrow: 'Community football', title: 'SUNDAY CLUB INVITE', body: `${sundayClub(updatedPlayer.sundayLeague)?.name ?? 'A local club'} have followed your school performances and invited you to train.`, detail: 'Keep performing to earn a squad offer. This is community football; academy scouting starts at 16.' })
+    }
+    updatedPlayer = reviewAcademyOpportunities(updatedPlayer, calendar)
+    for (const story of matchStories) updatedPlayer = withStory(updatedPlayer, calendar, story)
     const event = nextUnresolvedEvent(calendar)
     const updatedCalendar = event ? markResolved(calendar, event.id) : calendar
     // P35 — post-match headlines, checked off the exact scouting before/after
@@ -1556,8 +1781,11 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       // in the league world. New teammates, new coach (trust resets to
       // neutral, role back to bench: earn your shirt), your standings history
       // stays with your old club exactly like real football.
-      const { league } = getState()
-      if (!league || !offer.divisionTier) return
+      const sideRegistration = player.grassrootsPath === 'school' && !!player.sundayLeague
+      const league = sideRegistration ? player.sundayLeague : getState().league
+      if (!league || !offer.divisionTier || offer.weeklyWage === undefined || offer.contractSeason !== calendar.currentWeek.seasonYear || (player.totalWeeksElapsed ?? 0) - offer.weekOffered >= offer.expiresInWeeks) return
+      if (hasSundayContract(player, calendar.currentWeek.seasonYear, league)) return
+      if (player.sundayContract && calendar.currentWeek.weekNumber !== 1) return
       const division = league.divisions[offer.divisionTier as 1 | 2 | 3]
       const target = division.teams.find((t) => t.id === offer.clubId)
       if (!target) {
@@ -1565,17 +1793,26 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
         void getState().saveCurrent()
         return
       }
-      const movedLeague: LeagueWorld = { ...league, playerDivision: offer.divisionTier as 1 | 2 | 3, playerTeamId: target.id }
-      const movedPlayer: Player = {
+      const movedLeague = simulateSundayThrough({ ...league, playerDivision: offer.divisionTier as 1 | 2 | 3, playerTeamId: target.id }, calendar.currentWeek.weekNumber - 1)
+      let movedPlayer: Player = {
         ...player,
         contractOffers: remainingOffers.filter((o) => o.kind !== 'club'),
-        squad: generateSquad(target.prestige),
-        squadRole: 'bench',
+        sundayContract: { clubId: target.id, clubName: target.name, division: offer.divisionTier as 1 | 2 | 3, season: calendar.currentWeek.seasonYear, weeklyWage: offer.weeklyWage },
+        sundayContractsVersion: 1,
+        pathway: { ...(player.pathway ?? initYouthPathway(player)), sundayStatus: 'registered' },
+        squad: sideRegistration ? player.squad : generateSquad(target.prestige),
+        sundayLeague: sideRegistration ? movedLeague : player.sundayLeague,
+        sundaySquad: sideRegistration ? generateSquad(target.prestige) : player.sundaySquad,
+        leagueGoals: recordLeagueGoals(player, 'sundayLeague', league.playerDivision, 0),
+        squadRole: sideRegistration ? player.squadRole : 'bench',
         squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
-        coachTrust: 0,
+        coachTrust: sideRegistration ? player.coachTrust : 0,
         reputation: clamp((player.reputation ?? 0) + 3, 0, 100),
       }
-      setState({ player: movedPlayer, league: movedLeague })
+      movedPlayer = withStory(movedPlayer, calendar, { kind: 'selection', eyebrow: 'Sunday season contract', title: offer.renewal ? 'CONTRACT RENEWED' : 'SUNDAY CONTRACT SIGNED',
+        body: `${target.name} · Division ${offer.divisionTier} · £${offer.weeklyWage} per week.`,
+        detail: 'You are committed for the season. The next Sunday transfer window is at the season boundary. School matches are on Thursdays; Sunday league matches are on Sundays.', ceremony: 'callup' })
+      setState({ player: movedPlayer, calendar: alignMatchDays(calendar, player.careerClock.phase, player.grassrootsPath ?? 'school', true), ...(sideRegistration ? {} : { league: movedLeague }) })
       getState().runAchievementCheck()
       void getState().saveCurrent()
       return
@@ -1596,25 +1833,39 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // P30: academy moves now run through the negotiation pipeline, so this
     // path just delegates. The transition itself lives in completeAcademyMove
     // so signing day can trigger it directly.
-    getState().completeAcademyMove(offer.clubName, offer.prestige)
+    getState().beginNegotiation(offer.id)
   },
 
-  completeAcademyMove: (clubName, prestige) => {
+  acceptSundayRegistration: () => {
     const { player } = getState()
-    if (!player) return
+    const offer = player?.contractOffers.find(o => o.kind === 'club' && o.weeklyWage !== undefined)
+    if (offer) getState().respondToOffer(offer.id, true)
+  },
+  resolveAcademyTrial:(offerId,passed,score)=>{const{player,calendar}=getState();if(!player)return;const offer=player.contractOffers.find(x=>x.id===offerId);if(!offer||!academyTrialAvailable(player,offerId,calendar))return;passed=passed&&score>=62;let updated:Player={...player,contractOffers:passed?player.contractOffers:player.contractOffers.filter(x=>x.id!==offerId),pathway:{...(player.pathway??initYouthPathway(player)),academyTrialStatus:passed?'passed':'failed',academyTrialClubId:offer.clubId},competitionCareer:recordSelectionResult(player.competitionCareer,{competitionId:'academyTrials',season:calendar?.currentWeek.seasonYear??1,round:1,entrants:30,survivors:16,score,outcome:passed?'selected':'cut'})};updated=withStory(updated,calendar,{kind:passed?'selection':'elimination',eyebrow:`${offer.clubName} academy trial`,title:passed?'TRIAL PASSED':'TRIAL ENDS HERE',body:passed?'The academy have invited you into scholarship negotiations.':'The academy chose other players, but you return to your current team with the pathway still alive.',detail:`Trial score ${score}/100 · required 62.`,ceremony:'selection',metrics:[{label:'Trial score',value:score,suffix:'/100',tone:passed?'good':'bad'},{label:'Pass mark',value:62,suffix:'/100'}]});setState({player:updated});void getState().saveCurrent()},
+
+  completeAcademyMove: (clubName, prestige) => {
+    const { player, calendar } = getState()
+    if (!player || !academyEntryOpen(player, calendar) || player.pathway?.academyTrialStatus !== 'passed' || player.negotiation?.kind !== 'academy' || player.negotiation.stage !== 'complete' || player.negotiation.clubName !== clubName || player.pathway.academyTrialClubId !== player.negotiation.clubId) return
     // Academy offer accepted: Grassroots → Academy transition. Reset scouting state
     // (a fresh academy career starts its own reputation/watchers) and initialize the
     // academy league world, discarding the Grassroots one.
-    const updatedPlayer: Player = {
+    let updatedPlayer: Player = {
       ...player,
       academyClubName: clubName,
+      sundayLeague: undefined, sundaySquad: undefined, sundayContract: undefined,
       squadRole: 'bench', // a new academy signing starts as unproven, not an automatic starter (was carrying over stale Grassroots trial status)
       squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
       contractOffers: [],
       scoutWatchers: [],
       reputation: 15, // academy signings start with modest built-in reputation, not zero
       careerClock: { ...player.careerClock, phase: 'academy', grassrootsSeason: null },
+      finances: { ...(player.finances ?? initYouthFinance('academy')), currency: 'GBP', clubSupport: defaultClubSupport('academy') },
     }
+    updatedPlayer = withStory(updatedPlayer, null, {
+      kind: 'invitation', eyebrow: 'Academy pathway', title: 'WELCOME TO THE ACADEMY',
+      body: `${clubName} is your new home. The level, support and expectations have all changed.`,
+      detail: 'You begin on the bench. Earn your place through training and match performances.',
+    })
     // Clamp to the Professional Development League's actual prestige range (5-7) — the
     // originating scout's own prestige (which can be as low as 1 for a local watcher)
     // must not become the academy team's strength, or the player could be dropped into
@@ -1626,6 +1877,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // their place (same depth, per the locked product strategy).
     const academyCups: CupWorlds = {
       schoolCup: null,
+      nationalChampionship: null,
       sundayCup: null,
       academyLeagueCup: initCupById('academyLeagueCup', academyTeam, allAcademyTeams),
       academyKnockoutCup: initCupById('academyKnockoutCup', academyTeam, allAcademyTeams),

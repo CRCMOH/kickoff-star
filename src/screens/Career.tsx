@@ -4,6 +4,11 @@ import { nextUnresolvedEvent, activeCompetitionForWeek } from '../engine/calenda
 import { playerCupFixture, CUP_CONFIGS } from '../engine/cup'
 import { nationFixture, internationalTeamById } from '../engine/international'
 import { generateTeam } from '../engine/teams'
+import { canPlayYouthShowcase } from '../engine/academyRecruitment'
+import { hasSundayContract } from '../engine/sundayContracts'
+import { matchAvailability, playerForMatch } from '../engine/selection'
+import { representativeEvidence } from '../engine/youthOpportunities'
+import { formQualifiesForSelection } from '../engine/international'
 import { rand } from '../engine/rng'
 import { sfx } from '../engine/audio'
 import { playMusic, pauseMusic } from '../engine/music'
@@ -35,7 +40,10 @@ import StreetGameScreen from './StreetGameScreen'
 import StreetInvite from './StreetInvite'
 import RestDayScreen from './RestDayScreen'
 import MatchDayScreen from './MatchDayScreen'
+import AcademyTrialScreen from './AcademyTrialScreen'
 import type { HubTab } from '../components/navItems'
+import type { RatingBreakdown } from '../engine/ratingSystemV32'
+import type { PlayerMatchStats } from '../engine/matchStats'
 
 type Mode =
   | { kind: 'hub' }
@@ -44,14 +52,15 @@ type Mode =
   | { kind: 'rest' }
   | { kind: 'matchday'; opponent: Team; isHome: boolean; competitionId: string; competitionLabel: string; isKnockout: boolean }
   | { kind: 'match'; opponent: Team; isHome: boolean; competitionId: string; competitionLabel: string; isKnockout: boolean }
-  | { kind: 'shootout'; opponent: Team; isHome: boolean; competitionId: string; isKnockout: boolean; matchResult: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } } }
-  | { kind: 'summary'; rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; opponent: Team; playerGoalsScored: number; opponentGoalsScored: number; playerWasHome: boolean; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; competitionId: string; isKnockout: boolean; shootoutWon?: boolean; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number } }
+  | { kind: 'shootout'; opponent: Team; isHome: boolean; competitionId: string; isKnockout: boolean; matchResult: { rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; playerScore: number; opponentScore: number; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number }; playerStats: PlayerMatchStats; ratingBreakdown?: RatingBreakdown; minutesPlayed: number; yellowCards: number } }
+  | { kind: 'summary'; rating: number; goals: number; assists: number; won: boolean; drew: boolean; finalMatchStamina: number; injury: { severity: string; weeksOut: number; description: string } | null; wasSubbed: boolean; redCarded: boolean; opponent: Team; playerGoalsScored: number; opponentGoalsScored: number; playerWasHome: boolean; motm?: { playerWon: boolean; winnerName: string; winnerRating: number; winnerPosition: string }; squad?: import('../engine/squad').SquadPlayer[]; competitionId: string; isKnockout: boolean; shootoutWon?: boolean; matchStats: { tackle: number; interception: number; header: number; keyPass: number; save: number }; playerStats: PlayerMatchStats; ratingBreakdown?: RatingBreakdown; minutesPlayed: number; yellowCards: number }
   | { kind: 'impact'; before: ImpactSnapshot; after: ImpactSnapshot; matchXp: number; tier: import('../engine/xp').CompetitionTier; playerName: string; rating: number; goals: number; assists: number; won: boolean; drew: boolean }
   | { kind: 'allocate-match'; matchXp: number; tier: import('../engine/xp').CompetitionTier }
   | { kind: 'allocate-training'; xp: number; attrs: import('../engine/xp').AttributeKey[] }
   | { kind: 'offers' }
   | { kind: 'agent' }
   | { kind: 'negotiation' }
+  | { kind:'academy-trial'; offerId:string; clubName:string }
   | { kind: 'street-invite'; variant: 'street' | 'small-sided' }
   | { kind: 'street-game'; variant: 'street' | 'small-sided' }
 
@@ -73,6 +82,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   const applyMatchResult = useCareerStore((s) => s.applyMatchResult)
   const spendAttributeXp = useCareerStore((s) => s.spendAttributeXp)
   const respondToOffer = useCareerStore((s) => s.respondToOffer)
+  const resolveAcademyTrial=useCareerStore(s=>s.resolveAcademyTrial)
   const beginNegotiation = useCareerStore((s) => s.beginNegotiation)
   const applyStreetGameResult = useCareerStore((s) => s.applyStreetGameResult)
   const ensureLeagueWorld = useCareerStore((s) => s.ensureLeagueWorld)
@@ -135,7 +145,13 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   // On international duty you walk out for your NATION, not your club.
   const nationTeam = international ? internationalTeamById(international).get(international.nationTeamId) : undefined
   const inIntlMode = (mode.kind === 'matchday' || mode.kind === 'match' || mode.kind === 'summary') && mode.competitionId === 'international'
-  const playerTeam = inIntlMode && nationTeam ? nationTeam : clubTeam
+  const modeCompetitionId=mode.kind==='matchday'||mode.kind==='match'||mode.kind==='summary'||mode.kind==='shootout'?mode.competitionId:null
+  const modeCup=modeCompetitionId?(cups as unknown as Record<string,import('../engine/cup').CupWorld|null>)[modeCompetitionId]:null
+  const cupPlayerTeam=modeCup?.teams.find(t=>t.id===modeCup.playerTeamId)
+  const sundayWorld = player.sundayLeague
+  const sundayTeam = sundayWorld?.divisions[sundayWorld.playerDivision].teams.find(t => t.id === sundayWorld.playerTeamId)
+  const playerTeam = modeCompetitionId === 'sundayLeague' && !isInAcademy && player.grassrootsPath === 'school' && sundayTeam ? sundayTeam : inIntlMode && nationTeam ? nationTeam : cupPlayerTeam??clubTeam
+  const matchdayPlayer = playerForMatch(player, modeCompetitionId ?? '')
   const pending = nextUnresolvedEvent(calendar)
 
   const handleContinue = () => {
@@ -161,7 +177,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
       // Midweek international duty is its own slot, independent of Saturday.
       if (pending.title === 'international duty') {
         const fx = international ? nationFixture(international) : null
-        if (!international || !fx) { resolveCurrentEvent(); return }
+        if (!international || !fx || player.pathway?.nationalSelection !== 'selected' || !representativeEvidence(player, 'national').eligible || !formQualifiesForSelection(player.matchRatings)) { resolveCurrentEvent(); return }
         const byId = internationalTeamById(international)
         const nationIsHome = fx.homeTeamId === international.nationTeamId
         const opponent = byId.get(nationIsHome ? fx.awayTeamId : fx.homeTeamId)
@@ -169,11 +185,24 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: nationIsHome, competitionId: 'international', competitionLabel: international.stage === 'finals' ? 'International Finals' : 'International Qualifier', isKnockout: international.stage === 'finals' })
         return
       }
+      if (pending.title === 'Sunday league fixture' || pending.title === 'Sunday community fixture') {
+        if (!sundayWorld || player.pathway?.sundayStatus !== 'registered') { resolveCurrentEvent(); return }
+        const division = sundayWorld.divisions[sundayWorld.playerDivision]
+        const fixture = division.fixtures.find(f => !f.played && f.week <= calendar.currentWeek.weekNumber && (f.homeTeamId === sundayWorld.playerTeamId || f.awayTeamId === sundayWorld.playerTeamId))
+        if (!fixture) { resolveCurrentEvent(); return }
+        const isHome = fixture.homeTeamId === sundayWorld.playerTeamId
+        const opponent = division.teams.find(t => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))
+        if (!opponent) { resolveCurrentEvent(); return }
+        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: `Sunday League · Division ${sundayWorld.playerDivision}`, isKnockout: false })
+        return
+      }
 
-      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase)
+      const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)
       if (!comp) { resolveCurrentEvent(); return }
 
-      if (comp.competitionId === 'sundayLeague') {
+      if (comp.competitionId === 'sundayLeague' || comp.competitionId === 'schoolLeague') {
+        const schoolSquad=player.pathway?.schoolSquad
+        if(!isInAcademy&&comp.competitionId==='schoolLeague'&&(schoolSquad==='reserve'||schoolSquad==='development')){const development=schoolSquad==='development';const opponent=generateTeam(Math.max(1,Math.min(5,playerTeam.prestige+(rand()<.5?-1:0))));setMode({kind:'matchday',opponent,isHome:rand()<.5,competitionId:development?'schoolDevelopmentLeague':'schoolReserveLeague',competitionLabel:development?'School Development Fixture':'School Reserve League',isKnockout:false});return}
         const fixture = playerDivision.fixtures
           .filter((f) => !f.played && f.week <= comp.round && (f.homeTeamId === activeWorld.playerTeamId || f.awayTeamId === activeWorld.playerTeamId))
           .sort((a, b) => a.week - b.week)[0]
@@ -183,7 +212,8 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         const isHome = fixture.homeTeamId === activeWorld.playerTeamId
         const opponent = playerDivision.teams.find((t) => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))
         if (!opponent) { resolveCurrentEvent(); return }
-        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: isInAcademy ? 'League' : 'Sunday League', isKnockout: false })
+        const competitionLabel = isInAcademy ? 'League' : comp.competitionId === 'schoolLeague' ? 'Local School League' : 'Sunday League'
+        setMode({ kind: 'matchday', opponent, isHome, competitionId: comp.competitionId, competitionLabel, isKnockout: false })
         return
       }
 
@@ -194,6 +224,9 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: rand() < 0.5, competitionId: 'schoolFriendlies', competitionLabel: 'School Friendly', isKnockout: false })
         return
       }
+      if(comp.competitionId==='youthShowcase'){if(!canPlayYouthShowcase(player,calendar)){setMode({kind:'training'});return}const opponent=generateTeam(Math.max(5,Math.min(9,playerTeam.prestige+3)));setMode({kind:'matchday',opponent,isHome:true,competitionId:'youthShowcase',competitionLabel:'National Youth Showcase',isKnockout:false});return}
+
+      if (comp.competitionId === 'nationalChampionship' && (player.pathway?.regionalSelection !== 'selected' || !representativeEvidence(player, 'regional').eligible)) { setMode({ kind: 'training' }); return }
 
       // A cup competition. If the player is eliminated (or the cup's done),
       // Saturday becomes extra training — never a dead tap.
@@ -276,10 +309,16 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'rest') {
     return <RestDayScreen player={player} onChoose={handleRestChoice} />
   }
+  if ((mode.kind === 'matchday' || mode.kind === 'match') && !isInAcademy && (mode.competitionId === 'sundayLeague' || mode.competitionId === 'sundayCup') && !hasSundayContract(player, calendar.currentWeek.seasonYear, player.grassrootsPath === 'school' ? sundayWorld : league)) {
+    return <div className="min-h-screen bg-ks-black flex items-center justify-center px-5"><div className="max-w-sm w-full rounded-xl border border-ks-border p-6 text-center"><h1 className="font-display text-xl text-ks-gold">SUNDAY REGISTRATION</h1><p className="text-sm text-ks-ink mt-3">You need a signed season contract to play for this club.</p><button className="w-full bg-ks-gold text-ks-black rounded-lg py-3 mt-4" onClick={() => setMode({ kind: 'offers' })}>review contracts</button><button className="w-full text-ks-muted py-3" onClick={() => { resolveCurrentEvent(); setMode({ kind: 'hub' }) }}>sit out this fixture</button></div></div>
+  }
+  if ((mode.kind === 'matchday' || mode.kind === 'match') && !matchAvailability(player).canPlay) {
+    return <div className="min-h-screen bg-ks-black flex items-center justify-center px-5"><div className="max-w-sm w-full rounded-2xl border border-ks-border p-6 text-center"><h1 className="font-display text-ks-gold text-2xl">RESTED FOR THIS MATCH</h1><p className="text-ks-ink mt-3">Your energy is {Math.round(player.fitness.stamina)}%. Below 30%, you cannot play.</p><p className="text-ks-muted text-sm mt-2">Your team will play without you. Recover to at least 50% to be considered for a starting place.</p><button className="w-full bg-ks-gold text-ks-black rounded-xl py-3 mt-5" onClick={() => { resolveCurrentEvent(); setMode({ kind: 'hub' }) }}>sit out this match →</button></div></div>
+  }
   if (mode.kind === 'matchday') {
     return (
       <MatchDayScreen
-        player={player}
+        player={matchdayPlayer}
         playerTeam={playerTeam}
         opponent={mode.opponent}
         isHome={mode.isHome}
@@ -291,7 +330,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'match') {
     return (
       <MatchScreen
-        player={player}
+        player={matchdayPlayer}
         playerTeam={playerTeam}
         opponent={mode.opponent}
         playerIsHome={mode.isHome}
@@ -345,6 +384,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
       <MatchSummary
         rating={mode.rating} goals={mode.goals} assists={mode.assists} won={mode.won} drew={mode.drew}
         injury={mode.injury} wasSubbed={mode.wasSubbed} redCarded={mode.redCarded}
+        playerStats={mode.playerStats} ratingBreakdown={mode.ratingBreakdown} minutesPlayed={mode.minutesPlayed} yellowCards={mode.yellowCards}
         shootout={needsShootout ? { won: shootoutWon! } : null}
         onDone={() => {
           // P47 — Joel: "show the actual number increase." Snapshot BEFORE
@@ -362,7 +402,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           applyMatchResult(
             mode.rating, mode.goals, mode.assists, mode.finalMatchStamina, mode.injury,
             mode.opponent.id, mode.playerGoalsScored, mode.opponentGoalsScored, mode.playerWasHome,
-            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats, mode.motm?.playerWon
+            mode.squad, mode.opponent.name, mode.competitionId, shootoutWon, mode.redCarded, mode.matchStats, mode.motm?.playerWon, { minutes: mode.minutesPlayed, started: matchdayPlayer.squadRole === 'starting-xi' }
           )
           // Must run AFTER the result lands — career counters are what most
           // achievements read, and they only exist once applyMatchResult has run.
@@ -384,7 +424,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           // more development" rule wasn't actually reaching academy cups.
           const tier: import('../engine/xp').CompetitionTier =
             mode.competitionId === 'international' ? 'international'
-            : mode.competitionId === 'schoolCup' || mode.competitionId === 'sundayCup' || mode.competitionId === 'academyLeagueCup' || mode.competitionId === 'academyKnockoutCup' ? 'cup'
+            : mode.competitionId === 'schoolCup' || mode.competitionId === 'nationalChampionship' || mode.competitionId === 'sundayCup' || mode.competitionId === 'academyLeagueCup' || mode.competitionId === 'academyKnockoutCup' ? 'cup'
             : freshPlayer?.careerClock.phase === 'academy' ? 'academy' : 'grassroots'
           const matchXp = matchXpEarned(tier, mode.rating, mode.goals, mode.assists)
           setMode({ kind: 'impact', before, after, matchXp, tier, playerName: player.name, rating: mode.rating, goals: mode.goals, assists: mode.assists, won: mode.won, drew: mode.drew })
@@ -445,6 +485,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   if (mode.kind === 'negotiation') {
     return <NegotiationScreen player={player} onClose={() => setMode({ kind: 'hub' })} />
   }
+  if(mode.kind==='academy-trial')return <AcademyTrialScreen player={player} clubName={mode.clubName} onComplete={(passed,score)=>{resolveAcademyTrial(mode.offerId,passed,score);if(!passed){setMode({kind:'hub'});return}const fresh=useCareerStore.getState().player;if(!fresh?.agentId){setMode({kind:'agent'});return}beginNegotiation(mode.offerId);setMode({kind:'negotiation'})}}/>
 
   if (mode.kind === 'offers') {
     return (
@@ -457,6 +498,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
           // representation first, then talks that run over several weeks.
           // P33: both academy AND professional deals go through the pipeline.
           if (offer?.kind === 'academy' || offer?.kind === 'professional') {
+            if(offer.kind==='academy'&&!(player.pathway?.academyTrialStatus==='passed'&&player.pathway.academyTrialClubId===offer.clubId)){setMode({kind:'academy-trial',offerId:offer.id,clubName:offer.clubName});return}
             if (!player.agentId) { setMode({ kind: 'agent' }); return }
             beginNegotiation(id)
             setMode({ kind: 'negotiation' })

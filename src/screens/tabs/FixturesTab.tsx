@@ -1,21 +1,22 @@
 import { useState } from 'react'
 import type { Division, Fixture } from '../../engine/league'
 import type { Team } from '../../engine/teams'
-import { SEASON_SCHEDULE } from '../../engine/calendar'
+import { scheduleFor } from '../../engine/calendar'
 import type { CupWorlds } from '../../engine/save'
 import type { CupWorld } from '../../engine/cup'
 import { playerCupFixture } from '../../engine/cup'
 import { Panel, TeamCrest, EmptyNote, Icon } from '../../components/ui'
 import iconGlory from '../../assets/icons/glory.png'
 import CupBracket from '../../components/CupBracket'
+import { useCareerStore } from '../../store/careerStore'
 
 // Fixture.week is a ROUND index from the round-robin generator, NOT a calendar
 // week. P25 fix: rounds map to the LEAGUE's own scheduled weeks — the old code
 // indexed into the union of every competition's weeks, so every label after
 // the first cup week pointed at the wrong Saturday.
-const ROUND_TO_CALENDAR_WEEK = [...(SEASON_SCHEDULE.sundayLeague ?? [])].sort((a, b) => a - b)
-function calendarWeekFor(round: number): number | null {
-  return ROUND_TO_CALENDAR_WEEK[round - 1] ?? null
+function calendarWeekFor(round:number,phase:'grassroots-trials'|'grassroots-season'|'academy',path:'school'|'sunday'):number|null {
+  const weeks=[...(scheduleFor(phase,path).schoolLeague??[])].sort((a,b)=>a-b)
+  return weeks[round - 1] ?? null
 }
 
 function cupStatusLine(world: CupWorld): { label: string; status: string; next: string | null } {
@@ -63,7 +64,8 @@ const RESULT_STYLE: Record<'W' | 'D' | 'L', string> = {
   L: 'bg-red-500/15 text-red-500 border-red-500/40',
 }
 
-export default function FixturesTab({ division, playerTeamId, cups }: { division: Division; playerTeamId: string; cups?: CupWorlds }) {
+export default function FixturesTab({ division, playerTeamId, cups, route }: { division: Division; playerTeamId: string; cups?: CupWorlds; route?: 'school' | 'sunday' }) {
+  const player=useCareerStore(s=>s.player);const phase=player?.careerClock.phase??'grassroots-season';const path=route??player?.grassrootsPath??'school'
   const rows = buildRows(division, playerTeamId)
   const activeCups = cups ? Object.values(cups).filter((c): c is CupWorld => c !== null) : []
   const [bracketFor, setBracketFor] = useState<CupWorld | null>(null)
@@ -74,7 +76,7 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
 
   return (
     <div className="fixtures-centre flex flex-col gap-2.5">
-      <section className="fixtures-hero"><small>SEASON CENTRE</small><h2>FIXTURES & RESULTS</h2>{next?<div className="next-fixture"><div><span>NEXT MATCH</span><b>{calendarWeekFor(next.fixture.week)?`WEEK ${calendarWeekFor(next.fixture.week)}`:`ROUND ${next.fixture.week}`}</b></div><div className="next-opponent">{next.opponent&&<TeamCrest primary={next.opponent.primaryColor} secondary={next.opponent.secondaryColor} short={next.opponent.short}/>}<strong>{next.opponent?.name??'TBD'}</strong><i>{next.isHome?'HOME':'AWAY'}</i></div></div>:<p>Season schedule complete.</p>}</section>
+      <section className="fixtures-hero"><small>SEASON CENTRE</small><h2>FIXTURES & RESULTS</h2><p>{phase === 'academy' ? 'Saturday fixtures' : path === 'school' ? 'School fixtures · Thursdays' : 'Sunday league · Sundays'}</p>{next?<div className="next-fixture"><div><span>NEXT MATCH</span><b>{calendarWeekFor(next.fixture.week,phase,path)?`WEEK ${calendarWeekFor(next.fixture.week,phase,path)}`:`ROUND ${next.fixture.week}`}</b></div><div className="next-opponent">{next.opponent&&<TeamCrest primary={next.opponent.primaryColor} secondary={next.opponent.secondaryColor} short={next.opponent.short}/>}<strong>{next.opponent?.name??'TBD'}</strong><i>{next.isHome?'HOME':'AWAY'}</i></div></div>:<p>Season schedule complete.</p>}</section>
       <div className="home-section-label"><span>RECENT FORM</span><i/></div>
       <Panel title="📈 form">
         {form.length === 0 ? (
@@ -129,7 +131,7 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
             {upcoming.map((r) => (
               <div key={r.fixture.id} className="fixture-row flex items-center gap-2.5">
                 <span className="text-[9px] text-ks-muted w-8 shrink-0">
-                  {calendarWeekFor(r.fixture.week) ? `wk ${calendarWeekFor(r.fixture.week)}` : `r${r.fixture.week}`}
+                  {calendarWeekFor(r.fixture.week,phase,path)?`wk ${calendarWeekFor(r.fixture.week,phase,path)}`:`r${r.fixture.week}`}
                 </span>
                 {r.opponent && (
                   <TeamCrest primary={r.opponent.primaryColor} secondary={r.opponent.secondaryColor} short={r.opponent.short} size="sm" />
@@ -150,7 +152,7 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
             {[...played].reverse().map((r) => (
               <div key={r.fixture.id} className="flex items-center gap-2.5">
                 <span className="text-[9px] text-ks-muted w-8 shrink-0">
-                  {calendarWeekFor(r.fixture.week) ? `wk ${calendarWeekFor(r.fixture.week)}` : `r${r.fixture.week}`}
+                  {calendarWeekFor(r.fixture.week,phase,path)?`wk ${calendarWeekFor(r.fixture.week,phase,path)}`:`r${r.fixture.week}`}
                 </span>
                 {r.opponent && (
                   <TeamCrest primary={r.opponent.primaryColor} secondary={r.opponent.secondaryColor} short={r.opponent.short} size="sm" />

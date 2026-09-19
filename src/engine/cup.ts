@@ -32,6 +32,22 @@ export interface CupWorld {
   playerEliminated: boolean
   playerWonCup: boolean
   teams: Team[]
+  qualifiersPerGroup?: number
+}
+
+/** Keep an in-progress cup's displayed identities aligned with its source
+ * league after a save migration. Results and brackets remain untouched. */
+export function syncCupTeamIdentities(world: CupWorld, sourceTeams: Team[]): CupWorld {
+  const byId = new Map(sourceTeams.map((team) => [team.id, team]))
+  const syncStanding = (standing: LeagueStanding): LeagueStanding => {
+    const team = byId.get(standing.teamId)
+    return team ? { ...standing, teamName: team.name, teamShort: team.short } : standing
+  }
+  return {
+    ...world,
+    teams: world.teams.map((team) => byId.get(team.id) ?? team),
+    groupStandings: Object.fromEntries(Object.entries(world.groupStandings).map(([group, standings]) => [group, standings.map(syncStanding)])),
+  }
 }
 
 function standingFor(team: Team): LeagueStanding {
@@ -76,6 +92,7 @@ export interface CupConfig {
   // generation only if the pool is missing or too small, so this never
   // breaks a cup that doesn't have a league world to draw from yet.
   realTeamPool?: Team[]
+  qualifiersPerGroup?: number
 }
 
 export function initCupWorld(config: CupConfig, playerTeam: Team): CupWorld {
@@ -122,6 +139,7 @@ export function initCupWorld(config: CupConfig, playerTeam: Team): CupWorld {
       playerEliminated: false,
       playerWonCup: false,
       teams,
+      qualifiersPerGroup: config.qualifiersPerGroup ?? 1,
     }
   }
 
@@ -140,6 +158,7 @@ export function initCupWorld(config: CupConfig, playerTeam: Team): CupWorld {
     playerEliminated: false,
     playerWonCup: false,
     teams,
+    qualifiersPerGroup: 1,
   }
 }
 
@@ -264,7 +283,7 @@ export function advanceCupStage(world: CupWorld): CupWorld {
   if (world.stage === 'group') {
     const done = world.groups.every((g) => world.groupFixtures[g.groupId].every((f) => f.played))
     if (!done) return world
-    const winners = world.groups.map((g) => sortGroup(world.groupStandings[g.groupId])[0].teamId)
+    const winners = world.groups.flatMap((g) => sortGroup(world.groupStandings[g.groupId]).slice(0, world.qualifiersPerGroup ?? 1).map((s) => s.teamId))
     const playerTopped = winners.includes(world.playerTeamId)
     const round1 = generateKnockoutRound(winners, 1)
     return {
@@ -311,7 +330,8 @@ export function playerCupFixture(world: CupWorld): GenericFixture | null {
 // group cups = 3 group rounds (groups of 4) + semi + final (16 -> 4 winners);
 // pure knockouts = 16 -> 4 rounds.
 export const CUP_CONFIGS: Record<string, Omit<CupConfig, 'competitionId' | 'label'> & { label: string }> = {
-  schoolCup: { label: 'School Cup', groupSize: 4, fieldSize: 16, prestigeRange: [2, 5] },
+  schoolCup: { label: 'Regional Schools Cup', groupSize: 6, fieldSize: 24, prestigeRange: [2, 6], qualifiersPerGroup: 2 },
+  nationalChampionship: { label: 'National Schools Championship', groupSize: 4, fieldSize: 8, prestigeRange: [5, 8], qualifiersPerGroup: 2 },
   sundayCup: { label: 'Sunday Cup', groupSize: 0, fieldSize: 16, prestigeRange: [2, 6] },
   academyLeagueCup: { label: 'U18 Premier Cup', groupSize: 4, fieldSize: 16, prestigeRange: [5, 8] },
   academyKnockoutCup: { label: 'Youth Cup', groupSize: 0, fieldSize: 16, prestigeRange: [5, 8] },
@@ -319,5 +339,5 @@ export const CUP_CONFIGS: Record<string, Omit<CupConfig, 'competitionId' | 'labe
 
 export function initCupById(competitionId: string, playerTeam: Team, realTeamPool?: Team[]): CupWorld {
   const cfg = CUP_CONFIGS[competitionId]
-  return initCupWorld({ competitionId, label: cfg.label, groupSize: cfg.groupSize, fieldSize: cfg.fieldSize, prestigeRange: cfg.prestigeRange, realTeamPool }, playerTeam)
+  return initCupWorld({ competitionId, label: cfg.label, groupSize: cfg.groupSize, fieldSize: cfg.fieldSize, prestigeRange: cfg.prestigeRange, qualifiersPerGroup: cfg.qualifiersPerGroup, realTeamPool }, playerTeam)
 }

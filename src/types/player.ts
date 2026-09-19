@@ -35,6 +35,19 @@ export interface Player {
   // Grassroots trials fields (Football Engine Spec Section: Grassroots opening)
   schoolId: string | null
   trialWeekCompleted: 0 | 1 | 2 | 3
+  /** The active grassroots route. Selected players represent their school;
+      Sunday football is the fallback route after release/elimination. */
+  grassrootsPath?: 'school' | 'sunday'
+  /** A real second club while remaining registered with the school. */
+  sundayLeague?: import('../engine/league').LeagueWorld
+  sundaySquad?: import('../engine/squad').SquadPlayer[]
+  sundayContract?: import('../engine/sundayContracts').SundayContract
+  lastSundayOfferSeason?: number
+  sundayContractsVersion?: number
+  /** Match-only context, supplied when selecting the player for a fixture. */
+  matchEnergyMultiplier?: number
+  leagueGoals?: import('../engine/leagueScorers').PlayerLeagueGoals[]
+  pathway?: import('../engine/pathway').YouthPathwayState
 
   // Phase 32 — standing with the three groups (coach reads off coachTrust)
   standing?: import('../engine/standing').Standing
@@ -63,6 +76,8 @@ export interface Player {
 
   // Phase 29 — money, kit and consumables
   money?: number
+  /** V4 Layer 6: auditable youth-finance ledger, family context and club support. */
+  finances?: import('../engine/youthFinances').YouthFinanceState
   equipment?: import('../engine/economy').OwnedEquipment[]
   consumables?: import('../engine/economy').Consumables
   /** P35: the synthetic rival scorer the golden-boot headline tracks against — see engine/headlines.ts. */
@@ -137,6 +152,10 @@ export interface Player {
     international: { goals: number; assists: number; appearances: number }
     other: { goals: number; assists: number; appearances: number }
   }
+  /** V4 Layer 5: exact competition records, discipline, awards and history. */
+  competitionCareer?: import('../engine/competitionCareer').CompetitionCareerState
+  /** V4 Layer 8: durable announcements and career story beats. */
+  inbox?: import('../engine/presentation').StoryMoment[]
   /** Phase 16: unlocked achievement keys. */
   achievements?: string[]
 
@@ -171,8 +190,8 @@ export interface Player {
 
   // Scouting state (per-club interest, reputation-gated per Joel's locked design)
   reputation: number
-  scoutWatchers: { clubId: string; clubName: string; clubShort: string; interest: number; tier: string; prestige: number; ratings: { attack: number; midfield: number; defense: number } }[]
-  contractOffers: { id: string; clubId: string; clubName: string; clubShort: string; weekOffered: number; expiresInWeeks: number; prestige: number; ratings: { attack: number; midfield: number; defense: number }; kind: 'academy' | 'professional' | 'club'; divisionTier?: number }[]
+  scoutWatchers: { clubId: string; clubName: string; clubShort: string; interest: number; tier: string; prestige: number; watchedMatches?: number; lastObservedWeek?: number; addedWeek?: number; ratings: { attack: number; midfield: number; defense: number } }[]
+  contractOffers: { id: string; clubId: string; clubName: string; clubShort: string; weekOffered: number; expiresInWeeks: number; prestige: number; ratings: { attack: number; midfield: number; defense: number }; kind: 'academy' | 'professional' | 'club'; divisionTier?: number; weeklyWage?: number; contractSeason?: number; renewal?: boolean }[]
 
   // Absolute week counter, never resets at season boundary (used for offer expiry math)
   totalWeeksElapsed: number

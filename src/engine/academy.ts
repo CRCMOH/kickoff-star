@@ -1,6 +1,6 @@
 import { rand } from './rng'
 import { generateTeam, type Team } from './teams'
-import { sortStandings, attributeGoals, rescaleTeamToRange, type LeagueStanding, type Fixture, type Division, type DivisionTier } from './league'
+import { sortStandings, attributeGoals, resetTeamScorers, rescaleTeamToRange, type LeagueStanding, type Fixture, type Division, type DivisionTier } from './league'
 import { generateRoundRobin } from './competitions'
 
 // ============================================================================
@@ -78,7 +78,7 @@ function updateStandingsFromResult(standings: LeagueStanding[], homeId: string, 
   })
 }
 
-export function recordAcademyMatchResult(world: AcademyWorld, opponentId: string, playerScored: number, opponentScored: number, playerWasHome: boolean): AcademyWorld {
+export function recordAcademyMatchResult(world: AcademyWorld, opponentId: string, playerScored: number, opponentScored: number, playerWasHome: boolean, personalGoals = 0): AcademyWorld {
   const division = world.divisions[world.playerDivision]
   const homeId = playerWasHome ? world.playerTeamId : opponentId
   const awayId = playerWasHome ? opponentId : world.playerTeamId
@@ -88,7 +88,8 @@ export function recordAcademyMatchResult(world: AcademyWorld, opponentId: string
     !f.played && f.homeTeamId === homeId && f.awayTeamId === awayId ? { ...f, played: true, homeGoals: hg, awayGoals: ag } : f
   )
   const standings = updateStandingsFromResult(division.standings, homeId, awayId, hg, ag)
-  return { ...world, divisions: { ...world.divisions, [world.playerDivision]: { ...division, fixtures, standings } } }
+  const teams = division.teams.map(t => t.id === world.playerTeamId ? attributeGoals(t, Math.max(0, playerScored - personalGoals)) : t.id === opponentId ? attributeGoals(t, opponentScored) : t)
+  return { ...world, divisions: { ...world.divisions, [world.playerDivision]: { ...division, fixtures, standings, teams } } }
 }
 
 function simpleScore(attack: number, defense: number): number {
@@ -128,7 +129,7 @@ export function batchSimAcademyRound(division: Division, round: number, playerTe
 // since academy squads are more talent-concentrated).
 /** Builds an academy tier from an explicit team list — fresh standings/fixtures for a new season, real identities carried forward. */
 function buildTierFromTeams(tier: AcademyTier, teams: Team[]): Division {
-  return { tier: tier as unknown as DivisionTier, teams, standings: teams.map(initStanding), fixtures: generateFixtures(teams, 2) }
+  return { tier: tier as unknown as DivisionTier, teams: teams.map(resetTeamScorers), standings: teams.map(initStanding), fixtures: generateFixtures(teams, 2) }
 }
 
 // P68 — same real gap fixed in league.ts: every academy team other than the
