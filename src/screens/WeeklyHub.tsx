@@ -98,6 +98,7 @@ export default function WeeklyHub({
             cups={cups}
             world={(isAcademy ? academyLeague : league)!}
             isAcademy={isAcademy}
+            youthWorld={youthWorld}
             initialView={tab === 'table' ? 'table' : 'fixtures'}
           />
         )}
