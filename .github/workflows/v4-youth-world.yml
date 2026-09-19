@@ -16,6 +16,12 @@ on:
       - 'src/engine/academyCareerV4.ts'
       - 'src/engine/regionalSelectionV4.ts'
       - 'src/engine/nationalPathwayV4.ts'
+      - 'scripts/auditInternationalV5.ts'
+      - 'src/components/navItems.ts'
+      - 'src/screens/WeeklyHub.tsx'
+      - 'src/screens/tabs/WorldTab.tsx'
+      - 'src/engine/international.ts'
+      - 'src/engine/youthInternationalV5.ts'
       - 'src/engine/selectionEnergyV4.ts'
       - 'src/engine/venuesV4.ts'
       - 'src/engine/youthSaveV5.ts'
@@ -60,6 +66,8 @@ jobs:
         run: npx tsx scripts/auditYouthAcademyV4.ts
       - name: Representative pathway audit
         run: npx tsx scripts/auditRepresentativeV4.ts
+      - name: International V5 audit
+        run: npx tsx scripts/auditInternationalV5.ts
       - name: Remaining youth systems audit
         run: npx tsx scripts/auditYouthRemainingV5.ts
       - name: Full career simulation
