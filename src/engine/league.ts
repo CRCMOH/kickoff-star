@@ -73,14 +73,14 @@ function generateFixtures(teams: Team[], legs: 1 | 2 = 1): Fixture[] {
   }))
 }
 
-function initDivision(tier: DivisionTier, playerTeam?: Team): Division {
+function initDivision(tier: DivisionTier, playerTeam?: Team, teamCount = 12, legs: 1 | 2 = 2): Division {
   const [lo, hi] = DIVISION_PRESTIGE_RANGE[tier]
   const teams: Team[] = []
   if (playerTeam) teams.push(playerTeam)
-  while (teams.length < 12) {
+  while (teams.length < teamCount) {
     teams.push(generateTeam(lo + Math.floor(rand() * (hi - lo + 1))))
   }
-  return { tier, teams, standings: teams.map(initStanding), fixtures: generateFixtures(teams, 2) }
+  return { tier, teams, standings: teams.map(initStanding), fixtures: generateFixtures(teams, legs) }
 }
 
 // Player starts in Division 3 (lowest) per typical grassroots entry point.
@@ -300,4 +300,11 @@ export function rescaleTeamToRange(team: Team, [lo, hi]: [number, number]): Team
 
 export function divisionLabel(tier: DivisionTier): string {
   return tier === 1 ? 'Division 1' : tier === 2 ? 'Division 2' : 'Division 3'
+}
+
+/** V5 school route: one 10-school district league, home and away = 18 matches. Reuses the proven LeagueWorld match/table engine without creating a Sunday pyramid. */
+export function initSchoolLeagueWorld(playerSchoolName:string):LeagueWorld{
+ const playerTeam=generatePlayerTeam(playerSchoolName,3)
+ const schoolDivision=initDivision(3,playerTeam,10,2)
+ return {divisions:{1:{...schoolDivision,tier:1},2:{...schoolDivision,tier:2},3:schoolDivision},playerDivision:3,playerTeamId:playerTeam.id}
 }
