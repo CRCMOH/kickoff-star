@@ -227,7 +227,7 @@ export function respondToSundayApproach(world: YouthWorld, approachId: string, a
     ...world,
     pathway:{
       ...world.pathway,
-      route: accept ? (world.pathway.schoolTier === 'cut' ? 'sunday-only' : 'school-and-sunday') : world.pathway.route,
+      route: accept ? 'grassroots' : world.pathway.route,
       sundayClubId: accept ? hit.clubId : world.pathway.sundayClubId,
       pendingSundayApproaches:offers,
       history:[...world.pathway.history,{week:world.currentWeek,type:'sunday-approach',title:accept?'Sunday League route accepted':'Sunday League approach declined',detail:club ? `${club.name}: ${hit.kind}` : hit.kind}],
@@ -271,7 +271,7 @@ export function pathwayOptions(world: YouthWorld): string[] {
   if (p.schoolTier === 'development') routes.push('Develop toward the reserve-team review')
   if (p.schoolTier === 'cut') routes.push('Train independently and pursue open community/Sunday League routes')
   if (!p.sundayClubId) routes.push('Build local exposure for Sunday League approaches')
-  if (p.sundayClubId) routes.push('Play Sunday League alongside eligible school football')
+  if (p.sundayClubId) routes.push('Build your grassroots club career and academy exposure')
   if (p.representative !== 'regional-squad' && p.schoolTier !== 'cut') routes.push('Build regional performances for representative selection')
   if (p.academyStatus !== 'academy') routes.push('Build academy exposure toward a trial invitation')
   return routes
