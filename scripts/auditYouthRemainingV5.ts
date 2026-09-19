@@ -8,11 +8,11 @@ import { migrateYouthSave,YOUTH_SAVE_VERSION } from '../src/engine/youthSaveV5'
 
 let school=buildSchoolCalendar(1)
 assert(school.events.some(e=>e.kind==='schools-october-league'))
-assert.equal(school.events.filter(e=>e.kind.startsWith('youth-festival')).length,3)
-school=mergeCalendarAfterElimination(school,'school','regional-schools',18)
-assert(school.events.some(e=>e.replacement&&e.week===19))
+assert.equal(school.events.filter(e=>e.kind.startsWith('festival-day')).length,3)
+school=mergeCalendarAfterElimination(school,'school','regional-schools',28)
+assert(school.events.some(e=>e.replacement&&e.week===29))
 const grass=buildGrassrootsCalendar(1)
-assert(grass.events.some(e=>e.kind==='development-october-league'))
+assert(grass.events.some(e=>e.kind==='grassroots-october-league'))
 assert(calendarHealth(grass).activeWeeks>=25)
 
 let book=emptyStatBook('test-cup')
