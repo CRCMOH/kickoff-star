@@ -105,18 +105,47 @@ function generateSchools(r: () => number): YouthSchool[] {
 }
 
 function generateAcademyClubs(r: () => number): AcademyClub[] {
-  const roots = ['North City','Metro Athletic','United Academy','Sporting Institute','Central FC','Coastal Academy','Highveld United','Capital City','Township Stars','Lakeside FC','Royal Youth','Pioneer Academy']
+  // V4 Academy World: fictional identities deliberately echo the geography and
+  // football culture of recognisable real academies without using protected
+  // club names, crests or trademarks. This gives trial offers a real global
+  // football map instead of the old generic 12-club pool.
+  const clubs = [
+    ['west-london-blues','West London Blues','England',94],
+    ['north-london-reds','North London Reds','England',90],
+    ['manchester-sky','Manchester Sky','England',95],
+    ['mersey-reds','Mersey Reds','England',93],
+    ['madrid-whites','Madrid Whites','Spain',97],
+    ['catalonia-blau','Catalonia Blau','Spain',96],
+    ['madrid-rojos','Madrid Rojos','Spain',91],
+    ['munich-reds','Munich Reds','Germany',96],
+    ['dortmund-yellows','Dortmund Yellows','Germany',92],
+    ['paris-blue','Paris Blue','France',94],
+    ['lyon-youth','Lyon Youth','France',89],
+    ['milan-redblack','Milan Redblack','Italy',91],
+    ['turin-blackwhite','Turin Blackwhite','Italy',92],
+    ['amsterdam-redwhite','Amsterdam Redwhite','Netherlands',95],
+    ['eindhoven-red','Eindhoven Red','Netherlands',90],
+    ['lisbon-eagles','Lisbon Eagles','Portugal',94],
+    ['porto-dragons','Porto Dragons','Portugal',91],
+    ['brussels-purple','Brussels Purple','Belgium',86],
+    ['sao-paulo-saints','São Paulo Saints','Brazil',91],
+    ['rio-rubro','Rio Rubro','Brazil',90],
+    ['buenos-aires-bluegold','Buenos Aires Bluegold','Argentina',92],
+    ['buenos-aires-redwhite','Buenos Aires Redwhite','Argentina',91],
+    ['johannesburg-gold','Johannesburg Gold','South Africa',84],
+    ['pretoria-sundowns','Pretoria Sundowns','South Africa',87],
+  ] as const
   const positions: Position[] = ['GK','CB','FB','CM','WM','WG','ST']
-  return roots.map((name, i) => {
+  return clubs.map(([id,name,region,base], i) => {
     const positionNeeds: Partial<Record<Position, number>> = {}
     for (const p of positions) positionNeeds[p] = Math.round(35 + r() * 60)
     return {
-      id: `academy-${i+1}`,
+      id: `academy-${id}`,
       name,
-      region: DISTRICTS[i % DISTRICTS.length].name,
-      prestige: Math.round(55 + r() * 40),
-      coaching: Math.round(60 + r() * 35),
-      facilities: Math.round(58 + r() * 38),
+      region,
+      prestige: clamp(Math.round(base + (r() - .5) * 5), 78, 99),
+      coaching: clamp(Math.round(base - 4 + r() * 8), 74, 99),
+      facilities: clamp(Math.round(base - 3 + r() * 8), 72, 99),
       positionNeeds,
     }
   })
