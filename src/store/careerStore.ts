@@ -113,6 +113,8 @@ interface CareerStore {
   sendMoneyHome: (amount: number) => { ok: boolean; bondGain?: number }
   /** P32: apply the outcome of a street / small-sided game. */
   applyStreetGameResult: (result: { attributeGains: Record<string, number>; confidence: number; energyCost: number; injury: { severity: string; weeksOut: number; description: string } | null }) => void
+  setYouthRoute: (route: 'school' | 'grassroots') => void
+  setGrassrootsClub: (clubId: string) => void
   setSchool: (schoolId: string) => void
   completeTrials: (role: SquadRole, trialPerformance: number) => void
   /** competitionId routes the result: 'sundayLeague' updates the league table; cup ids update their bracket; 'international' the nation's campaign; 'schoolFriendlies' nothing. shootoutWonByPlayer is only set for drawn knockout ties. */
@@ -162,6 +164,8 @@ function migratePlayer(player: Player): Player {
     academyClubName: player.academyClubName ?? null,
     totalWeeksElapsed: player.totalWeeksElapsed ?? 0,
     nationality: player.nationality ?? 'eng',
+    youthRoute: player.youthRoute ?? undefined,
+    grassrootsClubId: player.grassrootsClubId ?? null,
     avatarId: player.avatarId ?? 0,
     archetype: player.archetype ?? null,
     // Phase 28 — saves predating the life layer get a cast on load, so an
@@ -1325,10 +1329,39 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     void getState().saveCurrent()
   },
 
+  setYouthRoute: (route) => {
+    const { player } = getState()
+    if (!player) return
+    const cleanPlayer: Player = {
+      ...player,
+      youthRoute: route,
+      schoolId: route === 'school' ? player.schoolId : null,
+      grassrootsClubId: route === 'grassroots' ? (player.grassrootsClubId ?? null) : null,
+      trialWeekCompleted: 0,
+      squadRole: null,
+      careerClock: { ...player.careerClock, phase: route === 'school' ? 'school-trials' : 'grassroots-trials' },
+    }
+    const world = initializeCompetitionWorld(createYouthWorld(player.id, cleanPlayer.schoolId, 1, route))
+    setState({ player: cleanPlayer, youthWorld: world, league: null, cups: { ...EMPTY_CUPS } })
+    void getState().saveCurrent()
+  },
+
+  setGrassrootsClub: (clubId) => {
+    const { player, youthWorld } = getState()
+    if (!player || player.youthRoute !== 'grassroots') return
+    const world = youthWorld ?? initializeCompetitionWorld(createYouthWorld(player.id, null, 1, 'grassroots'))
+    if (!world.sundayClubs.some((club) => club.id === clubId)) return
+    setState({
+      player: { ...player, schoolId: null, grassrootsClubId: clubId },
+      youthWorld: { ...world, selectedSchoolId: null, pathway: { ...world.pathway, route: 'grassroots', sundayClubId: clubId, schoolTier: 'cut' } },
+    })
+    void getState().saveCurrent()
+  },
+
   setSchool: (schoolId) => {
     const { player, youthWorld } = getState()
-    if (!player) return
-    const baseWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId } : createYouthWorld(player.id, schoolId)
+    if (!player || player.youthRoute !== 'school') return
+    const baseWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId, pathway: { ...youthWorld.pathway, route: 'school' as const, sundayClubId: null } } : createYouthWorld(player.id, schoolId, 1, 'school')
     const nextWorld = initializeCompetitionWorld(baseWorld)
     setState({ player: { ...player, schoolId }, youthWorld: nextWorld })
     void getState().saveCurrent()
@@ -1354,7 +1387,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       squadRole: youthTrial.legacySquadRole ?? role,
       squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
       trialWeekCompleted: 3,
-      careerClock: { ...player.careerClock, phase: 'grassroots-season' },
+      careerClock: { ...player.careerClock, phase: player.youthRoute === 'school' ? 'school-season' : 'grassroots-season' },
     }
     setState({ player: updatedPlayer, youthWorld: youthTrial.world })
     void getState().saveCurrent()
