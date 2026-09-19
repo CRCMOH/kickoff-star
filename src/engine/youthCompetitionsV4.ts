@@ -331,6 +331,7 @@ export function initializeCompetitionWorld(world:YouthWorld):YouthWorld{
       minorSchoolCup:initMinorSchoolCup(world),
       sundayLeague:world.pathway.sundayClubId?initSundayLeague(world):null,
       nationalChampionship:initNationalChampionship(world),
+      statBooks:world.competitionWorld.statBooks??{},
     },
   }
 }
