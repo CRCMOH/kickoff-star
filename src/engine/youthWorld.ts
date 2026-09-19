@@ -235,16 +235,16 @@ export const YOUTH_CALENDAR: YouthCalendarBlock[] = [
   { id:'dec-offseason', weeks:[46,48], month:12, title:'Off-season', primary:'off-season', sundayLeagueAvailable:false, notes:'Recovery, season review and development choices.' },
 ]
 
-export function initialPathway(): YouthPathwayState {
+export function initialPathway(route: 'school' | 'grassroots' = 'school'): YouthPathwayState {
   return {
-    route:'school', schoolTier:'development', firstTeamRole:null, schoolTierSinceWeek:0,
+    route, schoolTier: route === 'school' ? 'development' : 'cut', firstTeamRole:null, schoolTierSinceWeek:0,
     sundayClubId:null, representative:'none', academyStatus:'none',
     exposure:{school:0,grassroots:0,regional:0,academy:0},
     selectionScore:0, pendingSundayApproaches:[], history:[],
   }
 }
 
-export function createYouthWorld(seed: string, selectedSchoolId: string | null = null, seasonYear = 1): YouthWorld {
+export function createYouthWorld(seed: string, selectedSchoolId: string | null = null, seasonYear = 1, route: 'school' | 'grassroots' = 'school'): YouthWorld {
   const r = seeded(seed)
   const schools = generateSchools(r)
   const schoolSquads: Record<string, YouthSchoolSquads> = {}
@@ -260,7 +260,7 @@ export function createYouthWorld(seed: string, selectedSchoolId: string | null =
     finances:initialFinances(seed),
     competitions:YOUTH_COMPETITIONS,
     calendar:YOUTH_CALENDAR,
-    pathway:initialPathway(),
+    pathway:initialPathway(route),
   }
 }
 
