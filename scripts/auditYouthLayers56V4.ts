@@ -27,14 +27,14 @@ import {
 let world=createYouthWorld('layer56-audit','greenwood')
 world=applyTrialOutcome(world,.66).world
 
-// Inter-Schools: six schools, five rounds, persistent standings.
+// V5 Inter-Schools: ten schools, home-and-away, 18 rounds.
 let inter=initInterSchools(world)
-assert.equal(inter.teams.length,6)
-assert.equal(Math.max(...inter.fixtures.map(f=>f.round)),5)
+assert.equal(inter.teams.length,10)
+assert.equal(Math.max(...inter.fixtures.map(f=>f.round)),18)
 let guard=0
-while(!inter.complete&&guard++<10)inter=simulateLeagueRound(inter,world.seed)
+while(!inter.complete&&guard++<25)inter=simulateLeagueRound(inter,world.seed)
 assert.equal(inter.complete,true)
-assert(inter.standings.every(s=>s.played===5))
+assert(inter.standings.every(s=>s.played===18))
 assert(teamStanding(inter,world.selectedSchoolId!)!==null)
 
 // Regional Schools Championship: 24 teams -> 4 groups of 6 -> QF -> SF -> Final.
@@ -68,11 +68,11 @@ while(minor.stage!=='complete'&&guard++<8)minor=simulateKnockoutRound(minor,worl
 assert.equal(minor.stage,'complete')
 assert(minor.championId)
 
-// Sunday League: 12 teams and 11 rounds once a club has signed the player.
-world={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs[0].id,route:'school-and-sunday'}}
+// V5 Grassroots League: 12 teams, home-and-away, 22 rounds.
+world={...world,pathway:{...world.pathway,sundayClubId:world.sundayClubs[0].id,route:'grassroots'}}
 const sunday=initSundayLeague(world)
 assert.equal(sunday.teams.length,12)
-assert.equal(Math.max(...sunday.fixtures.map(f=>f.round)),11)
+assert.equal(Math.max(...sunday.fixtures.map(f=>f.round)),22)
 
 // Youth finance: monthly allowance exists but wages do not appear at age 14.
 const opening=world.finances.balance
