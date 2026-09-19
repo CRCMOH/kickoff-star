@@ -1,22 +1,30 @@
 import type { Position } from '../types/attributes'
 import type { AcademyClub, YouthWorld } from '../types/youthWorld'
 
-export type AcademyTrialSessionKind = 'technical' | 'small-sided' | 'tactical' | 'full-match'
+export type AcademyAssessmentKind = 'technical' | 'pressure' | 'trial-match' | 'final-match' | 'retest'
 export type AcademyOfferStatus = 'pending' | 'negotiating' | 'accepted' | 'declined' | 'expired'
+export type AcademyAssessmentWeek = 1 | 2 | 3
 
-export interface AcademyTrialSession {
-  week: number
-  kind: AcademyTrialSessionKind
-  score: number
+export interface AcademyAssessmentSession {
+  week: AcademyAssessmentWeek
+  kind: AcademyAssessmentKind
+  technical: number
+  match: number
+  discipline: number
+  consistency: number
   note: string
 }
 
 export interface AcademyTrialCampaign {
   clubId: string
   startedWeek: number
-  sessions: AcademyTrialSession[]
+  playerAge: number
+  invitationWindow: 'october-year-three'
+  sessions: AcademyAssessmentSession[]
   complete: boolean
+  passed: boolean | null
   finalScore: number | null
+  vacancyScore: number | null
 }
 
 export interface AcademyOfferV4 {
@@ -35,115 +43,93 @@ export interface AcademyOfferV4 {
 }
 
 function clamp(v:number,lo:number,hi:number){return Math.max(lo,Math.min(hi,v))}
+function roll(world:YouthWorld,salt:string){let h=2166136261;const s=world.seed+'|academy-v4|'+salt;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0)/4294967295}
+function positionNeed(club:AcademyClub,position:Position){return(club.positionNeeds[position]??50)/100}
 
-function roll(world: YouthWorld, salt: string): number {
-  let h=2166136261
-  const s=world.seed+'|academy-v4|'+salt
-  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}
-  return (h>>>0)/4294967295
-}
-
-function positionNeed(club:AcademyClub, position:Position):number {
-  return (club.positionNeeds[position]??50)/100
-}
-
-export function startAcademyTrial(world:YouthWorld, clubId:string, week:number):AcademyTrialCampaign|null {
-  const club=world.academyClubs.find(c=>c.id===clubId)
+export function academyAssessmentEligible(world:YouthWorld,clubId:string,playerAge:number,calendarMonth:number):boolean {
   const interest=world.scouting.academyInterest[clubId]
-  if(!club||!interest||interest.status!=='trial-ready'||interest.matchesSeen<2)return null
-  return {clubId,startedWeek:week,sessions:[],complete:false,finalScore:null}
+  return playerAge>=16&&calendarMonth===10&&!!interest&&interest.status==='trial-ready'&&interest.matchesSeen>=3&&interest.awareness>=35&&interest.interest>=45
+}
+
+export function startAcademyTrial(world:YouthWorld,clubId:string,week:number,playerAge=16,calendarMonth=10):AcademyTrialCampaign|null {
+  if(!academyAssessmentEligible(world,clubId,playerAge,calendarMonth))return null
+  return {clubId,startedWeek:week,playerAge,invitationWindow:'october-year-three',sessions:[],complete:false,passed:null,finalScore:null,vacancyScore:null}
 }
 
 /**
- * A trial is four interactive football sessions. The UI supplies a 0..1
- * performance result from the existing gameplay/drill layer; the academy
- * engine weights each day differently so one bad drill does not kill a career.
+ * Three-week academy assessment.
+ * Week 1: position-relevant technical testing.
+ * Week 2: pressure work, small-sided scenarios and a trial match.
+ * Week 3: final trial match plus a targeted retest.
+ *
+ * Inputs are 0..1 scores produced by the playable mini-games/match layer.
+ * Final weighting is locked to the V5 design:
+ * technical 30%, trial matches 45%, decisions/discipline 15%, consistency 10%.
  */
 export function recordAcademyTrialSession(
   world:YouthWorld,
   campaign:AcademyTrialCampaign,
-  week:number,
-  kind:AcademyTrialSessionKind,
-  rawPerformance:number,
+  assessmentWeek:AcademyAssessmentWeek,
+  kind:AcademyAssessmentKind,
+  scores:{technical:number;match:number;discipline:number;consistency:number},
   position:Position,
 ):AcademyTrialCampaign {
-  if(campaign.complete||campaign.sessions.some(s=>s.kind===kind))return campaign
+  if(campaign.complete||campaign.sessions.some(s=>s.week===assessmentWeek&&s.kind===kind))return campaign
   const club=world.academyClubs.find(c=>c.id===campaign.clubId)
   if(!club)return campaign
-  const need=positionNeed(club,position)
-  const pressure=.92+club.prestige/900
-  const adjusted=clamp(rawPerformance*(.9+need*.18)/pressure,0,1)
-  const note=adjusted>=.78?'You stood out.'
-    : adjusted>=.62?'A strong session.'
-    : adjusted>=.46?'You stayed in the conversation.'
-    :'You have work to do in the remaining sessions.'
-  const sessions=[...campaign.sessions,{week,kind,score:adjusted,note}]
-  const complete=sessions.length>=4
-  const weights:Record<AcademyTrialSessionKind,number>={technical:.2,'small-sided':.24,tactical:.2,'full-match':.36}
-  const total=sessions.reduce((n,s)=>n+s.score*weights[s.kind],0)
-  const used=sessions.reduce((n,s)=>n+weights[s.kind],0)
-  return {...campaign,sessions,complete,finalScore:complete?clamp(total/used,0,1):null}
+  const pressure=.94+club.prestige/1200
+  const need=.94+positionNeed(club,position)*.12
+  const adj=(v:number)=>clamp(v*need/pressure,0,1)
+  const session:AcademyAssessmentSession={
+    week:assessmentWeek,kind,
+    technical:adj(scores.technical),match:adj(scores.match),
+    discipline:adj(scores.discipline),consistency:adj(scores.consistency),
+    note:'Assessment saved. Coaches will compare this against the positional pool.',
+  }
+  const sessions=[...campaign.sessions,session]
+  const hasW1=sessions.some(s=>s.week===1&&s.kind==='technical')
+  const hasW2=sessions.some(s=>s.week===2&&s.kind==='pressure')&&sessions.some(s=>s.week===2&&s.kind==='trial-match')
+  const hasW3=sessions.some(s=>s.week===3&&s.kind==='final-match')&&sessions.some(s=>s.week===3&&s.kind==='retest')
+  const complete=hasW1&&hasW2&&hasW3
+  if(!complete)return{...campaign,sessions}
+
+  const avg=(key:keyof Pick<AcademyAssessmentSession,'technical'|'match'|'discipline'|'consistency'>)=>{
+    const relevant=sessions.map(s=>s[key] as number).filter(v=>v>0)
+    return relevant.length?relevant.reduce((a,b)=>a+b,0)/relevant.length:0
+  }
+  const finalScore=clamp(avg('technical')*.30+avg('match')*.45+avg('discipline')*.15+avg('consistency')*.10,0,1)
+  const vacancyScore=positionNeed(club,position)
+  const passLine=clamp(.57+(club.prestige-80)*.004-vacancyScore*.07,.53,.68)
+  return{...campaign,sessions,complete:true,passed:finalScore>=passLine,finalScore,vacancyScore}
 }
 
 function offerScore(world:YouthWorld,club:AcademyClub,trialScore:number,position:Position,index:number){
   const scout=world.scouting.academyInterest[club.id]
-  const interest=(scout?.interest??0)/100
-  const awareness=(scout?.awareness??0)/100
-  const need=positionNeed(club,position)
-  const variance=roll(world,`offer-${club.id}-${index}`)*.14
-  return trialScore*.48+interest*.24+awareness*.08+need*.14+variance
+  return trialScore*.48+((scout?.interest??0)/100)*.24+((scout?.awareness??0)/100)*.08+positionNeed(club,position)*.14+roll(world,`offer-${club.id}-${index}`)*.14
 }
 
-/**
- * After a completed academy trial, produce 3-6 offers from the global academy
- * network. The trial club gets a home-club boost, but other clubs can enter
- * after watching the trial/showcase. Prestige alone never guarantees an offer.
- */
-export function generateAcademyOffers(
-  world:YouthWorld,
-  campaign:AcademyTrialCampaign,
-  position:Position,
-  week:number,
-):AcademyOfferV4[] {
-  if(!campaign.complete||campaign.finalScore===null)return []
+/** Passing creates scholarship negotiations; it never transfers the player immediately. */
+export function generateAcademyOffers(world:YouthWorld,campaign:AcademyTrialCampaign,position:Position,week:number):AcademyOfferV4[]{
+  if(!campaign.complete||!campaign.passed||campaign.finalScore===null)return[]
   const trialClub=world.academyClubs.find(c=>c.id===campaign.clubId)
-  if(!trialClub)return []
-  const ranked=world.academyClubs
-    .map((club,index)=>{
-      let score=offerScore(world,club,campaign.finalScore!,position,index)
-      if(club.id===campaign.clubId)score+=.16
-      if(club.region===trialClub.region)score+=.025
-      return {club,score}
-    })
-    .filter(x=>x.score>=.49)
-    .sort((a,b)=>b.score-a.score)
-
-  // Locked design: a successful trial phase should create a real decision,
-  // minimum 3 and maximum 6. If the threshold produced fewer than three, the
-  // best scouting fits fill the remaining slots rather than inventing clubs.
-  const pool=ranked.length>=3?ranked:world.academyClubs
-    .map((club,index)=>({club,score:offerScore(world,club,campaign.finalScore!,position,index)+(club.id===campaign.clubId ? .16 : 0)}))
-    .sort((a,b)=>b.score-a.score)
+  if(!trialClub)return[]
+  const scored=world.academyClubs.map((club,index)=>{
+    let score=offerScore(world,club,campaign.finalScore!,position,index)
+    if(club.id===campaign.clubId)score+=.16
+    if(club.region===trialClub.region)score+=.025
+    return{club,score}
+  }).sort((a,b)=>b.score-a.score)
+  const qualified=scored.filter(x=>x.score>=.49)
+  const pool=qualified.length>=3?qualified:scored
   const desired=clamp(3+Math.floor(campaign.finalScore*4),3,6)
-  const unique=pool.filter((x,i,a)=>a.findIndex(y=>y.club.id===x.club.id)===i).slice(0,desired)
-
-  return unique.map(({club,score},i)=>{
-    const scholarship=Math.round((35+club.prestige*.9+score*75)/5)*5
-    const pathwayPromise:AcademyOfferV4['pathwayPromise']=score>=.82?'fast-track':score>=.66?'rotation-track':'development'
-    return {
-      id:`academy-offer-${week}-${club.id}`,clubId:club.id,clubName:club.name,country:club.region,
-      prestige:club.prestige,coaching:club.coaching,facilities:club.facilities,scholarship,
-      pathwayPromise,expiresWeek:week+2,status:'pending',interest:Math.round(clamp(score,0,1)*100),
-    }
-  })
+  return pool.slice(0,desired).map(({club,score})=>({
+    id:`academy-offer-${week}-${club.id}`,clubId:club.id,clubName:club.name,country:club.region,
+    prestige:club.prestige,coaching:club.coaching,facilities:club.facilities,
+    scholarship:Math.round((35+club.prestige*.9+score*75)/5)*5,
+    pathwayPromise:score>=.82?'fast-track':score>=.66?'rotation-track':'development',
+    expiresWeek:week+2,status:'pending',interest:Math.round(clamp(score,0,1)*100),
+  }))
 }
 
-export function expireAcademyOffers(offers:AcademyOfferV4[],week:number):AcademyOfferV4[]{
-  return offers.map(o=>o.status==='pending'&&week>o.expiresWeek?{...o,status:'expired' as const}:o)
-}
-
-export function chooseAcademyOffer(offers:AcademyOfferV4[],offerId:string):AcademyOfferV4[]{
-  return offers.map(o=>o.id===offerId&&o.status==='pending'
-    ?{...o,status:'negotiating' as const}
-    :o.status==='pending'?{...o,status:'declined' as const}:o)
-}
+export function expireAcademyOffers(offers:AcademyOfferV4[],week:number):AcademyOfferV4[]{return offers.map(o=>o.status==='pending'&&week>o.expiresWeek?{...o,status:'expired' as const}:o)}
+export function chooseAcademyOffer(offers:AcademyOfferV4[],offerId:string):AcademyOfferV4[]{return offers.map(o=>o.id===offerId&&o.status==='pending'?{...o,status:'negotiating' as const}:o.status==='pending'?{...o,status:'declined' as const}:o)}
