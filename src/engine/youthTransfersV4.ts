@@ -1,5 +1,3 @@
-import type { Position } from '../types/attributes'
-
 export type OfferType='school-scholarship'|'grassroots-contract'
 export interface YouthOffer {
   id:string;type:OfferType;teamId:string;teamName:string;week:number;expiresWeek:number
@@ -11,7 +9,7 @@ export interface YouthOfferCandidate {id:string;name:string;developmentRating:nu
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v))
 export function generateYouthOffers(type:OfferType,candidates:YouthOfferCandidate[],week:number,profile:{rating:number;exposure:number;age:number}):YouthOffer[]{
   const count=clamp(Math.floor(1+profile.exposure/28+(profile.rating>=7.6?1:0)),1,type==='school-scholarship'?4:5)
-  return [...candidates].sort((a,b)=>(b.developmentRating+b.strength*.5-a.distance*.18)-(a.developmentRating+a.strength*.5-b.distance*.18)).slice(0,count).map((c,i)=>{
+  return [...candidates].sort((a,b)=>(b.developmentRating+b.strength*.5-a.distance*.18)-(a.developmentRating+a.strength*.5-b.distance*.18)).slice(0,count).map((c)=>{
     const leverage=clamp((profile.rating-6)*18+profile.exposure*.35+c.developmentRating*.2,15,100)
     return{id:`${type}-${week}-${c.id}`,type,teamId:c.id,teamName:c.name,week,expiresWeek:week+2,
       role:leverage>=74?'starter':leverage>=52?'rotation':'development',
