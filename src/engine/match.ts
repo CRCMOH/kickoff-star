@@ -460,7 +460,7 @@ export function advanceToKeyMoment(state: MatchState, player: Player): AdvanceRe
     const wasNearInvolvement = drive.reached !== 'stalled'
 
     // Section 5: fatigue drain for the player every drive they're on the pitch for
-    s.matchStamina = clamp(s.matchStamina - driveStaminaCost(player.position, driveMinutes, wasNearInvolvement) * archetypeStaminaDrainMultiplier(player.archetype), 0, 100)
+    s.matchStamina = clamp(s.matchStamina - driveStaminaCost(player.position, driveMinutes, wasNearInvolvement) * archetypeStaminaDrainMultiplier(player.archetype) * (player.matchEnergyMultiplier ?? 1), 0, 100)
 
     // Section 6: sparing injury roll, only on drives with real intensity (near a chance)
     if (wasNearInvolvement) {

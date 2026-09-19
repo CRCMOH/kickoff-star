@@ -164,6 +164,7 @@ export function resetSchoolLeagueSeason(world: LeagueWorld): LeagueWorld {
     const division = world.divisions[tier]
     divisions[tier] = {
       ...division,
+      teams: division.teams.map(resetTeamScorers),
       standings: division.teams.map(initStanding),
       fixtures: generateFixtures(division.teams, 2),
     }
@@ -195,7 +196,7 @@ export function sortStandings(standings: LeagueStanding[]): LeagueStanding[] {
 }
 
 // Record the player's own match result into their division.
-export function recordPlayerMatchResult(world: LeagueWorld, opponentId: string, playerScored: number, opponentScored: number, playerWasHome: boolean): LeagueWorld {
+export function recordPlayerMatchResult(world: LeagueWorld, opponentId: string, playerScored: number, opponentScored: number, playerWasHome: boolean, personalGoals = 0): LeagueWorld {
   const division = world.divisions[world.playerDivision]
   const homeId = playerWasHome ? world.playerTeamId : opponentId
   const awayId = playerWasHome ? opponentId : world.playerTeamId
@@ -208,7 +209,8 @@ export function recordPlayerMatchResult(world: LeagueWorld, opponentId: string, 
       : f
   )
   const standings = updateStandingsFromResult(division.standings, homeId, awayId, hg, ag)
-  return { ...world, divisions: { ...world.divisions, [world.playerDivision]: { ...division, fixtures, standings } } }
+  const teams = division.teams.map(t => t.id === world.playerTeamId ? attributeGoals(t, Math.max(0, playerScored - personalGoals)) : t.id === opponentId ? attributeGoals(t, opponentScored) : t)
+  return { ...world, divisions: { ...world.divisions, [world.playerDivision]: { ...division, fixtures, standings, teams } } }
 }
 
 function simpleScore(attack: number, defense: number): number {
@@ -295,7 +297,11 @@ export function topScorerInDivision(division: Division, excludeTeamId: string): 
 
 /** Builds a division from an explicit team list (not randomly generated) — fresh standings and fixtures for a new season, real team identities carried forward. */
 function buildDivisionFromTeams(tier: DivisionTier, teams: Team[]): Division {
-  return { tier, teams, standings: teams.map(initStanding), fixtures: generateFixtures(teams, 2) }
+  return { tier, teams: teams.map(resetTeamScorers), standings: teams.map(initStanding), fixtures: generateFixtures(teams, 2) }
+}
+
+export function resetTeamScorers(team: Team): Team {
+  return { ...team, notablePlayers: team.notablePlayers.map(p => ({ ...p, seasonGoals: 0 })) }
 }
 
 // P68 — the real, long-flagged gap from P64/66: every team other than the
@@ -357,6 +363,7 @@ export function applyPromotionRelegation(world: LeagueWorld): LeagueWorld {
     },
     playerDivision: newPlayerDivision,
     playerTeamId: world.playerTeamId,
+    kind: 'sunday',
   }
 }
 

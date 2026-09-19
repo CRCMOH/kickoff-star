@@ -47,6 +47,8 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const negotiationBeat = useCareerStore((s) => s.negotiationBeat)
   const clearNegotiationBeat = useCareerStore((s) => s.clearNegotiationBeat)
   const selectionNote = useCareerStore((s) => s.selectionNote)
+  const sundayOffer = player.contractOffers.find(o => o.kind === 'club' && o.weeklyWage !== undefined)
+  const sundayDeal = player.sundayContract?.season === calendar.currentWeek.seasonYear ? player.sundayContract : undefined
   const acceptSundayRegistration=useCareerStore(s=>s.acceptSundayRegistration)
   const eventsByDay = Object.fromEntries(calendar.currentWeek.events.map((e) => [e.day, e]))
   const ovr = toOvr(computeCurrentAbility(player))
@@ -91,7 +93,8 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
 
       {player.careerClock.phase!=='academy'&&<button onClick={()=>onGoTo('fixtures')} className="pathway-headliner text-left"><div><span>{player.pathway?.ageGroup??'YOUTH'} PATHWAY</span><h3>{pathwayNextStep(player)}</h3><p>School → Regional XI → National schools → International</p></div><b>→</b></button>}
 
-      {player.pathway?.sundayStatus==='squad-offer'&&<div className="sunday-offer-card"><div><span>COMMUNITY CLUB OFFER</span><b>Play Sunday football alongside school</b><p>More exposure and matches, but less recovery time.</p></div><button onClick={acceptSundayRegistration}>accept place</button></div>}
+      {player.pathway?.sundayStatus==='squad-offer'&&sundayOffer&&<div className="sunday-offer-card"><div><span>COMMUNITY CLUB OFFER</span><b>{sundayOffer.clubName} · Division {sundayOffer.divisionTier}</b><p>£{sundayOffer.weeklyWage}/week for the season. School matches on Thursdays; club league matches on Sundays.</p></div><button onClick={acceptSundayRegistration}>accept place</button></div>}
+      {sundayDeal && <button className="text-left text-xs text-ks-gold px-3 py-2 border border-ks-border rounded-lg" onClick={() => onGoTo('table')}>{sundayDeal.clubName} · Division {sundayDeal.division} · £{sundayDeal.weeklyWage}/week · season contract →</button>}
       <button onClick={onOpenInbox} className={`rounded-lg border px-3 py-2.5 flex items-center gap-3 text-left ${unreadInbox > 0 ? 'border-ks-gold/60 bg-ks-gold/10' : 'border-ks-border bg-[#0f0f0d]'}`}>
         <div className={`w-8 h-8 rounded-full border flex items-center justify-center text-sm ${unreadInbox > 0 ? 'border-ks-gold text-ks-gold' : 'border-ks-border text-ks-muted'}`}>✉</div>
         <div className="flex-1 min-w-0">

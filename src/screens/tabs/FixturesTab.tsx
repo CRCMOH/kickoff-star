@@ -64,8 +64,8 @@ const RESULT_STYLE: Record<'W' | 'D' | 'L', string> = {
   L: 'bg-red-500/15 text-red-500 border-red-500/40',
 }
 
-export default function FixturesTab({ division, playerTeamId, cups }: { division: Division; playerTeamId: string; cups?: CupWorlds }) {
-  const player=useCareerStore(s=>s.player);const phase=player?.careerClock.phase??'grassroots-season';const path=player?.grassrootsPath??'school'
+export default function FixturesTab({ division, playerTeamId, cups, route }: { division: Division; playerTeamId: string; cups?: CupWorlds; route?: 'school' | 'sunday' }) {
+  const player=useCareerStore(s=>s.player);const phase=player?.careerClock.phase??'grassroots-season';const path=route??player?.grassrootsPath??'school'
   const rows = buildRows(division, playerTeamId)
   const activeCups = cups ? Object.values(cups).filter((c): c is CupWorld => c !== null) : []
   const [bracketFor, setBracketFor] = useState<CupWorld | null>(null)
@@ -76,7 +76,7 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
 
   return (
     <div className="fixtures-centre flex flex-col gap-2.5">
-      <section className="fixtures-hero"><small>SEASON CENTRE</small><h2>FIXTURES & RESULTS</h2>{next?<div className="next-fixture"><div><span>NEXT MATCH</span><b>{calendarWeekFor(next.fixture.week,phase,path)?`WEEK ${calendarWeekFor(next.fixture.week,phase,path)}`:`ROUND ${next.fixture.week}`}</b></div><div className="next-opponent">{next.opponent&&<TeamCrest primary={next.opponent.primaryColor} secondary={next.opponent.secondaryColor} short={next.opponent.short}/>}<strong>{next.opponent?.name??'TBD'}</strong><i>{next.isHome?'HOME':'AWAY'}</i></div></div>:<p>Season schedule complete.</p>}</section>
+      <section className="fixtures-hero"><small>SEASON CENTRE</small><h2>FIXTURES & RESULTS</h2><p>{phase === 'academy' ? 'Saturday fixtures' : path === 'school' ? 'School fixtures · Thursdays' : 'Sunday league · Sundays'}</p>{next?<div className="next-fixture"><div><span>NEXT MATCH</span><b>{calendarWeekFor(next.fixture.week,phase,path)?`WEEK ${calendarWeekFor(next.fixture.week,phase,path)}`:`ROUND ${next.fixture.week}`}</b></div><div className="next-opponent">{next.opponent&&<TeamCrest primary={next.opponent.primaryColor} secondary={next.opponent.secondaryColor} short={next.opponent.short}/>}<strong>{next.opponent?.name??'TBD'}</strong><i>{next.isHome?'HOME':'AWAY'}</i></div></div>:<p>Season schedule complete.</p>}</section>
       <div className="home-section-label"><span>RECENT FORM</span><i/></div>
       <Panel title="📈 form">
         {form.length === 0 ? (

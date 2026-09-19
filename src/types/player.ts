@@ -38,6 +38,15 @@ export interface Player {
   /** The active grassroots route. Selected players represent their school;
       Sunday football is the fallback route after release/elimination. */
   grassrootsPath?: 'school' | 'sunday'
+  /** A real second club while remaining registered with the school. */
+  sundayLeague?: import('../engine/league').LeagueWorld
+  sundaySquad?: import('../engine/squad').SquadPlayer[]
+  sundayContract?: import('../engine/sundayContracts').SundayContract
+  lastSundayOfferSeason?: number
+  sundayContractsVersion?: number
+  /** Match-only context, supplied when selecting the player for a fixture. */
+  matchEnergyMultiplier?: number
+  leagueGoals?: import('../engine/leagueScorers').PlayerLeagueGoals[]
   pathway?: import('../engine/pathway').YouthPathwayState
 
   // Phase 32 — standing with the three groups (coach reads off coachTrust)
@@ -182,7 +191,7 @@ export interface Player {
   // Scouting state (per-club interest, reputation-gated per Joel's locked design)
   reputation: number
   scoutWatchers: { clubId: string; clubName: string; clubShort: string; interest: number; tier: string; prestige: number; watchedMatches?: number; lastObservedWeek?: number; addedWeek?: number; ratings: { attack: number; midfield: number; defense: number } }[]
-  contractOffers: { id: string; clubId: string; clubName: string; clubShort: string; weekOffered: number; expiresInWeeks: number; prestige: number; ratings: { attack: number; midfield: number; defense: number }; kind: 'academy' | 'professional' | 'club'; divisionTier?: number }[]
+  contractOffers: { id: string; clubId: string; clubName: string; clubShort: string; weekOffered: number; expiresInWeeks: number; prestige: number; ratings: { attack: number; midfield: number; defense: number }; kind: 'academy' | 'professional' | 'club'; divisionTier?: number; weeklyWage?: number; contractSeason?: number; renewal?: boolean }[]
 
   // Absolute week counter, never resets at season boundary (used for offer expiry math)
   totalWeeksElapsed: number

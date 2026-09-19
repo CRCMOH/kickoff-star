@@ -1,3 +1,4 @@
+import TopScorers from '../../components/TopScorers'
 import type { Player } from '../../types/player'
 import type { Division } from '../../engine/league'
 import { sortStandings, divisionLabel } from '../../engine/league'
@@ -89,35 +90,7 @@ export default function ClubTab({ player, playerTeam, division, isAcademy }: {
         </div>
       </Panel>
 
-      {/* P63 — "we need top goalscorer/assist/rating screens." Real,
-          honest scope: other teams in the division are abstract entities
-          with no individual player roster at all (only your own team has
-          named players) — a true rival-player leaderboard would need full
-          generated squads for every team in the game, which is a much
-          bigger feature. What's genuinely real: team-level goals for/
-          against from the actual season, plus your own tracked stats in
-          context — shown here rather than faking opponent player names. */}
-      {/* P64 — real top-scorer leaderboard, now that every team has 4
-          tracked notable players and batch-sim actually attributes goals
-          to them. Not fabricated — every name/goal count here comes from
-          the real simulated season. */}
-      <Panel title={`top scorers — ${divName}`}>
-        <div className="flex flex-col gap-1.5">
-          {division.teams
-            .flatMap((t) => t.notablePlayers.map((p) => ({ ...p, teamShort: t.short, isPlayerTeam: t.id === playerTeam.id })))
-            .filter((p) => p.seasonGoals > 0)
-            .sort((a, b) => b.seasonGoals - a.seasonGoals)
-            .slice(0, 5)
-            .map((p, i) => (
-              <div key={`${p.teamShort}-${p.name}`} className="flex items-center gap-2 text-[11px]">
-                <span className="text-ks-muted w-4">{i + 1}</span>
-                <span className={`flex-1 truncate ${p.isPlayerTeam ? 'text-ks-gold' : 'text-ks-ink'}`}>{p.name}</span>
-                <span className="text-ks-muted w-9">{p.teamShort}</span>
-                <span className="text-ks-ink tabular-nums w-4 text-right">{p.seasonGoals}</span>
-              </div>
-            ))}
-        </div>
-      </Panel>
+      <TopScorers division={division} player={player} playerTeamId={playerTeam.id} competitionId={isAcademy ? 'academyLeague' : player.grassrootsPath === 'school' ? 'schoolLeague' : 'sundayLeague'} />
 
       <Panel title="⚽ top scoring teams">
         <div className="flex flex-col gap-1.5">

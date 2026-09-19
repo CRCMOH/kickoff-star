@@ -18,6 +18,7 @@
 import type { Player } from '../types/player'
 import type { SquadPlayer } from './squad'
 import { currentPerformance } from './youthOpportunities'
+import { SUNDAY_ENERGY_MULTIPLIERS } from './sundayContracts'
 
 export function matchAvailability(player: Player) {
   const energy = player.fitness.stamina
@@ -28,6 +29,12 @@ export function matchAvailability(player: Player) {
 /** Match-specific selection must never overwrite the player's school/club role. */
 export function playerForMatch(player: Player, competitionId: string): Player {
   let squadRole = player.squadRole
+  let squad = player.squad
+  if (competitionId === 'sundayLeague' && player.grassrootsPath === 'school') {
+    squad = player.sundaySquad
+    const record = currentPerformance(player, ['sundayLeague'])
+    squadRole = record.appearances >= 3 && record.average >= 6.8 ? decideSelection({ ...player, squadRole: 'bench' }, squad).role : 'bench'
+  }
   if (competitionId === 'nationalChampionship' || competitionId === 'international') {
     const record = currentPerformance(player, [competitionId])
     squadRole = record.appearances >= 3 && record.average >= 7 ? 'starting-xi' : 'bench'
@@ -35,7 +42,9 @@ export function playerForMatch(player: Player, competitionId: string): Player {
   const availability = matchAvailability(player)
   if (!availability.canPlay) squadRole = 'reserves'
   else if (!availability.canStart && (squadRole === 'starting-xi' || !squadRole)) squadRole = 'bench'
-  return { ...player, squadRole }
+  const matchEnergyMultiplier = (competitionId === 'sundayLeague' || competitionId === 'sundayCup') && player.careerClock.phase !== 'academy'
+    ? SUNDAY_ENERGY_MULTIPLIERS[player.sundayContract?.division ?? player.sundayLeague?.playerDivision ?? 3] : 1
+  return { ...player, squadRole, squad, matchEnergyMultiplier }
 }
 
 export type SquadRole = 'starting-xi' | 'bench' | 'reserves'

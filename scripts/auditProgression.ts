@@ -6,7 +6,7 @@ import { OUTFIELD_ATTRIBUTES } from '../src/types/attributes'
 import { initCompetitionCareer, recordCompetitionMatch, archiveCompetitionSeason } from '../src/engine/competitionCareer'
 import { academyRecruitmentReport, reviewAcademyShowcase, migrateAcademyRecruitment, canPlayYouthShowcase } from '../src/engine/academyRecruitment'
 import { initYouthPathway, representativeSelection, selectionPassed } from '../src/engine/pathway'
-import { currentPerformance, updateSundayRecruitment, representativeEvidence, sundayTransferAssessment } from '../src/engine/youthOpportunities'
+import { currentPerformance, updateSundayRecruitment, representativeEvidence } from '../src/engine/youthOpportunities'
 import { initScoutingState, maybeAddWatcher, checkForOffers, updateWatcherInterest } from '../src/engine/scouting'
 import { matchAvailability, decideSelection, playerForMatch } from '../src/engine/selection'
 import { initMatch, advanceToKeyMoment } from '../src/engine/match'
@@ -16,7 +16,7 @@ import { activeCompetitionForWeek } from '../src/engine/calendar'
 import { useCareerStore } from '../src/store/careerStore'
 import { EMPTY_CUPS, writeSave, SAVE_SCHEMA_VERSION } from '../src/engine/save'
 import { reseed } from '../src/engine/rng'
-import { initLeagueWorld, initSchoolLeagueWorld } from '../src/engine/league'
+import { initSchoolLeagueWorld } from '../src/engine/league'
 
 let checks = 0
 function check(condition: unknown, message: string) { assert.ok(condition, message); checks++; console.log('✓', message) }
@@ -109,11 +109,6 @@ for (let i = 1; i <= 10; i++) {
 check(sunday.pathway?.sundayStatus === 'squad-offer', 'Ten strong performances can earn a Sunday squad offer')
 sunday.pathway!.sundayStatus = 'registered'
 check(updateSundayRecruitment(sunday, 4).pathway?.sundayStatus === 'registered', 'A registered Sunday player never loses registration after a match')
-const sundayProspect = { ...addMatches(player(), 8, 1, 7.6, 'sundayLeague'), grassrootsPath: 'sunday' as const }
-check(sundayTransferAssessment(sundayProspect, 9, 3).targetDivision === 2, 'Strong early-year Sunday run opens Division 2 from Division 3')
-check(!sundayTransferAssessment(addMatches(player(), 3, 1, 10, 'sundayLeague'), 9, 3).eligible, 'Three games cannot trigger a higher-division signing')
-check(!sundayTransferAssessment(sundayProspect, 5, 3).eligible, 'Early transfer opportunity waits for the assessment window')
-
 check(!representativeEvidence(young, 'regional').eligible && !selectionPassed(representativeSelection(young, 'regional'), 'regional'), 'Three excellent games cannot qualify for Regional XI')
 check(representativeEvidence(addMatches(player(), 10, 1, 7.5), 'regional').eligible, 'A sustained school-season record can qualify for regional consideration')
 const regional = { ...addMatches(player(), 2, 1, 9, 'nationalChampionship'), pathway: { ...initYouthPathway(player()), regionalSelection: 'selected' as const } }
@@ -164,18 +159,4 @@ useCareerStore.setState({ player: { ...weeklyBase, ...young }, calendar: calenda
 useCareerStore.getState().advanceToNextWeek()
 check(useCareerStore.getState().player?.pathway?.regionalSelection === 'cut', 'Production regional review rejects a three-match record')
 
-let higherOffer = false
-for (let seed = 1; seed <= 40 && !higherOffer; seed++) {
-  const p = { ...weeklyBase, ...sundayProspect, pathway: { ...sundayProspect.pathway!, sundayStatus: 'registered' as const }, contractOffers: [] }
-  useCareerStore.setState({ player: p, calendar: calendar(1, 8), league: initLeagueWorld('Audit Sunday FC'), cups: { ...EMPTY_CUPS }, international: null })
-  reseed(seed)
-  useCareerStore.getState().advanceToNextWeek()
-  const offer = useCareerStore.getState().player?.contractOffers.find(o => o.kind === 'club' && o.divisionTier === 2)
-  if (offer) {
-    higherOffer = true
-    useCareerStore.getState().respondToOffer(offer.id, true)
-    check(useCareerStore.getState().league?.playerDivision === 2 && useCareerStore.getState().league?.playerTeamId === offer.clubId, 'Accepting an early Sunday offer moves the player to the real higher-division club')
-  }
-}
-check(higherOffer, 'Production weekly transfer path can produce a higher-division offer early in the year')
 console.log(`\n${checks} progression checks passed`)

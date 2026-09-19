@@ -5,6 +5,7 @@ import { playerCupFixture, CUP_CONFIGS } from '../engine/cup'
 import { nationFixture, internationalTeamById } from '../engine/international'
 import { generateTeam } from '../engine/teams'
 import { canPlayYouthShowcase } from '../engine/academyRecruitment'
+import { hasSundayContract } from '../engine/sundayContracts'
 import { matchAvailability, playerForMatch } from '../engine/selection'
 import { representativeEvidence } from '../engine/youthOpportunities'
 import { formQualifiesForSelection } from '../engine/international'
@@ -147,7 +148,9 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   const modeCompetitionId=mode.kind==='matchday'||mode.kind==='match'||mode.kind==='summary'||mode.kind==='shootout'?mode.competitionId:null
   const modeCup=modeCompetitionId?(cups as unknown as Record<string,import('../engine/cup').CupWorld|null>)[modeCompetitionId]:null
   const cupPlayerTeam=modeCup?.teams.find(t=>t.id===modeCup.playerTeamId)
-  const playerTeam = inIntlMode && nationTeam ? nationTeam : cupPlayerTeam??clubTeam
+  const sundayWorld = player.sundayLeague
+  const sundayTeam = sundayWorld?.divisions[sundayWorld.playerDivision].teams.find(t => t.id === sundayWorld.playerTeamId)
+  const playerTeam = modeCompetitionId === 'sundayLeague' && !isInAcademy && player.grassrootsPath === 'school' && sundayTeam ? sundayTeam : inIntlMode && nationTeam ? nationTeam : cupPlayerTeam??clubTeam
   const matchdayPlayer = playerForMatch(player, modeCompetitionId ?? '')
   const pending = nextUnresolvedEvent(calendar)
 
@@ -182,7 +185,17 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         setMode({ kind: 'matchday', opponent, isHome: nationIsHome, competitionId: 'international', competitionLabel: international.stage === 'finals' ? 'International Finals' : 'International Qualifier', isKnockout: international.stage === 'finals' })
         return
       }
-      if(pending.title==='Sunday community fixture'){const opponent=generateTeam(Math.max(2,Math.min(6,clubTeam.prestige+(rand()<.5?0:1))));setMode({kind:'matchday',opponent,isHome:rand()<.5,competitionId:'sundayCommunity',competitionLabel:'Community Sunday Football',isKnockout:false});return}
+      if (pending.title === 'Sunday league fixture' || pending.title === 'Sunday community fixture') {
+        if (!sundayWorld || player.pathway?.sundayStatus !== 'registered') { resolveCurrentEvent(); return }
+        const division = sundayWorld.divisions[sundayWorld.playerDivision]
+        const fixture = division.fixtures.find(f => !f.played && f.week <= calendar.currentWeek.weekNumber && (f.homeTeamId === sundayWorld.playerTeamId || f.awayTeamId === sundayWorld.playerTeamId))
+        if (!fixture) { resolveCurrentEvent(); return }
+        const isHome = fixture.homeTeamId === sundayWorld.playerTeamId
+        const opponent = division.teams.find(t => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))
+        if (!opponent) { resolveCurrentEvent(); return }
+        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: `Sunday League · Division ${sundayWorld.playerDivision}`, isKnockout: false })
+        return
+      }
 
       const comp = activeCompetitionForWeek(calendar.currentWeek.weekNumber, player.careerClock.phase, player.grassrootsPath)
       if (!comp) { resolveCurrentEvent(); return }
@@ -295,6 +308,9 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   }
   if (mode.kind === 'rest') {
     return <RestDayScreen player={player} onChoose={handleRestChoice} />
+  }
+  if ((mode.kind === 'matchday' || mode.kind === 'match') && !isInAcademy && (mode.competitionId === 'sundayLeague' || mode.competitionId === 'sundayCup') && !hasSundayContract(player, calendar.currentWeek.seasonYear, player.grassrootsPath === 'school' ? sundayWorld : league)) {
+    return <div className="min-h-screen bg-ks-black flex items-center justify-center px-5"><div className="max-w-sm w-full rounded-xl border border-ks-border p-6 text-center"><h1 className="font-display text-xl text-ks-gold">SUNDAY REGISTRATION</h1><p className="text-sm text-ks-ink mt-3">You need a signed season contract to play for this club.</p><button className="w-full bg-ks-gold text-ks-black rounded-lg py-3 mt-4" onClick={() => setMode({ kind: 'offers' })}>review contracts</button><button className="w-full text-ks-muted py-3" onClick={() => { resolveCurrentEvent(); setMode({ kind: 'hub' }) }}>sit out this fixture</button></div></div>
   }
   if ((mode.kind === 'matchday' || mode.kind === 'match') && !matchAvailability(player).canPlay) {
     return <div className="min-h-screen bg-ks-black flex items-center justify-center px-5"><div className="max-w-sm w-full rounded-2xl border border-ks-border p-6 text-center"><h1 className="font-display text-ks-gold text-2xl">RESTED FOR THIS MATCH</h1><p className="text-ks-ink mt-3">Your energy is {Math.round(player.fitness.stamina)}%. Below 30%, you cannot play.</p><p className="text-ks-muted text-sm mt-2">Your team will play without you. Recover to at least 50% to be considered for a starting place.</p><button className="w-full bg-ks-gold text-ks-black rounded-xl py-3 mt-5" onClick={() => { resolveCurrentEvent(); setMode({ kind: 'hub' }) }}>sit out this match →</button></div></div>

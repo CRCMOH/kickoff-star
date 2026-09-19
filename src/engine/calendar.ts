@@ -13,10 +13,9 @@ export const SEASON_WEEKS = 44
 function id() { return crypto.randomUUID() }
 
 export function nextUnresolvedEvent(state: CalendarState): CalendarEvent | null {
-  const byDay = new Map(state.currentWeek.events.map((e) => [e.day, e]))
   for (const day of DAY_ORDER) {
-    const event = byDay.get(day)
-    if (event && !event.resolved) return event
+    const event = state.currentWeek.events.find(e => e.day === day && !e.resolved)
+    if (event) return event
   }
   return null
 }
@@ -138,7 +137,8 @@ export function generateWeek(weekNumber: number, seasonYear: number, phase: Care
   // that turns up (street) or the coach running a small-sided game instead of
   // a drill session. Never on a week you already have midweek international
   // duty — two midweek games is too much on a 15-year-old's legs.
-  if (weekNumber > 2 && !internationalWeek) {
+  const schoolMatch = phase !== 'academy' && grassrootsPath === 'school' && activeCompetitionForWeek(weekNumber, phase, grassrootsPath) !== null
+  if (weekNumber > 2 && !internationalWeek && !schoolMatch) {
     const roll = rand()
     if (roll < 0.34) {
       events.push({ id: id(), day: 'thu', type: 'street', title: 'a game down the park', resolved: false })
@@ -147,13 +147,33 @@ export function generateWeek(weekNumber: number, seasonYear: number, phase: Care
     }
   }
   if (activeCompetitionForWeek(weekNumber, phase, grassrootsPath) !== null) {
-    events.push({ id: id(), day: 'sat', type: 'match', title: 'matchday', resolved: false })
+    events.push({ id: id(), day: phase === 'academy' ? 'sat' : grassrootsPath === 'school' ? 'thu' : 'sun', type: 'match', title: 'matchday', resolved: false })
   } else {
     events.push({ id: id(), day: 'sat', type: 'training', title: 'extra training', resolved: false })
   }
-  if (playsSundayFootball && phase !== 'academy' && grassrootsPath === 'school' && weekNumber % 4 === 0) events.push({ id:id(), day:'sun', type:'match', title:'Sunday community fixture', resolved:false })
-  else events.push({ id: id(), day: 'sun', type: 'rest', title: 'rest day', resolved: false })
+  if (schoolMatch || events.some(e => e.day === 'sun' && e.type === 'match')) events.push({ id: id(), day: 'sat', type: 'rest', title: 'match recovery', resolved: false })
+  if (playsSundayFootball && phase !== 'academy' && grassrootsPath === 'school' && weekNumber <= 22) events.push({ id:id(), day:'sun', type:'match', title:'Sunday league fixture', resolved:false })
+  if (!events.some(e => e.day === 'sun')) events.push({ id: id(), day: 'sun', type: 'rest', title: 'rest day', resolved: false })
   return { weekNumber, seasonYear, events }
+}
+
+/** Preserve event IDs/completion when updating an in-flight saved week. */
+export function alignMatchDays(state: CalendarState, phase: CareerPhase, path: GrassrootsPath, registered: boolean): CalendarState {
+  if (phase === 'academy') return state
+  let events = state.currentWeek.events.map(event => {
+    if (event.type !== 'match' || event.title === 'international duty') return event
+    const sunday = event.title === 'Sunday community fixture' || event.title === 'Sunday league fixture'
+    return { ...event, day: (sunday || path === 'sunday' ? 'sun' : 'thu') as DayOfWeek, title: sunday ? 'Sunday league fixture' : event.title }
+  })
+  const hasThursdayMatch = events.some(e => e.type === 'match' && e.day === 'thu')
+  if (hasThursdayMatch) events = events.filter(e => e.day !== 'thu' || e.type !== 'street' || e.resolved)
+  if (registered && path === 'school' && state.currentWeek.weekNumber <= 22 && !events.some(e => e.day === 'sun' && e.type === 'match')) {
+    const rest = events.find(e => e.day === 'sun' && e.type === 'rest')
+    if (!rest?.resolved) events = [...events.filter(e => e !== rest), { id: rest?.id ?? id(), day: 'sun', type: 'match', title: 'Sunday league fixture', resolved: false }]
+  }
+  if (!events.some(e => e.day === 'sat')) events.push({ id: id(), day: 'sat', type: 'rest', title: 'match recovery', resolved: false })
+  events = events.filter(e => !(e.day === 'sun' && e.type === 'rest' && !e.resolved && events.some(m => m.day === 'sun' && m.type === 'match')))
+  return { ...state, currentWeek: { ...state.currentWeek, events } }
 }
 
 export interface WeekAdvanceResult {

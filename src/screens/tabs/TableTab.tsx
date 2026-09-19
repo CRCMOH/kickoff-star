@@ -1,3 +1,5 @@
+import TopScorers from '../../components/TopScorers'
+import { useCareerStore } from '../../store/careerStore'
 import { useState } from 'react'
 import type { Division } from '../../engine/league'
 import { divisionLabel, type LeagueWorld } from '../../engine/league'
@@ -13,6 +15,7 @@ export default function TableTab({ world, playerTeamId, isAcademy }: {
   playerTeamId: string
   isAcademy: boolean
 }) {
+  const player = useCareerStore(s => s.player)
   const isSchool = !isAcademy && 'kind' in world && world.kind === 'school'
   const tiers = isSchool ? [world.playerDivision] : Object.keys(world.divisions).map(Number).sort()
   const [tier, setTier] = useState<number>(world.playerDivision)
@@ -49,6 +52,7 @@ export default function TableTab({ world, playerTeamId, isAcademy }: {
           ? 'top 3 of the development league earn promotion at the end of the season. no relegation in the academy.'
           : 'top 2 go up, bottom 2 go down — decided on the final matchday of the season.'}
       </p>
+      {player && <TopScorers division={division} player={player} playerTeamId={playerTeamId} competitionId={isAcademy ? 'academyLeague' : isSchool ? 'schoolLeague' : 'sundayLeague'} />}
     </div>
   )
 }

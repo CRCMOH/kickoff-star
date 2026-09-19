@@ -33,16 +33,6 @@ export function updateSundayRecruitment(player: Player, rating: number): Player 
   return { ...player, pathway: { ...pathway, sundayInterest, sundayStatus } }
 }
 
-export function sundayTransferAssessment(player: Player, week: number, division: number) {
-  const record = currentPerformance(player, ['sundayLeague', 'sundayCup'])
-  const recent = (player.matchRatings ?? []).slice(-5)
-  const form = recent.length === 5 ? recent.reduce((a, b) => a + b, 0) / recent.length : 0
-  const inWindow = week >= 8 && week <= 16 || week >= 18 && week <= 24 || week >= 40 && week <= 43
-  const eligible = inWindow && !player.injury && record.appearances >= 6 && record.average >= 6.8 && form >= 6.8
-  const higherDivision = eligible && division > 1 && record.appearances >= 8 && record.average >= 7.1 && form >= 7.1
-  return { eligible, higherDivision, targetDivision: higherDivision ? division - 1 : division }
-}
-
 export function repairSundayInvitation(player: Player): Player {
   const pathway = player.pathway
   if (!pathway || pathway.sundayStatus === 'registered' || player.grassrootsPath !== 'school') return player
