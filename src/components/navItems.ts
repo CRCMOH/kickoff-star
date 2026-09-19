@@ -7,7 +7,7 @@
 //    with your profile)
 //  - fixtures and table merged into one 'league' tab with a segmented toggle,
 //    since "who do we play" and "where are we" are the same question
-//  - the freed slot goes to the shop
+//  - people remains routable from contextual links; the six HUD slots prioritize the playable football world
 // 'table' and 'scouts' are kept in the type as routable destinations so
 // existing deep links (e.g. "table →" on the hub) still work.
 export type HubTab = 'home' | 'player' | 'people' | 'club' | 'fixtures' | 'table' | 'scouts' | 'shop' | 'world'
@@ -15,7 +15,6 @@ export type HubTab = 'home' | 'player' | 'people' | 'club' | 'fixtures' | 'table
 export const NAV_ITEMS: { tab: HubTab; icon: string; label: string }[] = [
   { tab: 'home', icon: '⌂', label: 'home' },
   { tab: 'player', icon: '☺', label: 'player' },
-  { tab: 'people', icon: '♥', label: 'people' },
   { tab: 'club', icon: '▣', label: 'club' },
   { tab: 'fixtures', icon: '▤', label: 'league' },
   { tab: 'world', icon: '★', label: 'world' },
