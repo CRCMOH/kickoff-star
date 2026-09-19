@@ -136,7 +136,7 @@ function generateAcademyClubs(r: () => number): AcademyClub[] {
     ['pretoria-sundowns','Pretoria Sundowns','South Africa',87],
   ] as const
   const positions: Position[] = ['GK','CB','FB','CM','WM','WG','ST']
-  return clubs.map(([id,name,region,base], i) => {
+  return clubs.map(([id,name,region,base]) => {
     const positionNeeds: Partial<Record<Position, number>> = {}
     for (const p of positions) positionNeeds[p] = Math.round(35 + r() * 60)
     return {
