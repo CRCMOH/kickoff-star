@@ -13,6 +13,7 @@ on:
       - 'src/engine/youthCompetitionsV4.ts'
       - 'src/engine/youthFinancesV4.ts'
       - 'src/engine/youthAcademyV4.ts'
+      - 'src/engine/academyCareerV4.ts'
       - 'src/engine/save.ts'
       - 'src/store/careerStore.ts'
       - 'scripts/auditYouthWorldV4.ts'
