@@ -99,7 +99,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
   const [autoResolve, setAutoResolve] = useState(false)
   const isInAcademy = player?.careerClock.phase === 'academy'
 
-  // Grassroots league world is created lazily post-trials (never during Academy —
+  // Route-specific youth league world is created lazily post-trials (never during Academy —
   // that world is created directly by respondToOffer when an academy offer is accepted).
   useEffect(() => {
     if (player && !player.turnedPro && !player.careerEnded && !isInAcademy && !league) ensureLeagueWorld()
@@ -183,7 +183,7 @@ export default function Career({ onExitToMenu }: { onExitToMenu?: () => void }) 
         const isHome = fixture.homeTeamId === activeWorld.playerTeamId
         const opponent = playerDivision.teams.find((t) => t.id === (isHome ? fixture.awayTeamId : fixture.homeTeamId))
         if (!opponent) { resolveCurrentEvent(); return }
-        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: isInAcademy ? 'League' : 'Sunday League', isKnockout: false })
+        setMode({ kind: 'matchday', opponent, isHome, competitionId: 'sundayLeague', competitionLabel: isInAcademy ? 'League' : player.youthRoute === 'school' ? 'Inter-Schools League' : 'Grassroots League', isKnockout: false })
         return
       }
 
