@@ -43,7 +43,7 @@ function ordinal(n: number): string {
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 
-export default function HomeTab({ player, calendar, league, academyLeague, offerCount, onOpenOffers, onGoTo, onOpenEnergy, latestGazetteMasthead, onOpenGazette }: {
+export default function HomeTab({ player, calendar, league, academyLeague, offerCount, onOpenOffers, onGoTo, onOpenEnergy, latestGazetteMasthead, onOpenGazette, onOpenYearCalendar }: {
   player: Player
   calendar: CalendarState
   league: LeagueWorld | null
@@ -54,6 +54,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   onOpenEnergy: () => void
   latestGazetteMasthead: string | null
   onOpenGazette: () => void
+  onOpenYearCalendar: () => void
 }) {
   const consumeItem = useCareerStore((s) => s.consumeItem)
   const restoreEnergyFromAd = useCareerStore((s) => s.restoreEnergyFromAd)
@@ -222,6 +223,8 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
       ))}
 
       <button onClick={() => onGoTo('player')} className="home-player-link"><span>PLAYER PROFILE</span><b>View development, form & career record →</b></button>
+
+      <div className="grid grid-cols-2 gap-2"><button onClick={onOpenYearCalendar} className="rounded-xl border border-ks-border bg-[#0f0f0d] p-3 text-left"><span className="font-display text-ks-gold text-[10px] tracking-widest">YEAR CALENDAR</span><p className="text-[10px] text-ks-muted mt-1">Jan–Dec route, competitions & key dates →</p></button><button onClick={onOpenGazette} className="rounded-xl border border-ks-border bg-[#0f0f0d] p-3 text-left"><span className="font-display text-ks-gold text-[10px] tracking-widest">THE GAZETTE</span><p className="text-[10px] text-ks-muted mt-1">{latestGazetteMasthead??'World and career news'} →</p></button></div>
 
       <div className="home-section-label"><span>THIS WEEK</span><i/></div>
       {/* Phase 25: the Gazette teaser — a fresh issue drops every week */}
