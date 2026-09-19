@@ -1,7 +1,7 @@
 import type { Player } from '../../types/player'
 import { computeCurrentAbility, toOvr } from '../../engine/rating'
 import { trustLabel, trustEmoji, generateNotebookEntry, notebookTone } from '../../engine/coachTrust'
-import { Panel, Bar, TickBar, VerticalBarChart, RadarChart, OvrRing, StatRow, EmptyNote, Section, Icon } from '../../components/ui'
+import { Panel, Bar, TickBar, VerticalBarChart, RadarChart, StatRow, EmptyNote, Section, Icon } from '../../components/ui'
 import iconShape from '../../assets/icons/shape.png'
 import iconScouts from '../../assets/icons/scouts.png'
 import iconMedical from '../../assets/icons/medical.png'
@@ -52,9 +52,10 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="rounded-lg border border-ks-border bg-gradient-to-br from-[#15140f] to-[#0d0d0b] px-3 py-3 flex items-center gap-3 relative overflow-hidden texture-floodlight">
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 60% 80% at 15% 20%, rgba(212,175,55,0.10), transparent 60%)' }} />
-        <Avatar id={player.avatarId ?? 0} size={58} className="relative z-10 shrink-0" />
+      <div className="player-card-v2">
+        <div className="player-card-number">{player.position}</div>
+        <div className="player-card-beam"/>
+        <Avatar id={player.avatarId ?? 0} size={72} className="relative z-10 shrink-0 player-card-avatar" />
         <div className="flex-1 min-w-0 relative z-10">
           <div className="font-display tracking-wide text-ks-ink text-base leading-tight truncate">
             {getNation(player.nationality).flag} {player.name}
@@ -71,9 +72,10 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
             <span className="font-display text-green-500 text-xs">{player.potential}</span>
           </div>
         </div>
-        <OvrRing value={ovr} size="lg" />
+        <div className="player-card-ovr"><strong>{ovr}</strong><span>OVERALL</span></div>
       </div>
 
+      <div className="player-quick-strip"><div><span>APPS</span><b>{c?.appearances ?? 0}</b></div><div><span>GOALS</span><b>{c?.goals ?? 0}</b></div><div><span>ASSISTS</span><b>{c?.assists ?? 0}</b></div><div><span>BEST</span><b>{c?.bestRating?.toFixed(1) ?? '—'}</b></div></div>
       {/* P50 — the coach's verdict used to only ever surface as a one-time
           weekly note that scrolled away. Now it's always visible: where you
           actually stand, and how long until it can change — the real
@@ -101,16 +103,28 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
         )
       })()}
 
+      {player.captaincy && player.captaincy.role !== 'none' && (
+        <Panel title="© leadership">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-display text-ks-gold tracking-wide">{player.captaincy.role === 'captain' ? 'Club Captain' : 'Vice-Captain'}</span>
+            <span className="text-[10px] text-ks-muted">appointed week {player.captaincy.appointedWeek ?? '—'}</span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <StatRow label="matches as captain" value={player.captaincy.matchesAsCaptain} />
+            <StatRow label="matches as vice-captain" value={player.captaincy.matchesAsViceCaptain} />
+          </div>
+          <p className="text-[10px] text-ks-muted leading-relaxed mt-2">Leadership is earned through trust, consistency, standing and time in the side.</p>
+        </Panel>
+      )}
+
       {/* P60 — reference: a radar/hexagon chart showing the player's
           attribute "shape" at a glance, alongside (not replacing) the bars. */}
-      <Panel title={<span className="flex items-center gap-1"><Icon src={iconShape} />shape</span>}>
-        <RadarChart
+      <div className="development-card"><div className="development-title"><span><Icon src={iconShape} /> PLAYER DNA</span><b>OVR {ovr}</b></div><div className="development-radar"><RadarChart
           points={groups.flatMap((g) => g.attrs.slice(0, isGk ? 4 : 2)).map((attr) => ({
             label: ATTR_LABELS[attr] ?? attr,
             value: values[attr] ?? 0,
           }))}
-        />
-      </Panel>
+        /></div><div className="development-meta"><span>{getArchetype(player.archetype)?.label ?? player.position}</span><i>Potential {player.potential}</i></div></div>
 
       {groups.map((group) =>
         group.title === 'physical' || group.title === 'mental' ? null : (
@@ -143,16 +157,7 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
           <EmptyNote>No matches played yet. Your recent ratings will show here.</EmptyNote>
         ) : (
           <>
-            <div className="flex items-center gap-1.5 mb-2.5">
-              {recent.map((r, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-md border border-ks-border bg-[#161613] py-1.5 text-center"
-                >
-                  <span className={`font-display text-xs ${ratingColor(r)}`}>{r.toFixed(1)}</span>
-                </div>
-              ))}
-            </div>
+            <div className="form-track mb-3">{recent.map((r,i)=><div key={i} className="form-match"><span className={ratingColor(r)}>{r.toFixed(1)}</span><i style={{height:`${Math.max(14,(r-4)*18)}px`}}/><small>M{i+1}</small></div>)}</div>
             <div className="flex flex-col gap-1.5">
               <StatRow label="matches played" value={ratings.length} />
               <StatRow label="average rating" value={avg ? avg.toFixed(2) : '—'} />
@@ -175,6 +180,8 @@ export default function PlayerTab({ player, onOpenOffers }: { player: Player; on
           <StatRow label="wins" value={c?.wins ?? 0} />
           <StatRow label="clean sheets" value={c?.cleanSheets ?? 0} />
           <StatRow label="best rating" value={c?.bestRating ? c.bestRating.toFixed(1) : '—'} />
+          <StatRow label="player of the match" value={c?.motmAwards ?? 0} />
+          <StatRow label="matches as captain" value={player.captaincy?.matchesAsCaptain ?? 0} />
         </div>
         {/* P63 — "how many of my goals came in the league vs a cup run vs
             for my country." */}

@@ -7,6 +7,7 @@ import type { CupWorld } from './cup'
 import type { InternationalWorld } from './international'
 import type { TrainingSession } from './training'
 import type { TrainingIntensity } from './energy'
+import type { YouthWorld } from '../types/youthWorld'
 
 // Locked scope: local-only save data (IndexedDB), 3 save slots per device.
 //
@@ -23,7 +24,7 @@ import type { TrainingIntensity } from './energy'
 //      from the first drill, wiping real progress with no warning. Now
 //      checkpointed after every completed drill so a reload resumes instead
 //      of restarting.
-export const SAVE_SCHEMA_VERSION = 3
+export const SAVE_SCHEMA_VERSION = 4
 
 export type SaveSlotId = 0 | 1 | 2
 
@@ -54,6 +55,8 @@ export interface SaveGame {
   cups: CupWorlds
   international: InternationalWorld | null
   pendingTraining: PendingTrainingSnapshot | null
+  /** V4 persistent generated youth-football world. Null for pre-V4 saves until initialized. */
+  youthWorld: YouthWorld | null
 }
 
 const slotKey = (slot: SaveSlotId) => `kickoff-star-save-${slot}`
@@ -69,12 +72,16 @@ function migrateSave(raw: SaveGame & { schemaVersion?: number }): SaveGame {
       cups: (raw as SaveGame).cups ?? { ...EMPTY_CUPS },
       international: (raw as SaveGame).international ?? null,
       pendingTraining: null,
+      youthWorld: null,
     }
   }
   if (raw.schemaVersion < 3) {
-    return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION, pendingTraining: null }
+    return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION, pendingTraining: null, youthWorld: null }
   }
-  return raw
+  if (raw.schemaVersion < 4) {
+    return { ...raw, schemaVersion: SAVE_SCHEMA_VERSION, youthWorld: null }
+  }
+  return { ...raw, youthWorld: raw.youthWorld ?? null }
 }
 
 export async function writeSave(save: SaveGame): Promise<void> {

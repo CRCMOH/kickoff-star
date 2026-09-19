@@ -70,9 +70,12 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
   const played = rows.filter((r) => r.result !== null)
   const upcoming = rows.filter((r) => r.result === null)
   const form = played.slice(-5).map((r) => r.result!)
+  const next = upcoming[0]
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="fixtures-centre flex flex-col gap-2.5">
+      <section className="fixtures-hero"><small>SEASON CENTRE</small><h2>FIXTURES & RESULTS</h2>{next?<div className="next-fixture"><div><span>NEXT MATCH</span><b>{calendarWeekFor(next.fixture.week)?`WEEK ${calendarWeekFor(next.fixture.week)}`:`ROUND ${next.fixture.week}`}</b></div><div className="next-opponent">{next.opponent&&<TeamCrest primary={next.opponent.primaryColor} secondary={next.opponent.secondaryColor} short={next.opponent.short}/>}<strong>{next.opponent?.name??'TBD'}</strong><i>{next.isHome?'HOME':'AWAY'}</i></div></div>:<p>Season schedule complete.</p>}</section>
+      <div className="home-section-label"><span>RECENT FORM</span><i/></div>
       <Panel title="📈 form">
         {form.length === 0 ? (
           <EmptyNote>No results yet this season.</EmptyNote>
@@ -91,6 +94,7 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
         )}
       </Panel>
 
+      <div className="home-section-label"><span>COMPETITIONS</span><i/></div>
       {activeCups.length > 0 && (
         <Panel title={<span className="flex items-center gap-1"><Icon src={iconGlory} />cup competitions</span>}>
           <div className="flex flex-col gap-2">
@@ -117,13 +121,13 @@ export default function FixturesTab({ division, playerTeamId, cups }: { division
 
       {bracketFor && <CupBracket world={bracketFor} onClose={() => setBracketFor(null)} />}
 
-      <Panel title={`upcoming — ${upcoming.length}`}>
+      <div className="home-section-label"><span>SCHEDULE</span><i/></div><Panel title={`upcoming — ${upcoming.length}`}>
         {upcoming.length === 0 ? (
           <EmptyNote>Season complete — no fixtures remaining.</EmptyNote>
         ) : (
           <div className="flex flex-col gap-2">
             {upcoming.map((r) => (
-              <div key={r.fixture.id} className="flex items-center gap-2.5">
+              <div key={r.fixture.id} className="fixture-row flex items-center gap-2.5">
                 <span className="text-[9px] text-ks-muted w-8 shrink-0">
                   {calendarWeekFor(r.fixture.week) ? `wk ${calendarWeekFor(r.fixture.week)}` : `r${r.fixture.week}`}
                 </span>

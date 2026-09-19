@@ -34,6 +34,11 @@ import { generateSquad } from '../engine/squad'
 import { growSquadForSeason, rollSquadDepartures } from '../engine/squadLifecycle'
 import { generateGazetteIssue } from '../engine/gazette'
 import { initAcademyWorld, recordAcademyMatchResult, batchSimAcademyRound, applyAcademyPromotion, type AcademyWorld } from '../engine/academy'
+import { evaluateCaptaincy, recordCaptainAppearance, clearCaptaincyStory } from '../engine/captaincy'
+import { createYouthWorld } from '../engine/youthWorld'
+import { applyTrialOutcome } from '../engine/youthPathways'
+import { initializeCompetitionWorld } from '../engine/youthCompetitionsV4'
+import type { YouthWorld } from '../types/youthWorld'
 
 interface CareerStore {
   player: Player | null
@@ -42,6 +47,7 @@ interface CareerStore {
   academyLeague: AcademyWorld | null
   cups: CupWorlds
   international: InternationalWorld | null
+  youthWorld: YouthWorld | null
   activeSlot: SaveSlotId | null
   /** P53 — in-progress training session, checkpointed after every completed
       drill so a mobile reload mid-session resumes instead of silently
@@ -77,6 +83,7 @@ interface CareerStore {
   /** P33: end-of-season review, drained by the UI. */
   pendingSeasonReview: import('../engine/seasonReview').SeasonReview | null
   clearSeasonReview: () => void
+  clearCaptaincyStory: () => void
   /** Player-initiated relationship interaction (the BitLife-style verb list). */
   interactWith: (relationshipId: string, interactionId: string) => { success: boolean; delta: number } | null
   /** P29 economy. */
@@ -109,7 +116,7 @@ interface CareerStore {
   setSchool: (schoolId: string) => void
   completeTrials: (role: SquadRole, trialPerformance: number) => void
   /** competitionId routes the result: 'sundayLeague' updates the league table; cup ids update their bracket; 'international' the nation's campaign; 'schoolFriendlies' nothing. shootoutWonByPlayer is only set for drawn knockout ties. */
-  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }) => void
+  applyMatchResult: (rating: number, goals: number, assists: number, finalMatchStamina: number, injury: { severity: string; weeksOut: number; description: string } | null, opponentId: string, playerGoalsScored: number, opponentGoalsScored: number, playerWasHome: boolean, squad: import('../engine/squad').SquadPlayer[] | undefined, opponentName: string | undefined, competitionId: string, shootoutWonByPlayer?: boolean, redCarded?: boolean, matchStats?: { tackle: number; interception: number; header: number; keyPass: number; save: number }, playerWonMotm?: boolean) => void
   respondToOffer: (offerId: string, accept: boolean) => void
   ensureLeagueWorld: () => void
 }
@@ -146,6 +153,7 @@ function migratePlayer(player: Player): Player {
     recentInjuryCount: player.recentInjuryCount ?? 0,
     matchesSinceReturn: player.matchesSinceReturn ?? 3,
     coachTrust: player.coachTrust ?? 0,
+    captaincy: player.captaincy ?? { role: 'none', matchesAsCaptain: 0, matchesAsViceCaptain: 0, appointedWeek: null },
     reputation: player.reputation ?? 5,
     // drop any watcher/offer entries from saves predating clubId/ratings (schema-shape change, not just a missing field)
     scoutWatchers: (player.scoutWatchers ?? []).filter((w) => w && typeof w.clubId === 'string' && w.ratings),
@@ -192,13 +200,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   academyLeague: null,
   cups: { ...EMPTY_CUPS },
   international: null,
+  youthWorld: null,
   activeSlot: null,
   pendingTraining: null,
 
   loadFromSlot: async (slot) => {
     const save = await readSave(slot)
     if (!save) return
-    setState({ player: migratePlayer(save.player), calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
+    const migratedPlayer = migratePlayer(save.player)
+    const youthWorld = save.youthWorld ?? initializeCompetitionWorld(createYouthWorld(migratedPlayer.id, migratedPlayer.schoolId))
+    setState({ player: migratedPlayer, calendar: save.calendar, league: save.league ?? null, academyLeague: save.academyLeague ?? null, cups: save.cups ?? { ...EMPTY_CUPS }, international: save.international ?? null, youthWorld, activeSlot: slot, pendingTraining: save.pendingTraining ?? null })
   },
 
   startNewCareer: async (player, calendar, slot) => {
@@ -243,14 +254,15 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       clubGlory: {},
       nationalGlory: {},
     }
-    setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, activeSlot: slot, pendingTraining: null })
-    await writeSave({ schemaVersion: 3, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null })
+    const youthWorld = initializeCompetitionWorld(createYouthWorld(player.id, player.schoolId))
+    setState({ player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, youthWorld, activeSlot: slot, pendingTraining: null })
+    await writeSave({ schemaVersion: 4, slotId: slot, savedAt: new Date().toISOString(), player, calendar, league: null, academyLeague: null, cups: { ...EMPTY_CUPS }, international: null, pendingTraining: null, youthWorld })
   },
 
   saveCurrent: async () => {
-    const { player, calendar, league, academyLeague, cups, international, activeSlot, pendingTraining } = getState()
+    const { player, calendar, league, academyLeague, cups, international, youthWorld, activeSlot, pendingTraining } = getState()
     if (!player || !calendar || activeSlot === null) return
-    await writeSave({ schemaVersion: 3, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null })
+    await writeSave({ schemaVersion: 4, slotId: activeSlot, savedAt: new Date().toISOString(), player, calendar, league, academyLeague, cups, international, pendingTraining: pendingTraining ?? null, youthWorld })
   },
 
   setPendingTraining: (snapshot) => {
@@ -291,6 +303,10 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   applyDecisionResult: (result, relationshipId) => {
     const { player, calendar } = getState()
     if (!player || !calendar) return
+    // Captaincy is evaluated from the player's updated post-match standing,
+    // then the appearance is recorded using the role held for this match.
+    const heldCaptaincy = player.captaincy ?? { role: 'none' as const, matchesAsCaptain: 0, matchesAsViceCaptain: 0, appointedWeek: null }
+    const recordedCaptaincy = recordCaptainAppearance(heldCaptaincy)
     const event = nextUnresolvedEvent(calendar)
     const effect = result.effect
 
@@ -307,6 +323,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       reputation: clamp((player.reputation ?? 0) + (effect.reputation ?? 0), 0, 100),
       money: Math.max(0, (player.money ?? 0) + (effect.money ?? 0)),
     }
+    updatedPlayer.captaincy = evaluateCaptaincy(updatedPlayer, recordedCaptaincy)
 
     // Phase 28 — this is the link that makes the life layer causal:
     // a choice can move a NAMED person's bond, introduce someone new to the
@@ -500,6 +517,11 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     void getState().saveCurrent()
   },
   clearSeasonReview: () => setState({ pendingSeasonReview: null }),
+  clearCaptaincyStory: () => {
+    const player=getState().player
+    if(!player?.captaincy)return
+    setState({player:{...player,captaincy:clearCaptaincyStory(player.captaincy)}})
+  },
 
   // ---- P49 XP-based attribute progression --------------------------------
   spendAttributeXp: (attr, xpAmount) => {
@@ -736,7 +758,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   },
 
   advanceToNextWeek: () => {
-    const { player, calendar, league, academyLeague, cups, international } = getState()
+    const { player, calendar, league, academyLeague, cups, international, youthWorld } = getState()
     if (!player || !calendar) return
     let lastEconomyNote: string | null = null
     let lastSelectionNote: string | null = null
@@ -839,7 +861,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     // 'schoolFriendlies' needs no batch sim — friendlies are self-contained.
 
     // International windows run MIDWEEK, independent of the Saturday branch above.
-    if (updatedInternational && hasDuty) {
+    if (updatedInternational && campaignActive) {
       const intlRound = internationalRoundForWeek(completedWeekNumber)
       if (intlRound) {
         if (updatedInternational.stage === 'qualifiers' && intlRound.stage === 'qualifiers') {
@@ -1210,8 +1232,9 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     const newArc = maybeStartArc(arcPlayer, result.calendar.currentWeek.weekNumber, arcPlayer.activeArcs ?? [], arcPlayer.recentArcKeys ?? [])
     if (newArc) arcPlayer = { ...arcPlayer, activeArcs: [...(arcPlayer.activeArcs ?? []), newArc] }
 
-    // Career end: reaching the age cap (20) without turning pro is the fail-state
-    const finalPlayer = result.reachedAgeCap
+    // V5 graduation rule: if school ends at 18 and no academy/pro route was secured, the youth career ends here.
+    const graduatedWithoutAcademy = result.seasonEnded && result.newAge >= 18 && arcPlayer.careerClock.phase !== 'academy' && !arcPlayer.turnedPro
+    const finalPlayer = (result.reachedAgeCap || graduatedWithoutAcademy)
       ? { ...arcPlayer, careerEnded: true }
       : arcPlayer
 
@@ -1244,7 +1267,8 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
       worldTeamNames: divisionForHeadlines?.teams.map((t) => t.name) ?? [],
     })
 
-    setState({ player: finalPlayer, calendar: result.calendar, league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
+    const updatedYouthWorld = youthWorld ? { ...youthWorld, currentWeek: result.calendar.currentWeek.weekNumber, seasonYear: result.calendar.currentWeek.seasonYear } : youthWorld
+    setState({ player: finalPlayer, calendar: result.calendar, league: updatedLeague, academyLeague: updatedAcademyLeague, cups: updatedCups, international: updatedInternational, youthWorld: updatedYouthWorld, pendingArcVerdicts: [...getState().pendingArcVerdicts, ...verdicts], pendingHeadlines: [...getState().pendingHeadlines, ...weeklyHeadlines], pendingSeasonReview: seasonReview, economyNote: lastContractNote ?? lastEconomyNote, selectionNote: lastSelectionNote, negotiationBeat: negotiationBeatThisWeek ?? getState().negotiationBeat })
     // Non-match achievements (scouts noticing you, offers arriving, coach trust,
     // reputation, squad role, injury comeback) have no match to hang off, so the
     // week tick is their trigger. Runs after setState so it reads the new state.
@@ -1302,14 +1326,16 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
   },
 
   setSchool: (schoolId) => {
-    const { player } = getState()
+    const { player, youthWorld } = getState()
     if (!player) return
-    setState({ player: { ...player, schoolId } })
+    const baseWorld = youthWorld ? { ...youthWorld, selectedSchoolId: schoolId } : createYouthWorld(player.id, schoolId)
+    const nextWorld = initializeCompetitionWorld(baseWorld)
+    setState({ player: { ...player, schoolId }, youthWorld: nextWorld })
     void getState().saveCurrent()
   },
 
   completeTrials: (role, performance) => {
-    const { player } = getState()
+    const { player, youthWorld } = getState()
     if (!player) return
     // Trial performance nudges starting attributes within a small band (potential untouched).
     // Strong trials (+) lift attrs slightly; poor trials (-) start lower. Never exceeds potential.
@@ -1318,19 +1344,23 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
     for (const k of Object.keys(values)) {
       values[k] = clamp(Math.round((values[k] + band) * 10) / 10, 1, player.potential - 1)
     }
+    const baseWorld = youthWorld ?? createYouthWorld(player.id, player.schoolId)
+    const youthTrial = applyTrialOutcome(baseWorld, performance, 3)
     const updatedPlayer: Player = {
       ...player,
       attributes: { ...player.attributes, values } as Player['attributes'],
-      squadRole: role,
+      // V4 pathway engine is authoritative; legacy role mirrors it so the
+      // existing V3.2 match/selection screens remain compatible during migration.
+      squadRole: youthTrial.legacySquadRole ?? role,
       squadRoleSetWeek: player.totalWeeksElapsed ?? 0,
       trialWeekCompleted: 3,
       careerClock: { ...player.careerClock, phase: 'grassroots-season' },
     }
-    setState({ player: updatedPlayer })
+    setState({ player: updatedPlayer, youthWorld: youthTrial.world })
     void getState().saveCurrent()
   },
 
-  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats) => {
+  applyMatchResult: (rating, goals, assists, finalMatchStamina, injury, opponentId, playerGoalsScored, opponentGoalsScored, playerWasHome, squad, opponentName, competitionId, shootoutWonByPlayer, redCarded, matchStats, playerWonMotm = false) => {
     const { player, calendar, league, academyLeague, cups, international } = getState()
     if (!player || !calendar) return
     // P24 rebalance: was tuned for a 9-match season; the flat 2/-1 values
@@ -1446,7 +1476,7 @@ export const useCareerStore = create<CareerStore>((setState, getState) => ({
         // rating threshold.
         cleanSheets: (player.career?.cleanSheets ?? 0) + (player.position === 'GK' && opponentGoalsScored === 0 ? 1 : 0),
         bestRating: Math.max(player.career?.bestRating ?? 0, rating),
-        motmAwards: (player.career?.motmAwards ?? 0) + (rating >= 8.3 && (goals + assists > 0 || (player.position === 'GK' && opponentGoalsScored === 0)) ? 1 : 0),
+        motmAwards: (player.career?.motmAwards ?? 0) + (playerWonMotm ? 1 : 0),
         // P52 — the real stats a scout actually watches, not just goals/assists.
         tacklesWon: (player.career?.tacklesWon ?? 0) + (matchStats?.tackle ?? 0),
         interceptions: (player.career?.interceptions ?? 0) + (matchStats?.interception ?? 0),

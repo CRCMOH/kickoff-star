@@ -1,0 +1,40 @@
+name: Publish V3.2 Playtest Branch
+
+on:
+  push:
+    branches: [v3.2-match-engine-redesign]
+    paths:
+      - '.github/workflows/deploy-v32-playtest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact signed-AAB source
+        uses: actions/checkout@v4
+        with:
+          ref: ef0ca79db69d4ee01460fa3091846a5e286705fb
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build exact V3.2 browser bundle
+        run: npm run build
+      - name: Stage playtest
+        run: |
+          mkdir -p _site/play
+          cp -R dist/. _site/play/
+          touch _site/.nojekyll
+      - name: Publish complete playtest to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./_site
+          keep_files: true
+          enable_jekyll: false

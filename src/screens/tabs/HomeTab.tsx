@@ -8,14 +8,13 @@ import type { AcademyWorld } from '../../engine/academy'
 import { academyDivisionLabel } from '../../engine/academy'
 import { computeCurrentAbility, toOvr } from '../../engine/rating'
 import { trustLabel, trustEmoji } from '../../engine/coachTrust'
-import { Panel, Bar, OvrRing, StatRow, Section, RadarChart, Icon } from '../../components/ui'
+import { Panel, Bar, StatRow, Section, Icon } from '../../components/ui'
 import iconEnergy from '../../assets/icons/energy.png'
 import iconConfidence from '../../assets/icons/confidence.png'
 import iconWeek from '../../assets/icons/week.png'
 import iconTeamSelection from '../../assets/icons/team_selection.png'
 import iconGazette from '../../assets/icons/gazette.png'
-import iconShape from '../../assets/icons/shape.png'
-import iconCareer from '../../assets/icons/career.png'
+ import iconCareer from '../../assets/icons/career.png'
 import iconCoachTrust from '../../assets/icons/coach_trust.png'
 import { EnergyMeter } from '../../components/EnergySheet'
 import { bandSpec } from '../../engine/energy'
@@ -23,7 +22,7 @@ import type { HubTab } from '../../components/navItems'
 import Avatar from '../../components/Avatar'
 import { getNation } from '../../engine/nations'
 import { arcProgressText, weeksLeft } from '../../engine/storylines'
-import { formatMoney, itemById } from '../../engine/economy'
+import { itemById } from '../../engine/economy'
 import { isLive, STAGE_LABEL } from '../../engine/negotiation'
 import { decideSelection, selectionAdvice } from '../../engine/selection'
 import { useCareerStore } from '../../store/careerStore'
@@ -64,20 +63,6 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
   const selectionNote = useCareerStore((s) => s.selectionNote)
   const eventsByDay = Object.fromEntries(calendar.currentWeek.events.map((e) => [e.day, e]))
   const ovr = toOvr(computeCurrentAbility(player))
-  // compact 3-point version of PlayerTab's "shape" radar — a teaser, not a
-  // replacement for the full attribute breakdown, so group counts stay small
-  // enough to read at a glance without opening the Player tab.
-  const isGk = player.attributes.kind === 'goalkeeper'
-  const attrValues = player.attributes.values as Record<string, number>
-  const shapeGroups: { label: string; attrs: string[] }[] = [
-    { label: 'technical', attrs: isGk ? ['reflexes', 'handling', 'distribution'] : ['passing', 'shooting', 'dribbling', 'tackling'] },
-    { label: 'physical', attrs: ['pace', 'strength', 'stamina', 'agility'] },
-    { label: 'mental', attrs: isGk ? ['gkPositioning', 'concentration'] : ['vision', 'composure', 'positioning', 'concentration'] },
-  ]
-  const shapePoints = shapeGroups.map((g) => ({
-    label: g.label,
-    value: g.attrs.reduce((sum, a) => sum + (attrValues[a] ?? 0), 0) / g.attrs.length,
-  }))
   const isAcademy = player.careerClock.phase === 'academy'
   const world = isAcademy ? academyLeague : league
 
@@ -93,8 +78,24 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
       : divisionLabel(world.playerDivision as 1 | 2 | 3)
   }
 
+  const nextEvent = DAYS.map((day) => eventsByDay[day]).find((e) => e && !e.resolved) ?? calendar.currentWeek.events.find((e) => !e.resolved) ?? calendar.currentWeek.events[0]
   return (
-    <div className="flex flex-col gap-2.5 stagger-children">
+    <div className="career-home flex flex-col gap-2.5 stagger-children">
+      <section className="career-hero">
+        <div className="career-hero-glow"/>
+        <div className="career-hero-top"><span>KICKOFF STAR · CAREER</span><b>WEEK {calendar.currentWeek.weekNumber}</b></div>
+        <div className="career-player">
+          <Avatar id={player.avatarId ?? 0} size={62} className="career-avatar" />
+          <div className="min-w-0"><small>{player.careerClock.phase.toUpperCase()} · {player.position}</small><h1>{player.name}</h1><p>{getNation(player.nationality).flag} AGE {player.careerClock.ageYears} · {player.squadRole === 'starting-xi' ? 'STARTING XI' : (player.squadRole ?? 'SQUAD').toUpperCase()}</p></div>
+          <div className="career-ovr"><strong>{ovr}</strong><span>OVR</span></div>
+        </div>
+        <div className="career-hero-strip">
+          <div><span>ENERGY</span><b>{Math.round(player.fitness.stamina)}%</b></div>
+          <div><span>FORM</span><b>{player.matchRatings?.length ? (player.matchRatings.slice(-6).reduce((a,b)=>a+b,0)/player.matchRatings.slice(-6).length).toFixed(1) : '—'}</b></div>
+          <div><span>LEAGUE</span><b>{leaguePos ?? '—'}</b></div>
+          <div><span>NEXT</span><b>{nextEvent?.type?.replace(/-/g,' ') ?? 'OPEN'}</b></div>
+        </div>
+      </section>
       {offerCount > 0 && (
         <button
           onClick={onOpenOffers}
@@ -219,40 +220,14 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </button>
       ))}
 
-      {/* header — tapping opens the full player screen */}
-      <button
-        onClick={() => onGoTo('player')}
-        className="relative overflow-hidden texture-floodlight rounded-lg border border-ks-border bg-gradient-to-br from-[#161510] to-[#0d0d0b] px-3 py-2.5 flex items-center gap-3 text-left active:scale-[0.995] transition-transform"
-      >
-        <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 55% 90% at 10% 30%, rgba(212,175,55,0.12), transparent 65%)' }} />
-        <Avatar id={player.avatarId ?? 0} size={44} className="relative z-10 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-display tracking-wide text-ks-ink text-sm leading-tight truncate">{getNation(player.nationality).flag} {player.name}</span>
-            <span className="ml-auto font-display text-ks-gold text-[11px] tabular-nums shrink-0">{formatMoney(player.money ?? 0)}</span>
-          </div>
-          <div className="text-[10px] text-ks-muted">
-            {player.position} &middot; age {player.careerClock.ageYears} &middot; {player.preferredFoot} foot
-          </div>
-        </div>
-        <OvrRing value={ovr} />
-        <div className="text-center shrink-0">
-          <div className="text-[9px] text-ks-muted uppercase tracking-wider">potential</div>
-          <div className="font-display text-green-500 text-sm">{player.potential}</div>
-        </div>
-      </button>
+      <button onClick={() => onGoTo('player')} className="home-player-link"><span>PLAYER PROFILE</span><b>View development, form & career record →</b></button>
 
-      {/* mini version of PlayerTab's radar — Home previously had no visual
-          sense of a player's attribute "shape" at all, only bars elsewhere */}
-      <Panel title={<span className="flex items-center gap-1"><Icon src={iconShape} />shape</span>}>
-        <RadarChart points={shapePoints} size={180} />
-      </Panel>
-
+      <div className="home-section-label"><span>THIS WEEK</span><i/></div>
       {/* Phase 25: the Gazette teaser — a fresh issue drops every week */}
       {latestGazetteMasthead && (
         <button
           onClick={onOpenGazette}
-          className="rounded-lg border border-ks-gold/40 bg-[#14120a] px-3 py-2.5 text-left active:scale-[0.995] transition-transform"
+          className="gazette-feature text-left active:scale-[0.995] transition-transform"
         >
           <div className="flex items-center justify-between">
             <span className="font-display tracking-widest text-[9px] text-ks-gold uppercase flex items-center gap-1"><Icon src={iconGazette} />the gazette · this week</span>
@@ -262,6 +237,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </button>
       )}
 
+      <div className="home-section-label"><span>PLAYER MANAGEMENT</span><i/></div>
       {/* energy — now a real meter with an explainer, not a bare number */}
       <button
         onClick={onOpenEnergy}
@@ -330,6 +306,14 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
       </div>
 
+      {nextEvent && !nextEvent.resolved && (
+        <section className={`week-headliner ${nextEvent.type === 'match' ? 'match' : ''}`}>
+          <div><span>NEXT UP · ${nextEvent.day.toUpperCase()}</span><h3>{nextEvent.title}</h3><p>{nextEvent.type === 'match' ? 'MATCHDAY · Your next competitive test' : nextEvent.type.replace(/-/g,' ').toUpperCase()}</p></div>
+          <div className="week-headliner-arrow">→</div>
+        </section>
+      )}
+
+      <div className="home-section-label"><span>SCHEDULE</span><i/></div>
       <Panel title={<span className="flex items-center gap-1"><Icon src={iconWeek} />week overview</span>}>
         <div className="grid grid-cols-7 gap-1">
           {DAYS.map((day) => {
@@ -355,6 +339,7 @@ export default function HomeTab({ player, calendar, league, academyLeague, offer
         </div>
       </Panel>
 
+      <div className="home-section-label"><span>CAREER STATUS</span><i/></div>
       <Section
         title={<span className="flex items-center gap-1"><Icon src={iconCareer} />career</span>}
         action={

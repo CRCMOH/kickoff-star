@@ -1,0 +1,29 @@
+name: Verify V3.1
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Final V3.1 gate: typecheck/build + lint after player-feedback fixes.
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint

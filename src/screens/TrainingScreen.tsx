@@ -162,9 +162,8 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
       <div className="relative min-h-screen w-full bg-ks-black flex flex-col justify-center px-5 py-8">
         <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 25%, rgba(212,175,55,0.07), transparent 60%), linear-gradient(180deg,#0a0a09,#050504)' }} />
         <div className="relative z-10 max-w-md mx-auto w-full">
-          <div className="font-display tracking-widest text-[11px] text-ks-gold uppercase mb-2">training session</div>
-          <h1 className="font-display text-ks-ink text-3xl tracking-wide mb-1">{session.label}</h1>
-          <p className="text-ks-muted text-sm mb-1">{session.drills.length} drills · earn your grade</p>
+          <div className="training-kicker">TRAINING CENTRE · SESSION</div>
+          <div className="training-hero"><div className="training-cones"/><small>TODAY'S PROGRAMME</small><h1>{session.label}</h1><p>{session.drills.length} drills · {player.position} development</p><div className="training-session-dots">{session.drills.map((_,i)=><i key={i}/>)}</div></div>
           {(player.trainingStreak ?? 0) > 0 && (
             <p className="text-[11px] text-ks-gold mb-5">
               🔥 {player.trainingStreak}-session streak{((player.trainingStreak ?? 0) + 1) % 5 === 0 ? ' — one more for a bonus' : ''}
@@ -200,8 +199,8 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
                   <button
                     key={opt.id}
                     onClick={() => setIntensity(opt.id)}
-                    className={`text-left rounded-xl border px-3 py-2 transition-colors active:scale-[0.99] ${
-                      isSelected ? 'border-ks-gold bg-ks-gold/10' : 'border-ks-border bg-[#161613]'
+                    className={`training-intensity text-left ${
+                      isSelected ? 'selected' : ''
                     }`}
                   >
                     <div className="flex items-center justify-between mb-0.5">
@@ -232,7 +231,7 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
             </div>
           </div>
 
-          <div className="rounded-2xl border border-ks-border bg-[#0f0f0d] px-5 py-4 mb-6">
+          <div className="training-objectives">
             <div className="font-display tracking-widest text-[10px] text-ks-muted uppercase mb-3">today's objectives</div>
             <div className="flex flex-col gap-2.5">
               {session.objectives.map((o) => (
@@ -309,9 +308,12 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
     <div className="relative min-h-screen w-full bg-ks-black flex flex-col justify-center px-5 py-8">
       <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 60% 40% at 50% 20%, rgba(212,175,55,0.08), transparent 60%), linear-gradient(180deg,#0a0a09,#050504)' }} />
       <div className="relative z-10 max-w-md mx-auto w-full">
-        <div className="text-center mb-6">
-          <div className="font-display tracking-widest text-[11px] text-ks-muted uppercase mb-2">session grade</div>
-          <div className={`font-display text-7xl ${gradeColor}`}>{grade}</div>
+        <div className={"training-result "+(GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('A')?'elite':'')}>
+          <div className="training-result-rays"/>
+          <div className="training-result-kicker">SESSION COMPLETE</div>
+          <div className={`training-grade ${gradeColor}`}>{grade}</div>
+          <div className="training-verdict">{GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('A')?'ELITE SESSION':GRADE_ORDER.indexOf(grade)>=GRADE_ORDER.indexOf('B')?'STRONG WORK':grade==='F'?'SESSION MISSED':'WORK BANKED'}</div>
+          <div className="training-payoff"><div><span>XP EARNED</span><b>+{Math.round(xpEarned)}</b></div><div><span>ENERGY</span><b>−{Math.round(energySpent)}</b></div><div><span>OBJECTIVES</span><b>{outcome!.objectivesMet}/{session.objectives.length}</b></div></div>
         </div>
 
         {injury && (
@@ -327,8 +329,8 @@ export default function TrainingScreen({ player, forcedType, onComplete }: Train
           </div>
         )}
 
-        <div className="rounded-2xl border border-ks-border bg-[#0f0f0d] px-5 py-4 mb-3">
-          <div className="font-display tracking-widest text-[10px] text-ks-muted uppercase mb-3">development</div>
+        <div className="training-development">
+          <div className="font-display tracking-widest text-[10px] text-ks-muted uppercase mb-3">development report</div>
           {/* P50 — this used to show a per-attribute "+X" breakdown computed
               from a formula that no longer actually applies anything (XP
               allocation replaced it in P49) — actively misleading numbers
