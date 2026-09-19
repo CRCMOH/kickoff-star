@@ -16,6 +16,8 @@ on:
       - 'src/engine/academyCareerV4.ts'
       - 'src/engine/regionalSelectionV4.ts'
       - 'src/engine/nationalPathwayV4.ts'
+      - 'src/engine/selectionEnergyV4.ts'
+      - 'src/engine/venuesV4.ts'
       - 'src/engine/youthSaveV5.ts'
       - 'src/engine/careerEndV4.ts'
       - 'src/engine/academyNegotiationV4.ts'
