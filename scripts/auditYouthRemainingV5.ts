@@ -4,7 +4,8 @@ import { emptyStatBook,recordCompetitionStats,competitionAwards } from '../src/e
 import { generateYouthOffers } from '../src/engine/youthTransfersV4'
 import { startAcademyNegotiation,negotiate } from '../src/engine/academyNegotiationV4'
 import { buildCareerSummary,shouldEndAtGraduation } from '../src/engine/careerEndV4'
-import { migrateYouthSave,YOUTH_SAVE_VERSION } from '../src/engine/youthSaveV5'
+import { migrateYouthSave,YOUTH_SAVE_VERSION,assessLegacyRoute } from '../src/engine/youthSaveV5'
+import { createOctoberLeague,advanceOctoberLeague,createThreeDayFestival,advanceFestival } from '../src/engine/youthFestivalV5'
 
 let school=buildSchoolCalendar(1)
 assert(school.events.some(e=>e.kind==='schools-october-league'))
@@ -38,6 +39,14 @@ assert(n.round>=3&&n.week<=42)
 assert(shouldEndAtGraduation(18,true,false,false))
 const summary=buildCareerSummary({reason:'graduated-without-academy',age:18,finalOverall:64,peakOverall:66,matches:88,goals:24,assists:19,trophies:['League'],awards:['POTM'],representativeCaps:5})
 assert(summary.completed&&summary.legacyScore>0)
+const teams=Array.from({length:5},(_,i)=>({id:`t${i}`,name:`Team ${i}`,strength:60+i,source:'school' as const}))
+let oct=createOctoberLeague('oct',teams);for(let i=0;i<5;i++)oct=advanceOctoberLeague(oct,'oct-seed')
+assert(oct.complete);assert.equal(oct.competition.teams.length,5)
+let fest=createThreeDayFestival('fest',teams.slice(0,4));for(let i=0;i<3;i++)fest=advanceFestival(fest,'fest-seed')
+assert(fest.complete);assert.equal(fest.matchMinutes,40)
+const ambiguous={player:{name:'Dual'},youthWorld:{pathway:{route:'school-and-sunday',sundayClubId:'x'}}}
+assert(assessLegacyRoute(ambiguous).needsRouteChoice)
+assert.throws(()=>migrateYouthSave(ambiguous),/V5_ROUTE_CHOICE_REQUIRED/)
 const migrated=migrateYouthSave({player:{name:'Legacy'}})
 assert.equal(migrated.version,YOUTH_SAVE_VERSION)
 assert.equal(migrated.payload.player.name,'Legacy')
