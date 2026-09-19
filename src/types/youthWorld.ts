@@ -228,6 +228,9 @@ export interface KnockoutCompetitionState {
   championId: string | null
 }
 
+export interface YouthCompetitionStatLine {playerId:string;name:string;teamId:string;position:Position;apps:number;goals:number;assists:number;cleanSheets:number;ratingTotal:number}
+export interface YouthCompetitionStatBook {competitionId:string;players:Record<string,YouthCompetitionStatLine>}
+
 export interface YouthCompetitionWorld {
   interSchools: LeagueCompetitionState | null
   reserveLeague: LeagueCompetitionState | null
@@ -235,6 +238,7 @@ export interface YouthCompetitionWorld {
   minorSchoolCup: KnockoutCompetitionState | null
   sundayLeague: LeagueCompetitionState | null
   nationalChampionship: GroupCompetitionState | null
+  statBooks: Record<string, YouthCompetitionStatBook>
 }
 
 export interface FinanceTransaction {
